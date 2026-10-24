@@ -4,9 +4,19 @@ import os
 
 final class PacketTunnelProvider: NEPacketTunnelProvider {
     private let log = Logger(subsystem: Bundle.main.bundleIdentifier ?? "tunnel", category: "tunnel")
-    /// Shared with the app when App Groups is in the signing profile, otherwise private to the
+    /// Shared with the app when the App Group is really writable, otherwise private to the
     /// extension; the app can always fetch it through `handleAppMessage`.
-    private let logURL = AppGroup.logURL ?? FileManager.default.temporaryDirectory.appendingPathComponent("xray.log")
+    private let logURL = PacketTunnelProvider.writableLogURL()
+    /// Our own lines, kept in memory so the app gets something even if no file can be written.
+    private var notes: [String] = []
+
+    private static func writableLogURL() -> URL {
+        let candidates = [AppGroup.logURL, FileManager.default.temporaryDirectory.appendingPathComponent("xray.log")]
+        for case let url? in candidates where FileManager.default.createFile(atPath: url.path, contents: Data()) {
+            return url
+        }
+        return FileManager.default.temporaryDirectory.appendingPathComponent("xray.log")
+    }
 
     override func startTunnel(options: [String: NSObject]?) async throws {
         // The app passes the link explicitly; on-demand restarts fall back to the stored selection.
@@ -15,11 +25,8 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             throw TunnelError.noServer
         }
 
-        let header = [
-            "TechTeamVPN: \(profile.summary)",
-            "TechTeamVPN: App Group \(AppGroup.logURL == nil ? "недоступна (нет в профиле подписи)" : "ok")",
-        ]
-        try? Data((header.joined(separator: "\n") + "\n").utf8).write(to: logURL)
+        appendLog("TechTeamVPN: \(profile.summary)")
+        appendLog("TechTeamVPN: log \(logURL.path), App Group \(AppGroup.logURL == nil ? "нет в профиле подписи" : "есть")")
         do {
             try await setTunnelNetworkSettings(networkSettings(for: profile))
             guard let fd = tunnelFileDescriptor else { throw TunnelError.noTunDescriptor }
@@ -36,15 +43,22 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
 
     /// The app sends "log" and gets the last 64 KB of the log back.
     override func handleAppMessage(_ messageData: Data) async -> Data? {
-        guard String(decoding: messageData, as: UTF8.self) == "log",
-              let handle = try? FileHandle(forReadingFrom: logURL) else { return nil }
-        defer { try? handle.close() }
-        let size = handle.seekToEndOfFile()
-        handle.seek(toFileOffset: size > 65_536 ? size - 65_536 : 0)
-        return handle.readDataToEndOfFile()
+        guard String(decoding: messageData, as: UTF8.self) == "log" else { return nil }
+        var text = notes.joined(separator: "\n") + "\n— Xray —\n"
+        do {
+            let handle = try FileHandle(forReadingFrom: logURL)
+            defer { try? handle.close() }
+            let size = handle.seekToEndOfFile()
+            handle.seek(toFileOffset: size > 65_536 ? size - 65_536 : 0)
+            text += String(decoding: handle.readDataToEndOfFile(), as: UTF8.self)
+        } catch {
+            text += "файл журнала не читается: \(error.localizedDescription)"
+        }
+        return Data(text.utf8)
     }
 
     private func appendLog(_ line: String) {
+        notes.append(line)
         guard let handle = try? FileHandle(forWritingTo: logURL) else { return }
         handle.seekToEndOfFile()
         handle.write(Data((line + "\n").utf8))

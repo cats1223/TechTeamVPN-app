@@ -137,6 +137,7 @@ final class AppModel: ObservableObject {
         diagnosticsRunning = true
         defer { diagnosticsRunning = false }
         diagnostics = DiagnosticStep.Kind.allCases.map { DiagnosticStep(kind: $0) }
+        set(.key, .ok(profile.summary))
 
         // 1. The server answers on its port, checked outside the tunnel.
         set(.server, .running)
@@ -341,10 +342,11 @@ private final class OnceFlag: @unchecked Sendable {
 
 struct DiagnosticStep: Identifiable, Equatable {
     enum Kind: CaseIterable {
-        case server, vpn, dns, internet, exitIP
+        case key, server, vpn, dns, internet, exitIP
 
         var title: String {
             switch self {
+            case .key: return "Параметры ключа"
             case .server: return "Сервер доступен"
             case .vpn: return "VPN подключён"
             case .dns: return "DNS работает через VPN"

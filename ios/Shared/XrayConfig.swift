@@ -127,7 +127,9 @@ extension VlessProfile {
     /// Connection parameters without the uuid and keys, safe to show in the log.
     var summary: String {
         var parts = ["\(address):\(port)", "type=\(network)", "security=\(security)"]
-        for (key, value) in [("sni", sni), ("fp", fingerprint), ("flow", flow), ("mode", mode),
+        // VLESS encryption strings carry a key after the first dot; only the scheme is shown.
+        let enc = encryption.split(separator: ".").first.map(String.init) ?? encryption
+        for (key, value) in [("enc", enc), ("sni", sni), ("fp", fingerprint), ("flow", flow), ("mode", mode), ("spx", spiderX),
                              ("path", path), ("host", host), ("sid", shortId.isEmpty ? "" : "set"),
                              ("pbk", publicKey.isEmpty ? "" : "set"), ("extra", extra.isEmpty ? "" : "set")]
         where !value.isEmpty {
