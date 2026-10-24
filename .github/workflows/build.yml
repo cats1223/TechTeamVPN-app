@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: [main]
+    branches: [main, "feature/**"]
   pull_request:
   workflow_dispatch:
 
@@ -40,13 +40,21 @@ jobs:
       - name: Generate Xcode project
         working-directory: ios
         run: brew install xcodegen && xcodegen
+      - name: Archive (unsigned)
+        working-directory: ios
+        run: |
+          xcodebuild archive -project TechTeamVPN.xcodeproj -scheme TechTeamVPN \
+            -destination 'generic/platform=iOS' -archivePath build/TechTeamVPN.xcarchive \
+            CODE_SIGNING_ALLOWED=NO
+          mkdir -p build/Payload
+          cp -R build/TechTeamVPN.xcarchive/Products/Applications/TechTeamVPN.app build/Payload/
+          (cd build && zip -qry TechTeamVPN-unsigned.ipa Payload)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TechTeamVPN-ios-unsigned
+          path: ios/build/TechTeamVPN-unsigned.ipa
       - name: Unit tests
         working-directory: ios
         run: |
           xcodebuild test -project TechTeamVPN.xcodeproj -scheme TechTeamVPN \
             -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO
-      - name: Build (unsigned)
-        working-directory: ios
-        run: |
-          xcodebuild build -project TechTeamVPN.xcodeproj -scheme TechTeamVPN \
-            -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO
