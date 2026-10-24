@@ -21,6 +21,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -53,7 +55,12 @@ fun SettingsScreen(
     devMode: Boolean,
     hwid: String,
     selected: VlessProfile?,
+    russiaDirect: Boolean,
+    bypassApps: Set<String>,
     onTheme: (Boolean) -> Unit,
+    onRussiaDirect: (Boolean) -> Unit,
+    onBypassApps: (Set<String>) -> Unit,
+    onCheckUpdate: () -> Unit,
     onUnlock: (String) -> Boolean,
     onDisableDevMode: () -> Unit,
 ) {
@@ -62,6 +69,7 @@ fun SettingsScreen(
     var lastTap by remember { mutableLongStateOf(0L) }
     var askPassword by remember { mutableStateOf(false) }
     var showLog by remember { mutableStateOf(false) }
+    var showApps by remember { mutableStateOf(false) }
 
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
@@ -77,6 +85,29 @@ fun SettingsScreen(
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Brand.SurfaceHigh)) {
                 ThemeOption("Чёрная", selected = !lightTheme, Modifier.weight(1f)) { onTheme(false) }
                 ThemeOption("Белая", selected = lightTheme, Modifier.weight(1f)) { onTheme(true) }
+            }
+        }
+
+        SectionTitle("Раздельное туннелирование")
+        Card(Modifier.clickable { onRussiaDirect(!russiaDirect) }) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Российские сайты напрямую", color = Brand.Text)
+                    Text("Зоны .ru, .su, .рф и российские адреса — без VPN", color = Brand.TextMuted, fontSize = 12.sp)
+                }
+                Switch(
+                    checked = russiaDirect, onCheckedChange = onRussiaDirect,
+                    colors = SwitchDefaults.colors(checkedTrackColor = Brand.Cyan),
+                )
+            }
+        }
+        Card(Modifier.clickable { showApps = true }) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Приложения без VPN", color = Brand.Text)
+                    Text("Банки, Госуслуги и другие не увидят VPN", color = Brand.TextMuted, fontSize = 12.sp)
+                }
+                Text(if (bypassApps.isEmpty()) "Нет" else bypassApps.size.toString(), color = Brand.Cyan)
             }
         }
 
@@ -98,6 +129,7 @@ fun SettingsScreen(
                 Text("${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})", color = Brand.TextMuted)
             }
         }
+        Card(Modifier.clickable(onClick = onCheckUpdate)) { Text("Проверить обновления", color = Brand.Cyan) }
 
         if (devMode) {
             SectionTitle("Разработчик")
@@ -123,6 +155,16 @@ fun SettingsScreen(
         )
     }
     if (showLog) LogDialog(onDismiss = { showLog = false })
+    if (showApps) {
+        AppsDialog(
+            selected = bypassApps,
+            onDismiss = { showApps = false },
+            onSave = {
+                showApps = false
+                onBypassApps(it)
+            },
+        )
+    }
 }
 
 @Composable

@@ -3,8 +3,11 @@ package com.techteam.vpn.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.techteam.vpn.BuildConfig
 import com.techteam.vpn.R
 import com.techteam.vpn.core.DeepLink
+import com.techteam.vpn.core.GeoIP
+import com.techteam.vpn.core.Updates
 import com.techteam.vpn.data.ProfileRepository
 import com.techteam.vpn.data.ProfilesState
 import com.techteam.vpn.vpn.TechTeamVpnService
@@ -38,9 +41,89 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _busy = MutableStateFlow(false)
     val busy: StateFlow<Boolean> = _busy.asStateFlow()
 
+    private val _update = MutableStateFlow<Updates.Release?>(null)
+    /** A newer release to offer; null hides the dialog. */
+    val update: StateFlow<Updates.Release?> = _update.asStateFlow()
+
+    private val _homeLocation = MutableStateFlow<GeoIP.Location?>(null)
+    /** Where the phone really is, looked up while the VPN is off. */
+    val homeLocation: StateFlow<GeoIP.Location?> = _homeLocation.asStateFlow()
+
+    private val _visibleLocation = MutableStateFlow<GeoIP.Location?>(null)
+    /** Where sites see the phone now: the home location, or the server's while connected. */
+    val visibleLocation: StateFlow<GeoIP.Location?> = _visibleLocation.asStateFlow()
+
+    private val _serverLocations = MutableStateFlow<Map<String, GeoIP.Location>>(emptyMap())
+    /** Server address to its location, for the globe pin and the server's flag. */
+    val serverLocations: StateFlow<Map<String, GeoIP.Location>> = _serverLocations.asStateFlow()
+
+    private val prefs = app.getSharedPreferences("settings", android.content.Context.MODE_PRIVATE)
+
     init {
         // Pick up server list changes made in the panel since the last launch.
         if (repo.state.value.subscriptionUrl.isNotEmpty()) refreshSubscription(silent = true)
+        checkForUpdate(manual = false)
+        viewModelScope.launch {
+            // Look the address up again whenever the VPN settles: the real one when off, the server's when on.
+            VpnStatus.state.collect { state ->
+                when (state) {
+                    is VpnState.Connected -> refreshLocation(connected = true)
+                    is VpnState.Disconnected, is VpnState.Error -> refreshLocation(connected = false)
+                    else -> {}
+                }
+            }
+        }
+        viewModelScope.launch { repo.state.collect { locateSelectedServer() } }
+    }
+
+    private suspend fun refreshLocation(connected: Boolean) {
+        // Right after the tunnel comes up the first request can fail, so try a few times.
+        var location: GeoIP.Location? = null
+        for (attempt in 0 until 4) {
+            if (attempt > 0) kotlinx.coroutines.delay(2000)
+            // The VPN may have changed state meanwhile; a stale answer would misplace the pin.
+            if (connected != (vpn.value is VpnState.Connected)) return
+            location = withContext(Dispatchers.IO) { GeoIP.lookup() }
+            if (location != null) break
+        }
+        if (connected != (vpn.value is VpnState.Connected)) return
+        _visibleLocation.value = location
+        if (!connected && location != null) _homeLocation.value = location
+    }
+
+    private suspend fun locateSelectedServer() {
+        val address = repo.state.value.selected?.address ?: return
+        if (address in _serverLocations.value) return
+        val location = withContext(Dispatchers.IO) {
+            runCatching { java.net.InetAddress.getByName(address).hostAddress }.getOrNull()?.let { GeoIP.lookup(it) }
+        } ?: return
+        _serverLocations.value = _serverLocations.value + (address to location)
+    }
+
+    /**
+     * The automatic check runs at most every 12 hours and stays quiet about a version the user
+     * already put off; the button in settings always asks GitHub and reports the result.
+     */
+    fun checkForUpdate(manual: Boolean) = viewModelScope.launch {
+        val now = System.currentTimeMillis()
+        if (!manual && now - prefs.getLong("updateCheckedAt", 0) < 12 * 3600_000L) return@launch
+        val release = try {
+            withContext(Dispatchers.IO) { Updates.fetchLatest() }
+        } catch (e: Exception) {
+            if (manual) toast(str(R.string.update_error, e.message ?: ""))
+            return@launch
+        }
+        prefs.edit().putLong("updateCheckedAt", now).apply()
+        when {
+            !Updates.isNewer(release.version, BuildConfig.VERSION_NAME) -> if (manual) toast(str(R.string.update_none))
+            manual || prefs.getString("updateDismissed", null) != release.version -> _update.value = release
+        }
+    }
+
+    /** "Later": the automatic check does not offer this version again. */
+    fun dismissUpdate() {
+        _update.value?.let { prefs.edit().putString("updateDismissed", it.version).apply() }
+        _update.value = null
     }
 
     fun connect() = TechTeamVpnService.connect(getApplication())
@@ -48,15 +131,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun disconnect() = TechTeamVpnService.disconnect(getApplication())
 
     fun select(id: String) {
-        val wasActive = vpn.value is VpnState.Connected || vpn.value is VpnState.Connecting
         repo.select(id)
-        if (wasActive) {
-            // Reconnect so the new server takes effect.
-            viewModelScope.launch {
-                disconnect()
-                VpnStatus.state.first { it is VpnState.Disconnected || it is VpnState.Error }
-                connect()
-            }
+        reconnectIfActive()
+    }
+
+    /** Restarts a running VPN so a new server or split tunneling setting takes effect. */
+    fun reconnectIfActive() {
+        if (vpn.value !is VpnState.Connected && vpn.value !is VpnState.Connecting) return
+        viewModelScope.launch {
+            disconnect()
+            VpnStatus.state.first { it is VpnState.Disconnected || it is VpnState.Error }
+            connect()
         }
     }
 

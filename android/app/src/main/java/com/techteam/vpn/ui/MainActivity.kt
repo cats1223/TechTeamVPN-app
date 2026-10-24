@@ -3,6 +3,7 @@ package com.techteam.vpn.ui
 import android.Manifest
 import android.content.ClipboardManager
 import android.content.Intent
+import android.net.Uri
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
@@ -13,19 +14,16 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Dns
-import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
@@ -41,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.journeyapps.barcodescanner.ScanContract
 import kotlinx.coroutines.flow.MutableStateFlow
 import com.journeyapps.barcodescanner.ScanOptions
+import com.techteam.vpn.BuildConfig
 import com.techteam.vpn.R
 import com.techteam.vpn.core.DeepLink
 import com.techteam.vpn.data.AppSettings
@@ -74,6 +73,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             val lightTheme by settings.lightTheme.collectAsStateWithLifecycle()
             val devMode by settings.devMode.collectAsStateWithLifecycle()
+            val russiaDirect by settings.russiaDirect.collectAsStateWithLifecycle()
+            val bypassApps by settings.bypassApps.collectAsStateWithLifecycle()
             TechTeamTheme(light = lightTheme) {
                 val profiles by vm.profiles.collectAsStateWithLifecycle()
                 val vpn by vm.vpn.collectAsStateWithLifecycle()
@@ -90,52 +91,55 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                Scaffold(
-                    containerColor = Brand.Background,
-                    bottomBar = {
-                        NavigationBar(containerColor = Brand.Surface) {
-                            val colors = NavigationBarItemDefaults.colors(
-                                selectedIconColor = Brand.Cyan,
-                                selectedTextColor = Brand.Cyan,
-                                indicatorColor = Brand.SurfaceHigh,
-                            )
-                            NavigationBarItem(
-                                selected = tab == 0, onClick = { tab = 0 }, colors = colors,
-                                icon = { Icon(Icons.Rounded.Shield, null) },
-                                label = { Text(stringResource(R.string.tab_home)) },
-                            )
-                            NavigationBarItem(
-                                selected = tab == 1, onClick = { tab = 1 }, colors = colors,
-                                icon = { Icon(Icons.Rounded.Dns, null) },
-                                label = { Text(stringResource(R.string.tab_servers)) },
-                            )
-                            NavigationBarItem(
-                                selected = tab == 2, onClick = { tab = 2 }, colors = colors,
-                                icon = { Icon(Icons.Rounded.Settings, null) },
-                                label = { Text(stringResource(R.string.tab_settings)) },
-                            )
+                val homeLocation by vm.homeLocation.collectAsStateWithLifecycle()
+                val visibleLocation by vm.visibleLocation.collectAsStateWithLifecycle()
+                val serverLocations by vm.serverLocations.collectAsStateWithLifecycle()
+
+                // Servers and settings open from the panel on the home screen; Back returns to it.
+                BackHandler(enabled = tab != 0) { tab = 0 }
+                when (tab) {
+                    0 -> HomeScreen(
+                        state = profiles,
+                        vpn = vpn,
+                        homeLocation = homeLocation,
+                        visibleLocation = visibleLocation,
+                        serverLocations = serverLocations,
+                        onToggle = ::toggle,
+                        onAdd = { showAdd = true },
+                        onSelect = vm::select,
+                        onOpenServers = { tab = 1 },
+                        onOpenSettings = { tab = 2 },
+                    )
+                    else -> Column(Modifier.fillMaxSize().background(Brand.Background).systemBarsPadding()) {
+                        TextButton(onClick = { tab = 0 }, modifier = Modifier.padding(start = 4.dp)) {
+                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, null)
+                            Text(stringResource(R.string.tab_home))
                         }
-                    },
-                ) { padding ->
-                    Box(Modifier.fillMaxSize().background(Brand.Background).padding(padding)) {
-                        when (tab) {
-                            0 -> HomeScreen(
-                                state = profiles,
-                                vpn = vpn,
-                                onToggle = ::toggle,
-                                onAdd = { showAdd = true },
-                                onOpenServers = { tab = 1 },
-                            )
-                            2 -> SettingsScreen(
+                        if (tab == 2) {
+                            SettingsScreen(
                                 lightTheme = lightTheme,
                                 devMode = devMode,
                                 hwid = ProfileRepository.get(this@MainActivity).hwid,
                                 selected = profiles.selected,
+                                russiaDirect = russiaDirect,
+                                bypassApps = bypassApps,
                                 onTheme = settings::setLightTheme,
+                                onRussiaDirect = {
+                                    settings.setRussiaDirect(it)
+                                    vm.reconnectIfActive()
+                                },
+                                onBypassApps = {
+                                    if (it != bypassApps) {
+                                        settings.setBypassApps(it)
+                                        vm.reconnectIfActive()
+                                    }
+                                },
+                                onCheckUpdate = { vm.checkForUpdate(manual = true) },
                                 onUnlock = settings::unlockDevMode,
                                 onDisableDevMode = { settings.setDevMode(false) },
                             )
-                            else -> ServersScreen(
+                        } else {
+                            ServersScreen(
                                 state = profiles,
                                 pings = pings,
                                 busy = busy,
@@ -164,6 +168,23 @@ class MainActivity : ComponentActivity() {
                         dismissButton = {
                             TextButton(onClick = { clipboardOffer.value = null }) { Text(stringResource(R.string.cancel)) }
                         },
+                    )
+                }
+
+                val update by vm.update.collectAsStateWithLifecycle()
+                update?.let { release ->
+                    AlertDialog(
+                        onDismissRequest = vm::dismissUpdate,
+                        title = { Text(stringResource(R.string.update_title)) },
+                        text = { Text(stringResource(R.string.update_text, release.version, BuildConfig.VERSION_NAME)) },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                vm.dismissUpdate()
+                                // The APK link downloads the file in the browser; the system then offers to install it.
+                                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(release.downloadUrl)))
+                            }) { Text(stringResource(R.string.update_download)) }
+                        },
+                        dismissButton = { TextButton(onClick = vm::dismissUpdate) { Text(stringResource(R.string.update_later)) } },
                     )
                 }
 

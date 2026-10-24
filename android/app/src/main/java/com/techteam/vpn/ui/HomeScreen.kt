@@ -1,11 +1,19 @@
 package com.techteam.vpn.ui
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material.icons.rounded.Dns
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material.icons.rounded.VerifiedUser
+import androidx.compose.material.icons.rounded.WarningAmber
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import com.techteam.vpn.core.GeoIP
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -57,141 +65,231 @@ import com.techteam.vpn.data.ProfilesState
 import com.techteam.vpn.vpn.VpnState
 import kotlinx.coroutines.delay
 
+/**
+ * The globe fills the screen and shows where sites see you: your own location before the VPN,
+ * the server's after. A panel at the bottom holds the status, the button and the servers, and
+ * pulls up for the subscription, all servers and settings.
+ */
 @Composable
 fun HomeScreen(
     state: ProfilesState,
     vpn: VpnState,
+    homeLocation: GeoIP.Location?,
+    visibleLocation: GeoIP.Location?,
+    serverLocations: Map<String, GeoIP.Location>,
     onToggle: () -> Unit,
     onAdd: () -> Unit,
+    onSelect: (String) -> Unit,
     onOpenServers: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Spacer(Modifier.height(24.dp))
-        Text(
-            stringResource(R.string.app_name),
-            fontSize = 26.sp,
-            fontWeight = FontWeight.Bold,
-            color = Brand.Text,
+    val connected = vpn is VpnState.Connected
+    val server = state.selected?.let { serverLocations[it.address] }
+    var expanded by rememberSaveable { mutableStateOf(false) }
+
+    val pins = buildList {
+        homeLocation?.let { add(GlobePin(it.latitude, it.longitude, "${it.flag} " + if (connected) "Реальный адрес" else "Вы здесь", false)) }
+        server?.let {
+            add(GlobePin(it.latitude, it.longitude, "${it.flag} " + if (connected) "Вы сейчас здесь" else state.selected?.name.orEmpty(), connected))
+        }
+    }
+    val focus = if (connected) server ?: homeLocation else homeLocation ?: server
+
+    Box(Modifier.fillMaxSize()) {
+        Globe(
+            centerLat = focus?.latitude ?: 55.75,
+            centerLon = focus?.longitude ?: 37.62,
+            pins = pins,
+            line = if (connected && pins.size == 2) pins[0] to pins[1] else null,
+            modifier = Modifier.fillMaxSize(),
         )
-        Text(stringResource(R.string.tagline), color = Brand.TextMuted, fontSize = 14.sp)
-        Spacer(Modifier.height(40.dp))
 
-        PowerButton(vpn, onToggle)
+        StatusPill(vpn, Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 8.dp))
 
-        Spacer(Modifier.height(28.dp))
-        StatusText(vpn)
-        Spacer(Modifier.height(36.dp))
-
-        val selected = state.selected
-        if (selected == null) {
-            Button(
-                onClick = onAdd,
-                colors = ButtonDefaults.buttonColors(containerColor = Brand.Cyan, contentColor = Brand.Background),
-                shape = RoundedCornerShape(14.dp),
-                modifier = Modifier.fillMaxWidth().height(54.dp),
-            ) {
-                Icon(Icons.Rounded.Add, null)
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.add_key), fontWeight = FontWeight.SemiBold)
-            }
-        } else {
-            Card(Modifier.clickable(onClick = onOpenServers)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        Modifier.size(40.dp).clip(CircleShape).background(Brand.SurfaceHigh),
-                        contentAlignment = Alignment.Center,
-                    ) { Icon(Icons.Rounded.Public, null, tint = Brand.Cyan) }
-                    Spacer(Modifier.width(14.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.current_server), color = Brand.TextMuted, fontSize = 12.sp)
-                        Text(
-                            selected.name, color = Brand.Text, fontWeight = FontWeight.SemiBold,
-                            maxLines = 1, overflow = TextOverflow.Ellipsis,
-                        )
+        Column(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 10.dp)
+                .clip(RoundedCornerShape(32.dp))
+                .background(Brand.Surface.copy(alpha = 0.88f))
+                .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(32.dp))
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures { _, dragAmount ->
+                        if (dragAmount < -12) expanded = true
+                        if (dragAmount > 12) expanded = false
                     }
-                    Icon(Icons.Rounded.ChevronRight, null, tint = Brand.TextMuted)
+                }
+                .animateContentSize()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Box(
+                Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(vertical = 4.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(Modifier.size(40.dp, 5.dp).clip(CircleShape).background(Brand.TextMuted.copy(alpha = 0.6f)))
+            }
+
+            StatusCard(state, vpn, homeLocation, visibleLocation, onToggle, onAdd)
+
+            if (state.profiles.isNotEmpty()) {
+                Text("Серверы", color = Brand.TextMuted, fontSize = 14.sp, modifier = Modifier.padding(start = 4.dp))
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    state.profiles.forEach { item ->
+                        val p = item.profile
+                        val selected = p.id == state.selected?.id
+                        Row(
+                            Modifier
+                                .height(46.dp)
+                                .clip(CircleShape)
+                                .background(if (selected) Brand.Cyan.copy(alpha = 0.22f) else Brand.SurfaceHigh)
+                                .border(1.dp, if (selected) Brand.Cyan else Color.Transparent, CircleShape)
+                                .clickable { onSelect(p.id) }
+                                .padding(horizontal = 16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(leadingFlag(p.name) ?: serverLocations[p.address]?.flag ?: "\uD83C\uDF10", fontSize = 18.sp)
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                stripFlag(p.name), color = if (selected) Brand.Cyan else Brand.Text,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                }
+            }
+
+            if (expanded) {
+                state.subscriptionInfo?.let { SubscriptionCard(it) }
+                Column(Modifier.clip(RoundedCornerShape(24.dp)).background(Brand.SurfaceHigh)) {
+                    MenuRow(Icons.Rounded.Dns, "Все серверы", onOpenServers)
+                    MenuRow(Icons.Rounded.Add, stringResource(R.string.add_key), onAdd)
+                    MenuRow(Icons.Rounded.Settings, "Настройки", onOpenSettings)
                 }
             }
         }
-
-        state.subscriptionInfo?.let {
-            Spacer(Modifier.height(12.dp))
-            SubscriptionCard(it)
-        }
-        Spacer(Modifier.height(24.dp))
     }
 }
 
 @Composable
-private fun PowerButton(vpn: VpnState, onToggle: () -> Unit) {
-    val connected = vpn is VpnState.Connected
-    val connecting = vpn is VpnState.Connecting
-    val ring by animateColorAsState(
-        when {
-            connected -> Brand.Green
-            connecting -> Brand.Amber
-            else -> Brand.SurfaceHigh
-        },
-        label = "ring",
-    )
-    val pulse = rememberInfiniteTransition(label = "pulse")
-    val scale by pulse.animateFloat(
-        initialValue = 1f,
-        targetValue = if (connecting) 1.08f else 1f,
-        animationSpec = infiniteRepeatable(tween(700), RepeatMode.Reverse),
-        label = "scale",
-    )
-
-    Box(
-        Modifier.size(210.dp).scale(scale).clip(CircleShape)
-            .background(Brush.radialGradient(listOf(ring.copy(alpha = 0.25f), Color.Transparent))),
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(
-            Modifier.size(160.dp).clip(CircleShape)
-                .background(if (connected) Brand.Gradient else Brush.linearGradient(listOf(Brand.Surface, Brand.SurfaceHigh)))
-                .border(3.dp, ring, CircleShape)
-                .clickable(onClick = onToggle),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                Icons.Rounded.PowerSettingsNew,
-                contentDescription = stringResource(if (connected) R.string.action_disconnect else R.string.action_connect),
-                tint = if (connected) Color.White else Brand.Cyan,
-                modifier = Modifier.size(64.dp),
-            )
-        }
-    }
-}
-
-@Composable
-private fun StatusText(vpn: VpnState) {
-    val (title, color) = when (vpn) {
+private fun StatusPill(vpn: VpnState, modifier: Modifier) {
+    val (text, color) = when (vpn) {
         is VpnState.Connected -> stringResource(R.string.status_connected) to Brand.Green
         is VpnState.Connecting -> stringResource(R.string.status_connecting) to Brand.Amber
         is VpnState.Error -> stringResource(R.string.status_error) to Brand.Red
-        VpnState.Disconnected -> stringResource(R.string.status_disconnected) to Brand.TextMuted
+        VpnState.Disconnected -> stringResource(R.string.status_disconnected) to Brand.Red
     }
-    Text(title, color = color, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
-    Spacer(Modifier.height(6.dp))
-    when (vpn) {
-        is VpnState.Connected -> {
-            var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
-            LaunchedEffect(vpn.since) {
-                while (true) {
-                    now = System.currentTimeMillis()
-                    delay(1000)
-                }
-            }
-            Text(formatDuration((now - vpn.since) / 1000), color = Brand.Text, fontSize = 16.sp)
-        }
-        is VpnState.Error -> Text(vpn.message, color = Brand.TextMuted, fontSize = 13.sp, maxLines = 3)
-        else -> Text(stringResource(R.string.status_hint), color = Brand.TextMuted, fontSize = 13.sp)
+    Row(
+        modifier.clip(CircleShape).background(Color.Black.copy(alpha = 0.75f)).padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(12.dp).clip(CircleShape).background(color))
+        Spacer(Modifier.width(10.dp))
+        Text(text, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
     }
 }
+
+@Composable
+private fun StatusCard(
+    state: ProfilesState,
+    vpn: VpnState,
+    homeLocation: GeoIP.Location?,
+    visibleLocation: GeoIP.Location?,
+    onToggle: () -> Unit,
+    onAdd: () -> Unit,
+) {
+    val connected = vpn is VpnState.Connected
+    val connecting = vpn is VpnState.Connecting
+    Column(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Brand.SurfaceHigh).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                when {
+                    connected -> Icons.Rounded.VerifiedUser
+                    connecting -> Icons.Rounded.Shield
+                    else -> Icons.Rounded.WarningAmber
+                },
+                null,
+                tint = when {
+                    connected -> Brand.Green
+                    connecting -> Brand.Amber
+                    else -> Brand.TextMuted
+                },
+                modifier = Modifier.size(34.dp),
+            )
+            Spacer(Modifier.width(14.dp))
+            Column {
+                Text(
+                    when {
+                        connected -> "Вы защищены"
+                        connecting -> stringResource(R.string.status_connecting)
+                        else -> "Вы не защищены"
+                    },
+                    color = Brand.Text, fontSize = 19.sp, fontWeight = FontWeight.SemiBold,
+                )
+                val subtitle = when {
+                    vpn is VpnState.Error -> vpn.message
+                    connected -> {
+                        var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
+                        LaunchedEffect(vpn) {
+                            while (true) {
+                                now = System.currentTimeMillis()
+                                delay(1000)
+                            }
+                        }
+                        locationLine(visibleLocation, "Сайты видят") + " · " + formatDuration((now - (vpn as VpnState.Connected).since) / 1000)
+                    }
+                    homeLocation != null -> locationLine(homeLocation, "Ваш адрес")
+                    else -> "Подключитесь к VPN для защиты"
+                }
+                Text(subtitle, color = Brand.TextMuted, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        val (label, color, action) = when {
+            state.selected == null -> Triple(stringResource(R.string.add_key), Brand.Cyan, onAdd)
+            connected -> Triple(stringResource(R.string.action_disconnect), Brand.Red, onToggle)
+            connecting -> Triple(stringResource(R.string.cancel), Brand.Red, onToggle)
+            else -> Triple("Подключиться", Brand.Cyan, onToggle)
+        }
+        Button(
+            onClick = action,
+            colors = ButtonDefaults.buttonColors(containerColor = color, contentColor = Color.White),
+            shape = CircleShape,
+            modifier = Modifier.fillMaxWidth().height(54.dp),
+        ) {
+            Text(label, fontWeight = FontWeight.SemiBold, fontSize = 17.sp)
+        }
+    }
+}
+
+@Composable
+private fun MenuRow(icon: ImageVector, title: String, onClick: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 18.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, null, tint = Brand.Text)
+        Spacer(Modifier.width(14.dp))
+        Text(title, color = Brand.Text, modifier = Modifier.weight(1f))
+        Icon(Icons.Rounded.ChevronRight, null, tint = Brand.TextMuted)
+    }
+}
+
+private fun locationLine(location: GeoIP.Location?, prefix: String): String =
+    if (location == null) "$prefix: определяю…" else "$prefix: ${location.flag} ${location.place}"
+
+/** A flag emoji at the start of a server name, like "🇳🇱 Нидерланды". */
+private fun leadingFlag(name: String): String? {
+    if (name.length < 4) return null
+    val a = name.codePointAt(0)
+    val b = name.codePointAt(Character.charCount(a))
+    return if (a in 0x1F1E6..0x1F1FF && b in 0x1F1E6..0x1F1FF) name.substring(0, 4) else null
+}
+
+private fun stripFlag(name: String): String = if (leadingFlag(name) != null) name.substring(4).trim() else name
 
 @Composable
 private fun SubscriptionCard(info: SubscriptionInfo) {

@@ -17,26 +17,49 @@ object XrayConfig {
     )
 
     /**
+     * Russian sites that go past the VPN when split tunneling is on: the category-ru list
+     * from geodata/geosite.dat and the .ru, .su and .рф zones.
+     */
+    val RUSSIAN_DOMAINS = listOf("geosite:category-ru", "domain:ru", "domain:su", "domain:xn--p1ai")
+    /** Resolver for those sites, reached directly (its address is in geoip:ru), so they get the addresses a Russian network would. */
+    const val RUSSIAN_DNS = "77.88.8.8"
+
+    /**
      * @param tunFd the VpnService tun descriptor; Xray reads it from the `xray.tun.fd` env key.
      *              Pass null to build a config for validation only.
      * @param logPath file for Xray's error log at info level, used for troubleshooting.
+     * @param russiaDirect send Russian sites and IP ranges past the VPN.
+     * @param assetDir directory with geoip.dat and geosite.dat, needed for [russiaDirect].
      */
-    fun build(profile: VlessProfile, tunFd: Int?, logPath: String? = null): String {
+    fun build(
+        profile: VlessProfile,
+        tunFd: Int?,
+        logPath: String? = null,
+        russiaDirect: Boolean = false,
+        assetDir: String? = null,
+    ): String {
         val root = JSONObject()
         root.put(
             "log",
             if (logPath == null) JSONObject().put("loglevel", "warning")
             else JSONObject().put("loglevel", "info").put("access", "none").put("error", logPath),
         )
-        if (tunFd != null) {
-            root.put("env", JSONObject().put("xray.tun.fd", tunFd.toString()))
+        val env = JSONObject()
+        if (tunFd != null) env.put("xray.tun.fd", tunFd.toString())
+        if (russiaDirect && assetDir != null) env.put("xray.location.asset", assetDir)
+        if (env.length() > 0) root.put("env", env)
+
+        val dnsServers = JSONArray()
+        if (russiaDirect) {
+            dnsServers.put(
+                JSONObject()
+                    .put("address", RUSSIAN_DNS)
+                    .put("domains", JSONArray(RUSSIAN_DOMAINS))
+                    .put("skipFallback", true),
+            )
         }
-        root.put(
-            "dns",
-            JSONObject()
-                .put("servers", JSONArray(UPSTREAM_DNS))
-                .put("queryStrategy", "UseIPv4"),
-        )
+        UPSTREAM_DNS.forEach { dnsServers.put(it) }
+        root.put("dns", JSONObject().put("servers", dnsServers).put("queryStrategy", "UseIPv4"))
         root.put(
             "inbounds",
             JSONArray().put(
@@ -61,22 +84,19 @@ object XrayConfig {
                 .put(JSONObject().put("tag", "block").put("protocol", "blackhole"))
                 .put(JSONObject().put("tag", "dns-out").put("protocol", "dns")),
         )
-        root.put(
-            "routing",
-            JSONObject()
-                .put("domainStrategy", "AsIs")
-                .put(
-                    "rules",
-                    JSONArray()
-                        .put(
-                            JSONObject()
-                                .put("inboundTag", JSONArray(listOf("tun-in")))
-                                .put("port", "53")
-                                .put("outboundTag", "dns-out"),
-                        )
-                        .put(JSONObject().put("ip", JSONArray(PRIVATE_CIDRS)).put("outboundTag", "direct")),
-                ),
-        )
+        val rules = JSONArray()
+            .put(
+                JSONObject()
+                    .put("inboundTag", JSONArray(listOf("tun-in")))
+                    .put("port", "53")
+                    .put("outboundTag", "dns-out"),
+            )
+            .put(JSONObject().put("ip", JSONArray(PRIVATE_CIDRS)).put("outboundTag", "direct"))
+        if (russiaDirect) {
+            rules.put(JSONObject().put("domain", JSONArray(RUSSIAN_DOMAINS)).put("outboundTag", "direct"))
+            rules.put(JSONObject().put("ip", JSONArray(listOf("geoip:ru"))).put("outboundTag", "direct"))
+        }
+        root.put("routing", JSONObject().put("domainStrategy", "AsIs").put("rules", rules))
         return root.toString()
     }
 

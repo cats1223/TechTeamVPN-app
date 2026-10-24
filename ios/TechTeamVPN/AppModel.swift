@@ -12,6 +12,15 @@ final class AppModel: ObservableObject {
     @Published private(set) var internetCheck: InternetCheck = .idle
     /// Shows "add the subscription from the clipboard?"; set by offerClipboard.
     @Published var clipboardOffer = false
+    /// A newer release to offer; nil hides the alert.
+    @Published var update: Updates.Release?
+
+    /// Where the phone really is, looked up while the VPN is off.
+    @Published private(set) var homeLocation: GeoIP.Location?
+    /// Where sites see the phone now: the home location, or the server's while connected.
+    @Published private(set) var visibleLocation: GeoIP.Location?
+    /// Server address to its location, for the map pin and the server's flag.
+    @Published private(set) var serverLocations: [String: GeoIP.Location] = [:]
 
     @Published private(set) var diagnostics: [DiagnosticStep] = []
     @Published private(set) var diagnosticsRunning = false
@@ -28,11 +37,73 @@ final class AppModel: ObservableObject {
         if !state.subscriptionURL.isEmpty {
             Task { await refreshSubscription(silent: true) }
         }
+        Task { await checkForUpdate(manual: false) }
+    }
+
+    /// The automatic check runs at most every 12 hours and stays quiet about a version the user
+    /// already put off; the button in settings always asks GitHub and reports the result.
+    func checkForUpdate(manual: Bool) async {
+        let defaults = UserDefaults.standard
+        let now = Date().timeIntervalSince1970
+        if !manual, now - defaults.double(forKey: "updateCheckedAt") < 12 * 3600 { return }
+        let release: Updates.Release
+        do {
+            release = try await Updates.fetchLatest()
+        } catch {
+            if manual { message = "Не удалось проверить обновления: \(error.localizedDescription)" }
+            return
+        }
+        defaults.set(now, forKey: "updateCheckedAt")
+        if !Updates.isNewer(release.version, than: AppSettings.shortVersion) {
+            if manual { message = "У вас последняя версия" }
+        } else if manual || defaults.string(forKey: "updateDismissed") != release.version {
+            update = release
+        }
+    }
+
+    /// "Later": the automatic check does not offer this version again.
+    func dismissUpdate() {
+        if let update { UserDefaults.standard.set(update.version, forKey: "updateDismissed") }
+        update = nil
+    }
+
+    /// Looks up the address sites see. With the VPN off that is the phone's real location; while
+    /// connected the request goes through the tunnel and shows the server's.
+    func refreshLocation(connected: Bool) async {
+        // Right after the tunnel comes up the first request can fail, so try a few times.
+        var location: GeoIP.Location?
+        for attempt in 0..<4 {
+            if attempt > 0 { try? await Task.sleep(nanoseconds: 2_000_000_000) }
+            guard connected == (vpn.status == .connected) else { return }
+            location = await GeoIP.lookup()
+            if location != nil { break }
+        }
+        // The status may have changed while the request was out; a stale answer would put the pin in the wrong place.
+        guard connected == (vpn.status == .connected) else { return }
+        visibleLocation = location
+        if !connected, let location { homeLocation = location }
+    }
+
+    /// Location of the selected server, looked up once per address.
+    func locateSelectedServer() async {
+        guard let address = state.selected?.address, serverLocations[address] == nil else { return }
+        let ip = Self.isIPAddress(address) ? address : await Self.resolve(address)
+        guard let ip, let location = await GeoIP.lookup(ip) else { return }
+        serverLocations[address] = location
+    }
+
+    var selectedServerLocation: GeoIP.Location? {
+        state.selected.flatMap { serverLocations[$0.address] }
+    }
+
+    /// Restarts a running tunnel so a changed split tunneling setting takes effect.
+    func applyTunnelSettings() async {
+        if let profile = state.selected { await vpn.reconnect(profile) }
     }
 
     func toggle() async {
         if vpn.isActive {
-            vpn.disconnect()
+            await vpn.disconnect()
         } else if let profile = state.selected {
             await vpn.connect(profile)
         } else {

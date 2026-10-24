@@ -80,6 +80,23 @@ class VlessProfileTest {
     }
 
     @Test
+    fun russiaDirectRoutesRussianSitesPastTheProxy() {
+        val p = VlessProfile.parse(reality)!!
+        val plain = JSONObject(XrayConfig.build(p, 42))
+        assertFalse(plain.getJSONObject("env").has("xray.location.asset"))
+        assertEquals(2, plain.getJSONObject("routing").getJSONArray("rules").length())
+
+        val config = JSONObject(XrayConfig.build(p, 42, russiaDirect = true, assetDir = "/geo"))
+        assertEquals("/geo", config.getJSONObject("env").getString("xray.location.asset"))
+        val rules = config.getJSONObject("routing").getJSONArray("rules")
+        val direct = (0 until rules.length()).map { rules.getJSONObject(it) }.filter { it.getString("outboundTag") == "direct" }
+        assertTrue(direct.any { it.optJSONArray("ip")?.toString() == "[\"geoip:ru\"]" })
+        assertTrue(direct.any { it.optJSONArray("domain")?.toString()?.contains("domain:ru") == true })
+        val dns = config.getJSONObject("dns").getJSONArray("servers")
+        assertEquals(XrayConfig.RUSSIAN_DNS, dns.getJSONObject(0).getString("address"))
+    }
+
+    @Test
     fun buildsTransports() {
         val ws = XrayConfig.outbound(VlessProfile.parse("vless://id@h:443?type=ws&security=tls&path=%2Fws&host=cdn.example&alpn=h2,http/1.1")!!)
             .getJSONObject("streamSettings")
@@ -135,5 +152,61 @@ class VlessProfileTest {
         assertTrue(DeepLink.wantsClipboard("techteamvpn://add/"))
         assertFalse(DeepLink.wantsClipboard("techteamvpn://add?url=https%3A%2F%2Fa.b%2Fc"))
         assertFalse(DeepLink.wantsClipboard("vless://id@h:1"))
+    }
+
+    @Test
+    fun comparesVersions() {
+        assertTrue(Updates.isNewer("1.1.0", "1.0.1"))
+        assertTrue(Updates.isNewer("v1.10.0", "1.9.2"))
+        assertTrue(Updates.isNewer("1.0.1", "1.0"))
+        assertFalse(Updates.isNewer("1.0.1", "1.0.1"))
+        assertFalse(Updates.isNewer("1.0.0", "1.1.0"))
+        // The latest-release endpoint never returns betas; a beta tester is offered the release.
+        assertTrue(Updates.isNewer("1.2.0", "1.2.0-beta.1"))
+        assertFalse(Updates.isNewer("1.1.0", "1.2.0-beta.1"))
+    }
+
+    @Test
+    fun parsesGeoIp() {
+        val l = GeoIP.parse("""{"ip":"176.124.220.95","success":true,"country":"Netherlands","country_code":"NL","city":"Amsterdam","latitude":52.37,"longitude":4.89}""")!!
+        assertEquals("Amsterdam, Netherlands", l.place)
+        assertEquals(52.37, l.latitude, 1e-9)
+        assertEquals("\uD83C\uDDF3\uD83C\uDDF1", l.flag)
+        assertNull(GeoIP.parse("""{"success":false,"message":"Reserved range"}"""))
+        assertEquals("\uD83C\uDF10", GeoIP.flag(""))
+    }
+
+    @Test
+    fun parsesLatestRelease() {
+        val json = """{"tag_name":"v1.1.0","html_url":"https://github.com/o/r/releases/tag/v1.1.0","assets":[
+            {"name":"TechTeamVPN-v1.1.0-unsigned.ipa","browser_download_url":"https://x/a.ipa"},
+            {"name":"TechTeamVPN-v1.1.0.apk","browser_download_url":"https://x/a.apk"}]}"""
+        val r = Updates.parse(json)
+        assertEquals("1.1.0", r.version)
+        assertEquals("https://x/a.apk", r.downloadUrl)
+        assertEquals("https://github.com/o/r/releases/tag/v1.1.0", Updates.parse("""{"tag_name":"v1.1.0","html_url":"https://github.com/o/r/releases/tag/v1.1.0"}""").downloadUrl)
+    }
+
+    @Test
+    fun recognizesRussianApps() {
+        assertTrue(RussianApps.isRussian("ru.sberbankmobile"))
+        assertTrue(RussianApps.isRussian("com.idamob.tinkoff.android"))
+        assertFalse(RussianApps.isRussian("org.telegram.messenger"))
+    }
+
+    @Test
+    fun globeProjectionRoundTrips() {
+        val g = GlobeMath(55.75, 37.62)
+        val center = g.project(55.75, 37.62)!!
+        assertEquals(0.0, center.first, 1e-9)
+        assertEquals(0.0, center.second, 1e-9)
+        val helsinki = g.project(60.17, 24.94)!!
+        val back = g.unproject(helsinki.first, helsinki.second)!!
+        assertEquals(60.17, back.first, 1e-6)
+        assertEquals(24.94, back.second, 1e-6)
+        assertNull(g.project(-55.75, 37.62 - 180))
+        val path = GlobeMath.greatCircle(55.75 to 37.62, 60.17 to 24.94)
+        assertEquals(55.75, path.first().first, 1e-6)
+        assertEquals(24.94, path.last().second, 1e-6)
     }
 }

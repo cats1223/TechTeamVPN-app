@@ -28,7 +28,8 @@ final class VPNManager: ObservableObject {
     func connect(_ profile: VlessProfile, diagnose: Bool = false) async {
         lastError = nil
         do {
-            let manager = try await preparedManager(serverAddress: profile.address)
+            // A diagnostic run stops itself on purpose, so it must not be restarted on demand.
+            let manager = try await preparedManager(profile, reconnectOnFailure: !diagnose)
             var options: [String: NSObject] = ["link": profile.link as NSString]
             if diagnose { options["diagnose"] = "1" as NSString }
             // The detailed Xray log is only kept in developer mode.
@@ -57,7 +58,7 @@ final class VPNManager: ObservableObject {
     /// disconnect error, or nil when the tunnel died without reporting.
     func recordLog(_ profile: VlessProfile) async -> String? {
         if isActive {
-            disconnect()
+            await disconnect()
             for _ in 0..<50 where status != .disconnected { try? await Task.sleep(nanoseconds: 100_000_000) }
         }
         await connect(profile, diagnose: true)
@@ -74,29 +75,44 @@ final class VPNManager: ObservableObject {
         }
     }
 
-    func disconnect() {
+    /// Turns automatic reconnection off first, or iOS would bring the tunnel straight back up.
+    func disconnect() async {
+        if let manager, manager.isOnDemandEnabled {
+            manager.isOnDemandEnabled = false
+            try? await manager.saveToPreferences()
+        }
         manager?.connection.stopVPNTunnel()
     }
 
     /// Restarts the tunnel when it is running, so a newly selected server takes effect.
     func reconnect(_ profile: VlessProfile) async {
         guard isActive else { return }
-        disconnect()
+        await disconnect()
         for _ in 0..<50 where status != .disconnected {
             try? await Task.sleep(nanoseconds: 100_000_000)
         }
         await connect(profile)
     }
 
-    private func preparedManager(serverAddress: String) async throws -> NETunnelProviderManager {
+    private func preparedManager(_ profile: VlessProfile, reconnectOnFailure: Bool) async throws -> NETunnelProviderManager {
         let manager = manager ?? NETunnelProviderManager()
         let proto = (manager.protocolConfiguration as? NETunnelProviderProtocol) ?? NETunnelProviderProtocol()
         proto.providerBundleIdentifier = AppGroup.tunnelBundleId
-        proto.serverAddress = serverAddress
+        proto.serverAddress = profile.address
         proto.disconnectOnSleep = false
+        // Saved with the configuration, so the tunnel has everything when iOS restarts it on its
+        // own: without App Groups it cannot read the app's server list.
+        proto.providerConfiguration = [
+            "russiaDirect": AppSettings.russiaDirect,
+            "link": profile.link,
+            "verbose": UserDefaults.standard.bool(forKey: AppSettings.devModeKey),
+        ]
         manager.protocolConfiguration = proto
         manager.localizedDescription = "TechTeamVPN"
         manager.isEnabled = true
+        // If the tunnel drops with an error (or the extension is killed), iOS starts it again.
+        manager.onDemandRules = [NEOnDemandRuleConnect()]
+        manager.isOnDemandEnabled = reconnectOnFailure
         // The first save shows the system "Add VPN configuration" prompt.
         try await manager.saveToPreferences()
         try await manager.loadFromPreferences()

@@ -10,34 +10,61 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     /// Our own lines, kept in memory so the app gets something even if no file can be written.
     private var notes: [String] = []
     private var diagnoseTask: Task<Void, Never>?
+    private var memoryTask: Task<Void, Never>?
 
     private static func writableLogURL() -> URL {
         let candidates = [AppGroup.logURL, FileManager.default.temporaryDirectory.appendingPathComponent("xray.log")]
-        for case let url? in candidates where FileManager.default.createFile(atPath: url.path, contents: Data()) {
-            return url
+        for case let url? in candidates {
+            // Keep the previous run's log: if the tunnel crashed, its last lines say why.
+            let previous = previousLogURL(for: url)
+            try? FileManager.default.removeItem(at: previous)
+            try? FileManager.default.moveItem(at: url, to: previous)
+            if FileManager.default.createFile(atPath: url.path, contents: Data()) { return url }
         }
         return FileManager.default.temporaryDirectory.appendingPathComponent("xray.log")
     }
 
+    private static func previousLogURL(for url: URL) -> URL {
+        url.deletingLastPathComponent().appendingPathComponent("xray.prev.log")
+    }
+
+    /// Go writes a panic or "out of memory" to stderr just before the process dies; send it to the log.
+    private func captureCrashOutput() {
+        let fd = open(logURL.path, O_WRONLY | O_APPEND)
+        guard fd >= 0 else { return }
+        dup2(fd, STDERR_FILENO)
+        close(fd)
+    }
+
     override func startTunnel(options: [String: NSObject]?) async throws {
-        // The app passes the link explicitly; on-demand restarts fall back to the stored selection.
-        let link = options?["link"] as? String
+        // The app passes the link explicitly; when iOS restarts the tunnel on its own (after a
+        // crash, on demand) it comes from the saved configuration.
+        let providerConfig = (protocolConfiguration as? NETunnelProviderProtocol)?.providerConfiguration
+        let link = options?["link"] as? String ?? providerConfig?["link"] as? String
         guard let profile = link.flatMap(VlessProfile.parse) ?? ProfileStore.load().selected else {
             throw TunnelError.noServer
         }
 
-        appendLog("TechTeamVPN: \(profile.summary)")
+        captureCrashOutput()
+        appendLog("TechTeamVPN: \(profile.summary)\(options == nil ? " (перезапуск системой)" : "")")
         appendLog("TechTeamVPN: log \(logURL.path), App Group \(AppGroup.logURL == nil ? "нет в профиле подписи" : "есть")")
         do {
             try await setTunnelNetworkSettings(networkSettings(for: profile))
             guard let fd = tunnelFileDescriptor else { throw TunnelError.noTunDescriptor }
             appendLog("TechTeamVPN: utun fd \(fd), starting Xray")
             let verbose = options?["verbose"] as? String == "1" || options?["diagnose"] as? String == "1"
-            let config = try XrayConfig.build(profile, tunFd: fd, logPath: verbose ? logURL.path : nil)
+                || (options == nil && providerConfig?["verbose"] as? Bool == true)
+            let russiaDirect = providerConfig?["russiaDirect"] as? Bool ?? true
+            // geoip.dat and geosite.dat are bundled with the extension (geodata/ in project.yml).
+            let assetDir = Bundle.main.resourceURL?.appendingPathComponent("geodata").path
+            appendLog("TechTeamVPN: russian sites direct \(russiaDirect ? "on" : "off")")
+            let config = try XrayConfig.build(
+                profile, tunFd: fd, logPath: verbose ? logURL.path : nil, russiaDirect: russiaDirect, assetDir: assetDir
+            )
             try XrayCore.run(config)
             appendLog("TechTeamVPN: Xray started, memory \(Self.memoryMB()) MB")
             log.info("Xray started for \(profile.name, privacy: .public)")
-            if options?["diagnose"] as? String == "1" { scheduleDiagnosticStop() }
+            if options?["diagnose"] as? String == "1" { scheduleDiagnosticStop() } else { watchMemory() }
         } catch {
             appendLog("TechTeamVPN: start failed: \(error.localizedDescription)")
             throw error
@@ -48,6 +75,19 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     override func handleAppMessage(_ messageData: Data) async -> Data? {
         guard String(decoding: messageData, as: UTF8.self) == "log" else { return nil }
         return Data(report(limit: 65_536).utf8)
+    }
+
+    /// A memory line every 30 s: iOS kills a packet tunnel near 50 MB without a word, so the trend
+    /// before a drop is the only trace of it.
+    private func watchMemory() {
+        memoryTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 30_000_000_000)
+                guard let self else { return }
+                self.appendLog("TechTeamVPN: memory \(Self.memoryMB()) MB")
+                if self.notes.count > 200 { self.notes.removeFirst(self.notes.count - 200) }
+            }
+        }
     }
 
     /// Diagnostic run: after 20 s the tunnel stops itself and hands the log to the app as the
@@ -67,7 +107,14 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     /// Our notes, then Xray's log with the DNS chatter cut down: the lines about the
     /// connection to the server are what explain a failure, and DNS lines would crowd them out.
     private func report(limit: Int) -> String {
-        var text = notes.joined(separator: "\n") + "\n— Xray —\n"
+        var text = ""
+        if let previous = try? Data(contentsOf: Self.previousLogURL(for: logURL)), !previous.isEmpty {
+            // Lines other than DNS chatter from the run before this one, ending where it stopped.
+            let lines = String(decoding: previous, as: UTF8.self).split(separator: "\n")
+                .filter { !$0.contains("app/dns") && !$0.contains("proxy/dns") && !$0.contains("[dns-out]") }
+            text += "— прошлый запуск, конец —\n" + String(lines.joined(separator: "\n").suffix(limit / 4)) + "\n\n"
+        }
+        text += notes.joined(separator: "\n") + "\n— Xray —\n"
         guard let data = try? Data(contentsOf: logURL) else { return text + "файл журнала не читается" }
         let lines = String(decoding: data, as: UTF8.self).split(separator: "\n")
         // DNS handling and its per-packet routing lines are the bulk; what is left is the
@@ -106,6 +153,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
 
     override func stopTunnel(with reason: NEProviderStopReason) async {
         diagnoseTask?.cancel()
+        memoryTask?.cancel()
         log.info("stopping tunnel, reason \(reason.rawValue)")
         XrayCore.stop()
     }

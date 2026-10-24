@@ -6,7 +6,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.security.MessageDigest
 
-/** Theme and developer mode; the VPN service reads devMode to decide whether to keep the Xray log. */
+/**
+ * Theme, split tunneling and developer mode. The VPN service reads devMode to decide whether
+ * to keep the Xray log, and the split tunneling settings when it connects.
+ */
 class AppSettings private constructor(context: Context) {
     private val prefs = context.getSharedPreferences("settings", Context.MODE_PRIVATE)
 
@@ -15,6 +18,24 @@ class AppSettings private constructor(context: Context) {
 
     private val _devMode = MutableStateFlow(prefs.getBoolean("devMode", false))
     val devMode: StateFlow<Boolean> = _devMode.asStateFlow()
+
+    /** Russian sites and IP ranges go past the VPN. */
+    private val _russiaDirect = MutableStateFlow(prefs.getBoolean("russiaDirect", true))
+    val russiaDirect: StateFlow<Boolean> = _russiaDirect.asStateFlow()
+
+    /** Packages excluded from the VPN: their traffic goes straight to the network. */
+    private val _bypassApps = MutableStateFlow(prefs.getStringSet("bypassApps", null).orEmpty().toSet())
+    val bypassApps: StateFlow<Set<String>> = _bypassApps.asStateFlow()
+
+    fun setRussiaDirect(enabled: Boolean) {
+        _russiaDirect.value = enabled
+        prefs.edit().putBoolean("russiaDirect", enabled).apply()
+    }
+
+    fun setBypassApps(packages: Set<String>) {
+        _bypassApps.value = packages
+        prefs.edit().putStringSet("bypassApps", packages).apply()
+    }
 
     fun setLightTheme(light: Boolean) {
         _lightTheme.value = light

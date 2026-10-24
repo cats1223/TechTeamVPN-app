@@ -14,7 +14,8 @@ android {
         targetSdk = 35
         // CI stamps the build number, the same one the iOS build shows.
         versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
-        versionName = "1.0.0"
+        // CI passes the release tag (v1.2.0 -> 1.2.0); the update check compares it with the latest release.
+        versionName = System.getenv("APP_VERSION")?.takeIf { it.isNotBlank() } ?: "1.1.0"
     }
 
     buildTypes {
@@ -44,6 +45,10 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+    sourceSets {
+        // Russian IP ranges and sites for split tunneling, built by scripts/update-geodata.py.
+        getByName("main").assets.srcDir(rootProject.file("../geodata"))
     }
     packaging {
         jniLibs.useLegacyPackaging = true

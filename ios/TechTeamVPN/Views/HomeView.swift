@@ -1,169 +1,283 @@
 import NetworkExtension
 import SwiftUI
 
+/// The globe fills the screen; a glass panel at the bottom holds the status, the connect button
+/// and the servers, and pulls up for the subscription, all servers and settings.
 struct HomeView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var vpn: VPNManager
+    @State private var expanded = false
     @State private var showAdd = false
+    @State private var showServers = false
+    @State private var showSettings = false
+
+    private var connected: Bool { vpn.status == .connected }
+    private var busy: Bool { [.connecting, .reasserting, .disconnecting].contains(vpn.status) }
 
     var body: some View {
-        ScrollView {
+        ZStack {
+            GlobeMap(
+                home: model.homeLocation,
+                server: model.selectedServerLocation,
+                serverName: model.state.selected?.name ?? "Сервер",
+                connected: connected
+            )
+            .ignoresSafeArea()
+
             VStack(spacing: 0) {
-                Text("TechTeamVPN")
-                    .font(.system(size: 26, weight: .bold))
-                    .padding(.top, 24)
-                Text("Быстрый и защищённый доступ")
-                    .font(.subheadline)
-                    .foregroundStyle(Brand.muted)
-
-                PowerButton(status: vpn.status) {
-                    Task { await model.toggle() }
-                }
-                .padding(.top, 40)
-
-                StatusText(status: vpn.status, since: vpn.connectedDate, error: vpn.lastError)
-                    .padding(.top, 28)
-
-                diagnostics
-                    .padding(.top, 16)
-
-                Group {
-                    if let selected = model.state.selected {
-                        serverCard(selected)
-                    } else {
-                        Button {
-                            showAdd = true
-                        } label: {
-                            Label("Добавить ключ", systemImage: "plus")
-                                .font(.headline)
-                                .frame(maxWidth: .infinity, minHeight: 54)
-                                .background(Brand.cyan, in: RoundedRectangle(cornerRadius: 14))
-                                .foregroundStyle(Brand.background)
-                        }
-                    }
-                    if let info = model.state.subscriptionInfo {
-                        SubscriptionCard(info: info)
-                    }
-                }
-                .padding(.top, 12)
+                StatusPill(status: vpn.status, error: vpn.lastError)
+                    .padding(.top, 8)
+                Spacer()
+                panel
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 24)
         }
-        .background(Brand.background.ignoresSafeArea())
-        .sheet(isPresented: $showAdd) { AddView() }
+        .background(Color.black.ignoresSafeArea())
+        .messageAlert(active: !showAdd && !showServers && !showSettings)
+        .sheet(isPresented: $showAdd) { AddView().messageAlert() }
+        .sheet(isPresented: $showServers) { ServersView().messageAlert().presentationDragIndicator(.visible) }
+        .sheet(isPresented: $showSettings) { SettingsView().messageAlert().presentationDragIndicator(.visible) }
+        .task {
+            await model.refreshLocation(connected: connected)
+            await model.locateSelectedServer()
+        }
         .onChange(of: vpn.status) { status in
             if status == .connected {
                 Task { await model.checkInternet() }
             } else {
                 model.resetInternetCheck()
             }
+            if status == .connected || status == .disconnected {
+                Task { await model.refreshLocation(connected: status == .connected) }
+            }
+        }
+        .onChange(of: model.state.selected?.address) { _ in
+            Task { await model.locateSelectedServer() }
         }
     }
 
-    private var diagnostics: some View {
-        VStack(spacing: 10) {
-            if vpn.status == .connected {
-                Button {
-                    Task { await model.checkInternet() }
-                } label: {
-                    HStack(spacing: 8) {
-                        switch model.internetCheck {
-                        case .idle:
-                            Image(systemName: "network")
-                            Text("Проверить интернет")
-                        case .running:
-                            ProgressView().controlSize(.small)
-                            Text("Проверяю интернет…")
-                        case .ok(let ms):
-                            Image(systemName: "checkmark.circle.fill").foregroundStyle(Brand.green)
-                            Text("Интернет работает · \(ms) мс")
-                        case .failed(let reason):
-                            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Brand.amber)
-                            Text("Интернета нет: \(reason)").multilineTextAlignment(.leading)
-                        }
-                    }
-                    .font(.footnote)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .background(Brand.surface, in: Capsule())
+    // MARK: - Panel
+
+    private var panel: some View {
+        VStack(spacing: 16) {
+            Capsule()
+                .fill(.secondary)
+                .frame(width: 40, height: 5)
+                .padding(.top, 8)
+                .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
+                .onTapGesture { withAnimation(.spring()) { expanded.toggle() } }
+
+            statusCard
+
+            if !model.state.profiles.isEmpty {
+                serverChips
+            }
+
+            if expanded {
+                if connected { internetCheck }
+                if let info = model.state.subscriptionInfo { SubscriptionCard(info: info) }
+                menu
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.bottom, 12)
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 32, style: .continuous))
+        .padding(.horizontal, 10)
+        .gesture(
+            DragGesture(minimumDistance: 20).onEnded { value in
+                withAnimation(.spring()) {
+                    if value.translation.height < -40 { expanded = true }
+                    if value.translation.height > 40 { expanded = false }
                 }
-                .buttonStyle(.plain)
-                .disabled(model.internetCheck == .running)
             }
-        }
+        )
     }
 
-    private func serverCard(_ profile: VlessProfile) -> some View {
-        HStack(spacing: 14) {
-            Image(systemName: "globe")
-                .foregroundStyle(Brand.cyan)
-                .frame(width: 40, height: 40)
-                .background(Brand.surfaceHigh, in: Circle())
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Сервер").font(.caption).foregroundStyle(Brand.muted)
-                Text(profile.name).font(.body.weight(.semibold)).lineLimit(1)
-            }
-            Spacer()
-        }
-        .card()
-        .padding(.top, 24)
-    }
-}
-
-private struct PowerButton: View {
-    let status: NEVPNStatus
-    let action: () -> Void
-    @State private var pulse = false
-
-    private var connected: Bool { status == .connected }
-    private var connecting: Bool { [.connecting, .reasserting, .disconnecting].contains(status) }
-    private var ring: Color { connected ? Brand.green : connecting ? Brand.amber : Brand.surfaceHigh }
-
-    var body: some View {
-        Button(action: action) {
-            ZStack {
-                Circle()
-                    .fill(RadialGradient(colors: [ring.opacity(0.25), .clear], center: .center, startRadius: 60, endRadius: 105))
-                    .frame(width: 210, height: 210)
-                Circle()
-                    .fill(connected ? AnyShapeStyle(Brand.gradient) : AnyShapeStyle(Brand.surface))
-                    .overlay(Circle().stroke(ring, lineWidth: 3))
-                    .frame(width: 160, height: 160)
-                Image(systemName: "power")
-                    .font(.system(size: 60, weight: .semibold))
-                    .foregroundStyle(connected ? .white : Brand.cyan)
-            }
-            .scaleEffect(connecting && pulse ? 1.08 : 1)
-            .animation(connecting ? .easeInOut(duration: 0.7).repeatForever(autoreverses: true) : .default, value: pulse)
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(connected ? "Отключить" : "Подключить")
-        .onAppear { pulse = true }
-    }
-}
-
-private struct StatusText: View {
-    let status: NEVPNStatus
-    let since: Date?
-    let error: String?
-
-    var body: some View {
-        VStack(spacing: 6) {
-            Text(title).font(.title3.weight(.semibold)).foregroundStyle(color)
-            if status == .connected, let since {
-                TimelineView(.periodic(from: since, by: 1)) { context in
-                    Text(duration(context.date.timeIntervalSince(since))).monospacedDigit()
+    private var statusCard: some View {
+        VStack(spacing: 14) {
+            HStack(spacing: 14) {
+                Image(systemName: connected ? "checkmark.shield" : busy ? "shield.lefthalf.filled" : "exclamationmark.triangle")
+                    .font(.system(size: 30))
+                    .foregroundStyle(connected ? Brand.green : busy ? Brand.amber : Color.secondary)
+                    .frame(width: 44)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title).font(.title3.weight(.semibold))
+                    subtitle.font(.footnote).foregroundStyle(.secondary).lineLimit(2)
                 }
-            } else if status == .disconnected, let error {
-                Text(error).font(.footnote).foregroundStyle(Brand.muted).multilineTextAlignment(.center).lineLimit(3)
-            } else if status == .disconnected || status == .invalid {
-                Text("Нажмите кнопку, чтобы подключиться").font(.footnote).foregroundStyle(Brand.muted)
+                Spacer(minLength: 0)
+            }
+
+            if model.state.selected == nil {
+                bigButton("Добавить ключ", color: Brand.cyan) { showAdd = true }
+            } else {
+                bigButton(buttonTitle, color: connected || busy ? Brand.red : Brand.cyan) {
+                    Task { await model.toggle() }
+                }
             }
         }
+        .padding(16)
+        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(.white.opacity(0.12)))
     }
 
     private var title: String {
+        switch vpn.status {
+        case .connected: return "Вы защищены"
+        case .connecting, .reasserting: return "Подключение…"
+        case .disconnecting: return "Отключение…"
+        default: return "Вы не защищены"
+        }
+    }
+
+    @ViewBuilder private var subtitle: some View {
+        if vpn.status == .disconnected, let error = vpn.lastError {
+            Text(error)
+        } else if connected, let since = vpn.connectedDate {
+            TimelineView(.periodic(from: since, by: 1)) { context in
+                Text(locationLine(model.visibleLocation, prefix: "Сайты видят") + " · " + duration(context.date.timeIntervalSince(since)))
+                    .monospacedDigit()
+            }
+        } else if let home = model.homeLocation {
+            Text(locationLine(home, prefix: "Ваш адрес"))
+        } else {
+            Text("Подключитесь к VPN для защиты")
+        }
+    }
+
+    private var buttonTitle: String {
+        switch vpn.status {
+        case .connected: return "Отключиться"
+        case .connecting, .reasserting: return "Отменить"
+        case .disconnecting: return "Отключение…"
+        default: return "Подключиться"
+        }
+    }
+
+    private func bigButton(_ title: String, color: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.headline)
+                .frame(maxWidth: .infinity, minHeight: 54)
+                .foregroundStyle(.white)
+        }
+        .glassProminentButton(color)
+        .disabled(vpn.status == .disconnecting)
+    }
+
+    private var serverChips: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Серверы").font(.subheadline).foregroundStyle(.secondary).padding(.leading, 4)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(model.state.profiles) { item in
+                        let selected = item.id == model.state.selected?.id
+                        Button {
+                            Task { await model.select(item.id) }
+                        } label: {
+                            HStack(spacing: 8) {
+                                Text(flag(for: item.profile)).font(.title3)
+                                Text(item.profile.name.strippingLeadingFlag).lineLimit(1)
+                            }
+                            .padding(.horizontal, 16)
+                            .frame(height: 46)
+                            .liquidGlass(in: Capsule(), tint: selected ? Brand.cyan.opacity(0.35) : nil, interactive: true)
+                            .foregroundStyle(selected ? Brand.cyan : .primary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+    }
+
+    private var internetCheck: some View {
+        Button {
+            Task { await model.checkInternet() }
+        } label: {
+            HStack(spacing: 8) {
+                switch model.internetCheck {
+                case .idle:
+                    Image(systemName: "network")
+                    Text("Проверить интернет")
+                case .running:
+                    ProgressView().controlSize(.small)
+                    Text("Проверяю интернет…")
+                case .ok(let ms):
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(Brand.green)
+                    Text("Интернет работает · \(ms) мс")
+                case .failed(let reason):
+                    Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Brand.amber)
+                    Text("Интернета нет: \(reason)").multilineTextAlignment(.leading)
+                }
+                Spacer(minLength: 0)
+            }
+            .font(.footnote)
+            .padding(14)
+            .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(model.internetCheck == .running)
+    }
+
+    private var menu: some View {
+        VStack(spacing: 0) {
+            menuRow("Все серверы", icon: "server.rack") { showServers = true }
+            Divider().opacity(0.4)
+            menuRow("Добавить ключ", icon: "plus.circle") { showAdd = true }
+            Divider().opacity(0.4)
+            menuRow("Настройки", icon: "gearshape") { showSettings = true }
+        }
+        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(.white.opacity(0.12)))
+    }
+
+    private func menuRow(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                Image(systemName: icon).frame(width: 24)
+                Text(title)
+                Spacer()
+                Image(systemName: "chevron.right").font(.footnote).foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 18)
+            .frame(height: 54)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Helpers
+
+    private func flag(for profile: VlessProfile) -> String {
+        profile.name.leadingFlag ?? model.serverLocations[profile.address]?.flag ?? "🌐"
+    }
+
+    private func locationLine(_ location: GeoIP.Location?, prefix: String) -> String {
+        guard let location else { return "\(prefix): определяю…" }
+        return "\(prefix): \(location.flag) \(location.place)"
+    }
+
+    private func duration(_ t: TimeInterval) -> String {
+        let s = Int(max(0, t))
+        return String(format: "%02d:%02d:%02d", s / 3600, s % 3600 / 60, s % 60)
+    }
+}
+
+private struct StatusPill: View {
+    let status: NEVPNStatus
+    let error: String?
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Circle().fill(color).frame(width: 12, height: 12)
+            Text(text).font(.headline).foregroundStyle(.white)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .liquidGlass(in: Capsule(), tint: .black.opacity(0.35))
+    }
+
+    private var text: String {
         switch status {
         case .connected: return "Подключено"
         case .connecting, .reasserting: return "Подключение…"
@@ -176,13 +290,8 @@ private struct StatusText: View {
         switch status {
         case .connected: return Brand.green
         case .connecting, .reasserting, .disconnecting: return Brand.amber
-        default: return error == nil ? Brand.muted : Brand.red
+        default: return Brand.red
         }
-    }
-
-    private func duration(_ t: TimeInterval) -> String {
-        let s = Int(max(0, t))
-        return String(format: "%02d:%02d:%02d", s / 3600, s % 3600 / 60, s % 60)
     }
 }
 
@@ -196,17 +305,33 @@ private struct SubscriptionCard: View {
             if info.total > 0 {
                 ProgressView(value: min(1, Double(used) / Double(info.total))).tint(Brand.cyan)
                 Text("Трафик: \(formatBytes(used)) из \(formatBytes(info.total))")
-                    .font(.footnote).foregroundStyle(Brand.muted)
+                    .font(.footnote).foregroundStyle(.secondary)
             } else {
-                Text("Использовано: \(formatBytes(used))").font(.footnote).foregroundStyle(Brand.muted)
+                Text("Использовано: \(formatBytes(used))").font(.footnote).foregroundStyle(.secondary)
             }
             if info.expire > 0 {
                 let days = max(0, Int((Double(info.expire) - Date().timeIntervalSince1970) / 86_400))
                 Text("Осталось дней: \(days)")
                     .font(.footnote)
-                    .foregroundStyle(days <= 3 ? Brand.amber : Brand.muted)
+                    .foregroundStyle(days <= 3 ? Brand.amber : .secondary)
             }
         }
-        .card()
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+    }
+}
+
+private extension String {
+    /// A flag emoji at the start of a server name, like "🇳🇱 Нидерланды".
+    var leadingFlag: String? {
+        let scalars = Array(unicodeScalars.prefix(2))
+        guard scalars.count == 2, scalars.allSatisfy({ (0x1F1E6...0x1F1FF).contains($0.value) }) else { return nil }
+        return String(String.UnicodeScalarView(scalars))
+    }
+
+    var strippingLeadingFlag: String {
+        guard leadingFlag != nil else { return self }
+        return String(String.UnicodeScalarView(unicodeScalars.dropFirst(2))).trimmingCharacters(in: .whitespaces)
     }
 }

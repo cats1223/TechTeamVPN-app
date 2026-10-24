@@ -23,7 +23,9 @@ import com.techteam.vpn.data.ProfileRepository
 import com.techteam.vpn.ui.MainActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -33,6 +35,7 @@ class TechTeamVpnService : VpnService() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val lock = Mutex()
     private var tun: ParcelFileDescriptor? = null
+    private var watchdog: Job? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
@@ -65,30 +68,72 @@ class TechTeamVpnService : VpnService() {
             return@withLock
         }
         VpnStatus.set(VpnState.Connecting(profile.name))
-        try {
-            val fd = establish(profile)
-            tun = fd
-            // The detailed Xray log is only kept in developer mode.
-            val log = java.io.File(filesDir, LOG_FILE).apply { writeText("") }
-            val logPath = if (AppSettings.get(this).devMode.value) log.path else null
-            XrayCore.start(XrayConfig.build(profile, fd.fd, logPath), "${XrayConfig.DNS_SERVERS.first()}:53") { protect(it) }
-            VpnStatus.set(VpnState.Connected(profile.name, System.currentTimeMillis()))
-            updateNotification(getString(R.string.notification_connected, profile.name))
-        } catch (e: Exception) {
-            Log.e(TAG, "connect failed", e)
-            stopCore()
-            VpnStatus.set(VpnState.Error(e.message ?: e.javaClass.simpleName))
-            stopSelfCompletely()
+        // A failed start (no network for a moment, the core not ready) is retried before giving up.
+        var error: Exception? = null
+        for (attempt in 1..CONNECT_ATTEMPTS) {
+            try {
+                start(profile)
+                VpnStatus.set(VpnState.Connected(profile.name, System.currentTimeMillis()))
+                updateNotification(getString(R.string.notification_connected, profile.name))
+                watchCore()
+                return@withLock
+            } catch (e: Exception) {
+                Log.e(TAG, "connect attempt $attempt failed", e)
+                stopCore()
+                error = e
+                if (attempt < CONNECT_ATTEMPTS) delay(3000)
+            }
+        }
+        VpnStatus.set(VpnState.Error(error?.message ?: error?.javaClass?.simpleName.orEmpty()))
+        stopSelfCompletely()
+    }
+
+    private fun start(profile: VlessProfile) {
+        val settings = AppSettings.get(this)
+        val fd = establish(profile, settings.bypassApps.value)
+        tun = fd
+        // The detailed Xray log is only kept in developer mode.
+        val log = java.io.File(filesDir, LOG_FILE).apply { writeText("") }
+        val logPath = if (settings.devMode.value) log.path else null
+        val russiaDirect = settings.russiaDirect.value
+        val assetDir = if (russiaDirect) installGeoData() else null
+        val config = XrayConfig.build(profile, fd.fd, logPath, russiaDirect, assetDir)
+        XrayCore.start(config, "${XrayConfig.DNS_SERVERS.first()}:53") { protect(it) }
+    }
+
+    /** If the core stops on its own while the VPN is meant to be up, start it again. */
+    private fun watchCore() {
+        watchdog?.cancel()
+        watchdog = scope.launch {
+            while (true) {
+                delay(10_000)
+                if (tun == null) return@launch
+                if (runCatching { XrayCore.isRunning() }.getOrDefault(true)) continue
+                Log.w(TAG, "Xray stopped on its own, reconnecting")
+                lock.withLock { stopCore() }
+                connect()
+                return@launch
+            }
         }
     }
 
     private suspend fun disconnect() = lock.withLock {
+        watchdog?.cancel()
         stopCore()
         VpnStatus.set(VpnState.Disconnected)
         stopSelfCompletely()
     }
 
-    private fun establish(profile: VlessProfile): ParcelFileDescriptor {
+    /** Xray reads geoip.dat and geosite.dat from a directory, so copy them out of the APK. */
+    private fun installGeoData(): String {
+        val dir = java.io.File(filesDir, "geodata").apply { mkdirs() }
+        for (name in listOf("geoip.dat", "geosite.dat")) {
+            assets.open(name).use { input -> java.io.File(dir, name).outputStream().use { input.copyTo(it) } }
+        }
+        return dir.path
+    }
+
+    private fun establish(profile: VlessProfile, bypassApps: Set<String>): ParcelFileDescriptor {
         val builder = Builder()
             .setSession(profile.name)
             .setMtu(XrayConfig.TUN_MTU)
@@ -101,6 +146,14 @@ class TechTeamVpnService : VpnService() {
         XrayConfig.DNS_SERVERS.forEach { builder.addDnsServer(it) }
         // Our own sockets (Xray's outbound connections) must bypass the tunnel.
         builder.addDisallowedApplication(packageName)
+        // Apps chosen in split tunneling never see the tunnel: their default network stays the
+        // phone's own, so they connect from the real address. Uninstalled ones are skipped.
+        for (app in bypassApps - packageName) {
+            try {
+                builder.addDisallowedApplication(app)
+            } catch (_: android.content.pm.PackageManager.NameNotFoundException) {
+            }
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) builder.setMetered(false)
         return builder.establish() ?: throw IllegalStateException(getString(R.string.error_vpn_permission))
     }
@@ -165,6 +218,7 @@ class TechTeamVpnService : VpnService() {
         private const val TAG = "TechTeamVPN"
         private const val CHANNEL_ID = "vpn"
         private const val NOTIFICATION_ID = 1
+        private const val CONNECT_ATTEMPTS = 3
         const val LOG_FILE = "xray.log"
         const val ACTION_CONNECT = "com.techteam.vpn.CONNECT"
         const val ACTION_DISCONNECT = "com.techteam.vpn.DISCONNECT"
