@@ -6,7 +6,10 @@ import org.json.JSONObject
 /** Builds the Xray-core JSON that libXray runs inside the VPN service. */
 object XrayConfig {
     const val TUN_MTU = 1500
+    /** What the system resolver is pointed at; Xray hijacks these queries. */
     val DNS_SERVERS = listOf("1.1.1.1", "8.8.8.8")
+    /** Upstreams Xray resolves through the proxy. DoH rides a TCP stream, so DNS does not depend on UDP via the server. */
+    val UPSTREAM_DNS = listOf("https://1.1.1.1/dns-query", "https://8.8.8.8/dns-query")
 
     private val PRIVATE_CIDRS = listOf(
         "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8", "169.254.0.0/16",
@@ -31,7 +34,7 @@ object XrayConfig {
         root.put(
             "dns",
             JSONObject()
-                .put("servers", JSONArray(DNS_SERVERS))
+                .put("servers", JSONArray(UPSTREAM_DNS))
                 .put("queryStrategy", "UseIPv4"),
         )
         root.put(

@@ -3,7 +3,10 @@ import Foundation
 /// Builds the Xray-core JSON that libXray runs inside the packet tunnel.
 enum XrayConfig {
     static let tunMTU = 1500
+    /// What the system resolver is pointed at; Xray hijacks these queries.
     static let dnsServers = ["1.1.1.1", "8.8.8.8"]
+    /// Upstreams Xray resolves through the proxy. DoH rides a TCP stream, so DNS does not depend on UDP via the server.
+    static let upstreamDNS = ["https://1.1.1.1/dns-query", "https://8.8.8.8/dns-query"]
 
     private static let privateCIDRs = [
         "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8", "169.254.0.0/16",
@@ -16,7 +19,7 @@ enum XrayConfig {
     static func build(_ profile: VlessProfile, tunFd: Int32?, logPath: String? = nil) throws -> String {
         var root: [String: Any] = [
             "log": logPath.map { ["loglevel": "info", "access": "none", "error": $0] } ?? ["loglevel": "warning"],
-            "dns": ["servers": dnsServers, "queryStrategy": "UseIPv4"],
+            "dns": ["servers": upstreamDNS, "queryStrategy": "UseIPv4"],
             "inbounds": [[
                 "tag": "tun-in",
                 "protocol": "tun",

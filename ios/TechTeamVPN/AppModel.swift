@@ -140,8 +140,10 @@ final class AppModel: ObservableObject {
 
         // 1. The server answers on its port, checked outside the tunnel.
         set(.server, .running)
-        let ms = await Self.tcpPing(host: profile.address, port: profile.port)
-        set(.server, ms >= 0 ? .ok("\(profile.address):\(profile.port) · \(ms) мс") : .failed("не отвечает \(profile.address):\(profile.port)"))
+        switch await Self.tcpProbe(host: profile.address, port: profile.port) {
+        case .success(let ms): set(.server, .ok("\(profile.address):\(profile.port) · \(ms) мс"))
+        case .failure(let e): set(.server, .failed("\(profile.address):\(profile.port) — \(e.message)"))
+        }
 
         // 2. The tunnel is up.
         set(.vpn, .running)
@@ -268,30 +270,57 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// TCP connect time to the server. Bound to the physical network: through the tunnel the local
-    /// TUN stack would accept every connection instantly and the number would mean nothing.
+    /// TCP connect time to the server in ms, or -1. See `tcpProbe` for the reason of a failure.
     private nonisolated static func tcpPing(host: String, port: Int) async -> Int {
-        guard let nwPort = NWEndpoint.Port(rawValue: UInt16(port)) else { return -1 }
+        if case .success(let ms) = await tcpProbe(host: host, port: port) { return ms }
+        return -1
+    }
+
+    /// Connects straight to the server over Wi-Fi or cellular. Through the tunnel the local TUN stack
+    /// would accept every connection instantly, so the result would mean nothing.
+    private nonisolated static func tcpProbe(host: String, port: Int) async -> Result<Int, ProbeError> {
+        guard let nwPort = NWEndpoint.Port(rawValue: UInt16(port)) else { return .failure(ProbeError(message: "неверный порт")) }
         let parameters = NWParameters.tcp
-        parameters.prohibitedInterfaceTypes = [.other]
+        if let physical = await physicalInterface() { parameters.requiredInterface = physical }
         let connection = NWConnection(host: NWEndpoint.Host(host), port: nwPort, using: parameters)
         let start = Date()
         return await withCheckedContinuation { continuation in
             let once = OnceFlag()
-            let finish: (Int) -> Void = { value in
+            let finish: (Result<Int, ProbeError>) -> Void = { value in
                 guard once.set() else { return }
                 connection.cancel()
                 continuation.resume(returning: value)
             }
             connection.stateUpdateHandler = { state in
                 switch state {
-                case .ready: finish(Int(Date().timeIntervalSince(start) * 1000))
-                case .failed, .cancelled: finish(-1)
+                case .ready: finish(.success(Int(Date().timeIntervalSince(start) * 1000)))
+                case .failed(let error): finish(.failure(ProbeError(message: error.localizedDescription)))
+                case .waiting(let error):
+                    // Waiting means no route yet; give it the full timeout but remember why.
+                    DispatchQueue.global().asyncAfter(deadline: .now() + 5) {
+                        finish(.failure(ProbeError(message: error.localizedDescription)))
+                    }
                 default: break
                 }
             }
             connection.start(queue: .global())
-            DispatchQueue.global().asyncAfter(deadline: .now() + 3) { finish(-1) }
+            DispatchQueue.global().asyncAfter(deadline: .now() + 6) { finish(.failure(ProbeError(message: "таймаут 6 с"))) }
+        }
+    }
+
+    /// The Wi-Fi or cellular interface currently in use, skipping the VPN's utun.
+    private nonisolated static func physicalInterface() async -> NWInterface? {
+        await withCheckedContinuation { continuation in
+            let monitor = NWPathMonitor()
+            let once = OnceFlag()
+            monitor.pathUpdateHandler = { path in
+                guard once.set() else { return }
+                monitor.cancel()
+                let preferred: [NWInterface.InterfaceType] = [.wifi, .cellular, .wiredEthernet]
+                let found = preferred.lazy.compactMap { type in path.availableInterfaces.first { $0.type == type } }.first
+                continuation.resume(returning: found)
+            }
+            monitor.start(queue: .global())
         }
     }
 }
