@@ -35,6 +35,7 @@
     <string name="no_servers">Серверов пока нет. Добавьте ключ или подписку.</string>
 
     <string name="msg_added">Добавлено серверов: %1$d</string>
+    <string name="msg_clipboard_empty">В буфере обмена нет ссылки. Скопируйте подписку в боте и откройте ссылку ещё раз.</string>
     <string name="msg_invalid_key">Не удалось распознать ключ</string>
     <string name="msg_subscription_updated">Подписка обновлена</string>
     <string name="msg_subscription_error">Ошибка подписки: %1$s</string>

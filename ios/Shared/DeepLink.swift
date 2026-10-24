@@ -3,8 +3,14 @@ import Foundation
 /// techteamvpn:// links that a Telegram bot opens (through the redirect page in server/link-page):
 ///   techteamvpn://add?url=<url-encoded subscription or vless:// key>
 ///   techteamvpn://add/<subscription or key>
+///   techteamvpn://add  — no link: take it from the clipboard (the bot's "copy, then open" flow)
 enum DeepLink {
     static let scheme = "techteamvpn"
+
+    /// True for techteamvpn://add without a link: the subscription is waiting in the clipboard.
+    static func wantsClipboard(_ link: String) -> Bool {
+        link.trimmingCharacters(in: .whitespacesAndNewlines).lowercased().hasPrefix("\(scheme)://add") && unwrap(link).isEmpty
+    }
 
     /// What to import from `link`, or `link` itself when it is not one of our links.
     static func unwrap(_ link: String) -> String {

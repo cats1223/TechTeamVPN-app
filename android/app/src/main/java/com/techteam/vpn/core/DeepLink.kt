@@ -6,9 +6,14 @@ import java.net.URLDecoder
  * techteamvpn:// links that a Telegram bot opens (through the redirect page in server/link-page):
  *   techteamvpn://add?url=<url-encoded subscription or vless:// key>
  *   techteamvpn://add/<subscription or key>
+ *   techteamvpn://add  — no link: take it from the clipboard (the bot's "copy, then open" flow)
  */
 object DeepLink {
     const val SCHEME = "techteamvpn"
+
+    /** True for techteamvpn://add without a link: the subscription is waiting in the clipboard. */
+    fun wantsClipboard(link: String): Boolean =
+        link.trim().startsWith("$SCHEME://add", ignoreCase = true) && unwrap(link).isEmpty()
 
     /** What to import from [link], or [link] itself when it is not one of our links. */
     fun unwrap(link: String): String {

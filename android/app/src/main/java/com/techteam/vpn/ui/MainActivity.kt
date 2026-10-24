@@ -1,6 +1,7 @@
 package com.techteam.vpn.ui
 
 import android.Manifest
+import android.content.ClipboardManager
 import android.content.Intent
 import android.net.VpnService
 import android.os.Build
@@ -38,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import com.techteam.vpn.R
+import com.techteam.vpn.core.DeepLink
 import com.techteam.vpn.data.AppSettings
 import com.techteam.vpn.data.ProfileRepository
 import com.techteam.vpn.vpn.VpnState
@@ -63,7 +65,7 @@ class MainActivity : ComponentActivity() {
             notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
         // Links shared from a browser or messenger land here.
-        if (savedInstanceState == null) intent?.dataString?.let(vm::addInput)
+        if (savedInstanceState == null) intent?.dataString?.let(::handleLink)
 
         val settings = AppSettings.get(this)
         setContent {
@@ -171,7 +173,32 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        intent.dataString?.let(vm::addInput)
+        intent.dataString?.let(::handleLink)
+    }
+
+    /** Set by techteamvpn://add without a link: the subscription is in the clipboard. */
+    private var importFromClipboard = false
+
+    private fun handleLink(link: String) {
+        if (DeepLink.wantsClipboard(link)) {
+            importFromClipboard = true
+            if (hasWindowFocus()) onWindowFocusChanged(true)
+        } else {
+            vm.addInput(link)
+        }
+    }
+
+    // Android 10+ only lets the focused app read the clipboard, so wait for focus.
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (!hasFocus || !importFromClipboard) return
+        importFromClipboard = false
+        val clip = getSystemService(ClipboardManager::class.java).primaryClip?.getItemAt(0)?.coerceToText(this)?.toString()
+        if (clip.isNullOrBlank()) {
+            Toast.makeText(this, R.string.msg_clipboard_empty, Toast.LENGTH_LONG).show()
+        } else {
+            vm.addInput(clip)
+        }
     }
 
     private fun toggle() {

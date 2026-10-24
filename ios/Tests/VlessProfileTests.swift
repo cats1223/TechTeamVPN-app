@@ -99,5 +99,9 @@ final class VlessProfileTests: XCTestCase {
         XCTAssertEqual(DeepLink.unwrap("techteamvpn://add/https%3A%2F%2F176.0.0.1%3A50070%2Fabc%2Fdef"), sub)
         XCTAssertEqual(DeepLink.unwrap("vless://id@h:1"), "vless://id@h:1")
         XCTAssertEqual(DeepLink.unwrap("techteamvpn://add"), "")
+        XCTAssertTrue(DeepLink.wantsClipboard("techteamvpn://add"))
+        XCTAssertTrue(DeepLink.wantsClipboard("techteamvpn://add/"))
+        XCTAssertFalse(DeepLink.wantsClipboard("techteamvpn://add?url=https%3A%2F%2Fa.b%2Fc"))
+        XCTAssertFalse(DeepLink.wantsClipboard("vless://id@h:1"))
     }
 }

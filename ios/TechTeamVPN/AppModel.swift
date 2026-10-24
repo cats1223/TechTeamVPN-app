@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import Network
 
 @MainActor
@@ -51,6 +52,15 @@ final class AppModel: ObservableObject {
 
     /// Accepts a vless:// key, several keys, or a subscription URL.
     func addInput(_ text: String) async {
+        if DeepLink.wantsClipboard(text) {
+            // Opened by the bot's "copy the link, then open" page: iOS asks once to allow the paste.
+            guard let pasted = UIPasteboard.general.string, !pasted.isEmpty else {
+                message = "В буфере обмена нет ссылки. Скопируйте подписку в боте и откройте ссылку ещё раз."
+                return
+            }
+            await addInput(pasted)
+            return
+        }
         let input = DeepLink.unwrap(text)
         let lower = input.lowercased()
         if lower.hasPrefix("https://") || lower.hasPrefix("http://") {

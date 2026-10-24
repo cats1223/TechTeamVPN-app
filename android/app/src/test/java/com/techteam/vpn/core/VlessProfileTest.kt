@@ -131,5 +131,9 @@ class VlessProfileTest {
         assertEquals(sub, DeepLink.unwrap("techteamvpn://add/https%3A%2F%2F176.0.0.1%3A50070%2Fabc%2Fdef"))
         assertEquals("vless://id@h:1", DeepLink.unwrap("vless://id@h:1"))
         assertEquals("", DeepLink.unwrap("techteamvpn://add"))
+        assertTrue(DeepLink.wantsClipboard("techteamvpn://add"))
+        assertTrue(DeepLink.wantsClipboard("techteamvpn://add/"))
+        assertFalse(DeepLink.wantsClipboard("techteamvpn://add?url=https%3A%2F%2Fa.b%2Fc"))
+        assertFalse(DeepLink.wantsClipboard("vless://id@h:1"))
     }
 }
