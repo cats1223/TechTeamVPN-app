@@ -90,8 +90,13 @@ final class AppModel: ObservableObject {
         if !force {
             let key = "clipboardOfferedChange"
             guard state.profiles.isEmpty, UserDefaults.standard.integer(forKey: key) != board.changeCount else { return }
-            let patterns = try? await board.detectPatterns(for: [\UIPasteboard.DetectedValues.probableWebURL])
-            guard board.hasURLs || patterns?.isEmpty == false else { return }
+            // Checks for a link without reading the text, so iOS shows no paste prompt here.
+            let found = await withCheckedContinuation { (done: CheckedContinuation<Bool, Never>) in
+                board.detectPatterns(for: [\UIPasteboard.DetectedValues.probableWebURL]) { result in
+                    done.resume(returning: (try? result.get())?.isEmpty == false)
+                }
+            }
+            guard board.hasURLs || found else { return }
             UserDefaults.standard.set(board.changeCount, forKey: key)
         }
         clipboardOffer = true
