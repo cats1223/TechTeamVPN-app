@@ -70,7 +70,14 @@ final class AppModel: ObservableObject {
     /// Looks up the address sites see. With the VPN off that is the phone's real location; while
     /// connected the request goes through the tunnel and shows the server's.
     func refreshLocation(connected: Bool) async {
-        let location = await GeoIP.lookup()
+        // Right after the tunnel comes up the first request can fail, so try a few times.
+        var location: GeoIP.Location?
+        for attempt in 0..<4 {
+            if attempt > 0 { try? await Task.sleep(nanoseconds: 2_000_000_000) }
+            guard connected == (vpn.status == .connected) else { return }
+            location = await GeoIP.lookup()
+            if location != nil { break }
+        }
         // The status may have changed while the request was out; a stale answer would put the pin in the wrong place.
         guard connected == (vpn.status == .connected) else { return }
         visibleLocation = location

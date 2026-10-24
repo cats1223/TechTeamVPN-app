@@ -81,8 +81,7 @@ struct HomeView: View {
         }
         .padding(.horizontal, 16)
         .padding(.bottom, 12)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 32, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 32, style: .continuous).stroke(.white.opacity(0.15)))
+        .liquidGlass(in: RoundedRectangle(cornerRadius: 32, style: .continuous))
         .padding(.horizontal, 10)
         .gesture(
             DragGesture(minimumDistance: 20).onEnded { value in
@@ -159,10 +158,9 @@ struct HomeView: View {
             Text(title)
                 .font(.headline)
                 .frame(maxWidth: .infinity, minHeight: 54)
-                .background(color.gradient, in: Capsule())
                 .foregroundStyle(.white)
         }
-        .buttonStyle(.plain)
+        .glassProminentButton(color)
         .disabled(vpn.status == .disconnecting)
     }
 
@@ -182,8 +180,7 @@ struct HomeView: View {
                             }
                             .padding(.horizontal, 16)
                             .frame(height: 46)
-                            .background(selected ? Brand.cyan.opacity(0.25) : .white.opacity(0.06), in: Capsule())
-                            .overlay(Capsule().stroke(selected ? Brand.cyan : .white.opacity(0.15)))
+                            .liquidGlass(in: Capsule(), tint: selected ? Brand.cyan.opacity(0.35) : nil, interactive: true)
                             .foregroundStyle(selected ? Brand.cyan : .primary)
                         }
                         .buttonStyle(.plain)
@@ -277,7 +274,7 @@ private struct StatusPill: View {
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
-        .background(.black.opacity(0.75), in: Capsule())
+        .liquidGlass(in: Capsule(), tint: .black.opacity(0.35))
     }
 
     private var text: String {

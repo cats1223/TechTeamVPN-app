@@ -43,7 +43,8 @@ jobs:
           path: android/app/build/outputs/apk/debug/*.apk
 
   ios:
-    runs-on: macos-15
+    # Xcode 26 (the default on macOS 26) builds with the iOS 26 SDK, which gives the app Liquid Glass.
+    runs-on: macos-26
     env:
       # Optional signing secrets; without them only the unsigned IPA is built.
       IOS_P12_BASE64: ${{ secrets.IOS_P12_BASE64 }}
@@ -89,8 +90,11 @@ jobs:
       - name: Unit tests
         working-directory: ios
         run: |
+          # Simulator names change with each Xcode, so take the first available iPhone.
+          DEVICE=$(xcrun simctl list devices available | grep -m1 -oE 'iPhone [^(]+' | sed 's/ *$//')
+          echo "Testing on $DEVICE"
           xcodebuild test -project TechTeamVPN.xcodeproj -scheme TechTeamVPN \
-            -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO
+            -destination "platform=iOS Simulator,name=$DEVICE" CODE_SIGNING_ALLOWED=NO
 
   release:
     if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.version != '')

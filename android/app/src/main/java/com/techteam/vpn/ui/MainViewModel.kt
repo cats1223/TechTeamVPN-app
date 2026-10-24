@@ -77,8 +77,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     private suspend fun refreshLocation(connected: Boolean) {
-        val location = withContext(Dispatchers.IO) { GeoIP.lookup() }
-        // The VPN may have changed state while the request was out; a stale answer would misplace the pin.
+        // Right after the tunnel comes up the first request can fail, so try a few times.
+        var location: GeoIP.Location? = null
+        for (attempt in 0 until 4) {
+            if (attempt > 0) kotlinx.coroutines.delay(2000)
+            // The VPN may have changed state meanwhile; a stale answer would misplace the pin.
+            if (connected != (vpn.value is VpnState.Connected)) return
+            location = withContext(Dispatchers.IO) { GeoIP.lookup() }
+            if (location != null) break
+        }
         if (connected != (vpn.value is VpnState.Connected)) return
         _visibleLocation.value = location
         if (!connected && location != null) _homeLocation.value = location

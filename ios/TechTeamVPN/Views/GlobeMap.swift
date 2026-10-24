@@ -50,7 +50,9 @@ struct GlobeMap: UIViewRepresentable {
         let target = (connected ? server ?? home : home ?? server)?.coordinate
         if let target, c.target.map({ $0.latitude != target.latitude || $0.longitude != target.longitude }) ?? true {
             c.target = target
-            let camera = MKMapCamera(lookingAtCenter: target, fromDistance: Self.distance, pitch: 0, heading: 0)
+            // Look a little south of the point, so it sits in the upper half above the panel.
+            let center = CLLocationCoordinate2D(latitude: max(-80, target.latitude - 14), longitude: target.longitude)
+            let camera = MKMapCamera(lookingAtCenter: center, fromDistance: Self.distance, pitch: 0, heading: 0)
             map.setCamera(camera, animated: true)
         }
     }
