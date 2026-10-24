@@ -7,6 +7,11 @@ on:
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Опубликовать релиз с этим тегом, например v1.0.0 (пусто — только сборка)"
+        required: false
+        default: ""
 
 jobs:
   android:
@@ -77,7 +82,10 @@ jobs:
             -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.version != '')
+    env:
+      # A tag push names the release by the tag; a manual run creates the tag on the built commit.
+      TAG: ${{ inputs.version || github.ref_name }}
     needs: [android, ios]
     runs-on: ubuntu-latest
     permissions:
@@ -93,18 +101,20 @@ jobs:
           path: ios
       - name: Name the files
         run: |
-          cp android/app-universal-debug.apk "TechTeamVPN-${GITHUB_REF_NAME}.apk"
-          cp ios/TechTeamVPN-unsigned.ipa "TechTeamVPN-${GITHUB_REF_NAME}-unsigned.ipa"
+          cp android/app-universal-debug.apk "TechTeamVPN-${TAG}.apk"
+          cp ios/TechTeamVPN-unsigned.ipa "TechTeamVPN-${TAG}-unsigned.ipa"
       - uses: softprops/action-gh-release@v2
         with:
-          name: TechTeamVPN ${{ github.ref_name }}
+          tag_name: ${{ env.TAG }}
+          target_commitish: ${{ github.sha }}
+          name: TechTeamVPN ${{ env.TAG }}
           files: |
-            TechTeamVPN-${{ github.ref_name }}.apk
-            TechTeamVPN-${{ github.ref_name }}-unsigned.ipa
+            TechTeamVPN-${{ env.TAG }}.apk
+            TechTeamVPN-${{ env.TAG }}-unsigned.ipa
           body: |
             Первая версия TechTeamVPN — клиент VLESS + REALITY + XHTTP на ядре Xray.
 
-            - **Android:** `TechTeamVPN-${{ github.ref_name }}.apk` — установите файл на телефон (Android 8+).
-            - **iOS:** `TechTeamVPN-${{ github.ref_name }}-unsigned.ipa` — неподписанный, подпишите своим сертификатом (нужны Network Extensions → Packet Tunnel).
+            - **Android:** `TechTeamVPN-${{ env.TAG }}.apk` — установите файл на телефон (Android 8+).
+            - **iOS:** `TechTeamVPN-${{ env.TAG }}-unsigned.ipa` — неподписанный, подпишите своим сертификатом (нужны Network Extensions → Packet Tunnel).
 
             Ключ добавляется ссылкой подписки, ключом `vless://` или QR-кодом.
