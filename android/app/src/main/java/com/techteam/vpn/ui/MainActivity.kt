@@ -3,6 +3,7 @@ package com.techteam.vpn.ui
 import android.Manifest
 import android.content.ClipboardManager
 import android.content.Intent
+import android.net.Uri
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
@@ -41,6 +42,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.journeyapps.barcodescanner.ScanContract
 import kotlinx.coroutines.flow.MutableStateFlow
 import com.journeyapps.barcodescanner.ScanOptions
+import com.techteam.vpn.BuildConfig
 import com.techteam.vpn.R
 import com.techteam.vpn.core.DeepLink
 import com.techteam.vpn.data.AppSettings
@@ -74,6 +76,8 @@ class MainActivity : ComponentActivity() {
         setContent {
             val lightTheme by settings.lightTheme.collectAsStateWithLifecycle()
             val devMode by settings.devMode.collectAsStateWithLifecycle()
+            val russiaDirect by settings.russiaDirect.collectAsStateWithLifecycle()
+            val bypassApps by settings.bypassApps.collectAsStateWithLifecycle()
             TechTeamTheme(light = lightTheme) {
                 val profiles by vm.profiles.collectAsStateWithLifecycle()
                 val vpn by vm.vpn.collectAsStateWithLifecycle()
@@ -131,7 +135,20 @@ class MainActivity : ComponentActivity() {
                                 devMode = devMode,
                                 hwid = ProfileRepository.get(this@MainActivity).hwid,
                                 selected = profiles.selected,
+                                russiaDirect = russiaDirect,
+                                bypassApps = bypassApps,
                                 onTheme = settings::setLightTheme,
+                                onRussiaDirect = {
+                                    settings.setRussiaDirect(it)
+                                    vm.reconnectIfActive()
+                                },
+                                onBypassApps = {
+                                    if (it != bypassApps) {
+                                        settings.setBypassApps(it)
+                                        vm.reconnectIfActive()
+                                    }
+                                },
+                                onCheckUpdate = { vm.checkForUpdate(manual = true) },
                                 onUnlock = settings::unlockDevMode,
                                 onDisableDevMode = { settings.setDevMode(false) },
                             )
@@ -164,6 +181,23 @@ class MainActivity : ComponentActivity() {
                         dismissButton = {
                             TextButton(onClick = { clipboardOffer.value = null }) { Text(stringResource(R.string.cancel)) }
                         },
+                    )
+                }
+
+                val update by vm.update.collectAsStateWithLifecycle()
+                update?.let { release ->
+                    AlertDialog(
+                        onDismissRequest = vm::dismissUpdate,
+                        title = { Text(stringResource(R.string.update_title)) },
+                        text = { Text(stringResource(R.string.update_text, release.version, BuildConfig.VERSION_NAME)) },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                vm.dismissUpdate()
+                                // The APK link downloads the file in the browser; the system then offers to install it.
+                                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(release.downloadUrl)))
+                            }) { Text(stringResource(R.string.update_download)) }
+                        },
+                        dismissButton = { TextButton(onClick = vm::dismissUpdate) { Text(stringResource(R.string.update_later)) } },
                     )
                 }
 

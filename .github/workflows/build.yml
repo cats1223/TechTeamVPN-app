@@ -13,6 +13,10 @@ on:
         required: false
         default: ""
 
+env:
+  # The tag being released, if any; the apps get its number (v1.2.0 -> 1.2.0) as their version.
+  RELEASE_TAG: ${{ inputs.version || (startsWith(github.ref, 'refs/tags/v') && github.ref_name || '') }}
+
 jobs:
   android:
     runs-on: ubuntu-latest
@@ -25,6 +29,9 @@ jobs:
         with:
           distribution: temurin
           java-version: "17"
+      - name: Version from the release tag
+        if: env.RELEASE_TAG != ''
+        run: echo "APP_VERSION=${RELEASE_TAG#v}" >> "$GITHUB_ENV"
       - name: Build libXray.aar
         run: ANDROID_NDK_HOME="$ANDROID_NDK_LATEST_HOME" scripts/build-libxray.sh android
       - name: Unit tests and APK
@@ -48,6 +55,9 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.25"
+      - name: Version from the release tag
+        if: env.RELEASE_TAG != ''
+        run: echo "APP_VERSION=${RELEASE_TAG#v}" >> "$GITHUB_ENV"
       - name: Build LibXray.xcframework
         run: scripts/build-libxray.sh ios
       - name: Generate Xcode project
@@ -58,7 +68,8 @@ jobs:
         run: |
           xcodebuild archive -project TechTeamVPN.xcodeproj -scheme TechTeamVPN \
             -destination 'generic/platform=iOS' -archivePath build/TechTeamVPN.xcarchive \
-            CODE_SIGNING_ALLOWED=NO CURRENT_PROJECT_VERSION=${{ github.run_number }}
+            CODE_SIGNING_ALLOWED=NO CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            ${APP_VERSION:+MARKETING_VERSION=$APP_VERSION}
           mkdir -p build/Payload
           cp -R build/TechTeamVPN.xcarchive/Products/Applications/TechTeamVPN.app build/Payload/
           (cd build && zip -qry TechTeamVPN-unsigned.ipa Payload)
@@ -112,7 +123,7 @@ jobs:
             TechTeamVPN-${{ env.TAG }}.apk
             TechTeamVPN-${{ env.TAG }}-unsigned.ipa
           body: |
-            Первая версия TechTeamVPN — клиент VLESS + REALITY + XHTTP на ядре Xray.
+            TechTeamVPN ${{ env.TAG }} — клиент VLESS + REALITY + XHTTP на ядре Xray.
 
             - **Android:** `TechTeamVPN-${{ env.TAG }}.apk` — установите файл на телефон (Android 8+).
             - **iOS:** `TechTeamVPN-${{ env.TAG }}-unsigned.ipa` — неподписанный, подпишите своим сертификатом (нужны Network Extensions → Packet Tunnel).

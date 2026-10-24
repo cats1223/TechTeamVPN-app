@@ -94,6 +94,8 @@ final class VPNManager: ObservableObject {
         proto.providerBundleIdentifier = AppGroup.tunnelBundleId
         proto.serverAddress = serverAddress
         proto.disconnectOnSleep = false
+        // Saved with the configuration, so the tunnel also sees it when iOS restarts it on its own.
+        proto.providerConfiguration = ["russiaDirect": AppSettings.russiaDirect]
         manager.protocolConfiguration = proto
         manager.localizedDescription = "TechTeamVPN"
         manager.isEnabled = true

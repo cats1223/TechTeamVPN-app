@@ -3,8 +3,10 @@ package com.techteam.vpn.ui
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.techteam.vpn.BuildConfig
 import com.techteam.vpn.R
 import com.techteam.vpn.core.DeepLink
+import com.techteam.vpn.core.Updates
 import com.techteam.vpn.data.ProfileRepository
 import com.techteam.vpn.data.ProfilesState
 import com.techteam.vpn.vpn.TechTeamVpnService
@@ -38,9 +40,42 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val _busy = MutableStateFlow(false)
     val busy: StateFlow<Boolean> = _busy.asStateFlow()
 
+    private val _update = MutableStateFlow<Updates.Release?>(null)
+    /** A newer release to offer; null hides the dialog. */
+    val update: StateFlow<Updates.Release?> = _update.asStateFlow()
+
+    private val prefs = app.getSharedPreferences("settings", android.content.Context.MODE_PRIVATE)
+
     init {
         // Pick up server list changes made in the panel since the last launch.
         if (repo.state.value.subscriptionUrl.isNotEmpty()) refreshSubscription(silent = true)
+        checkForUpdate(manual = false)
+    }
+
+    /**
+     * The automatic check runs at most every 12 hours and stays quiet about a version the user
+     * already put off; the button in settings always asks GitHub and reports the result.
+     */
+    fun checkForUpdate(manual: Boolean) = viewModelScope.launch {
+        val now = System.currentTimeMillis()
+        if (!manual && now - prefs.getLong("updateCheckedAt", 0) < 12 * 3600_000L) return@launch
+        val release = try {
+            withContext(Dispatchers.IO) { Updates.fetchLatest() }
+        } catch (e: Exception) {
+            if (manual) toast(str(R.string.update_error, e.message ?: ""))
+            return@launch
+        }
+        prefs.edit().putLong("updateCheckedAt", now).apply()
+        when {
+            !Updates.isNewer(release.version, BuildConfig.VERSION_NAME) -> if (manual) toast(str(R.string.update_none))
+            manual || prefs.getString("updateDismissed", null) != release.version -> _update.value = release
+        }
+    }
+
+    /** "Later": the automatic check does not offer this version again. */
+    fun dismissUpdate() {
+        _update.value?.let { prefs.edit().putString("updateDismissed", it.version).apply() }
+        _update.value = null
     }
 
     fun connect() = TechTeamVpnService.connect(getApplication())
@@ -48,15 +83,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun disconnect() = TechTeamVpnService.disconnect(getApplication())
 
     fun select(id: String) {
-        val wasActive = vpn.value is VpnState.Connected || vpn.value is VpnState.Connecting
         repo.select(id)
-        if (wasActive) {
-            // Reconnect so the new server takes effect.
-            viewModelScope.launch {
-                disconnect()
-                VpnStatus.state.first { it is VpnState.Disconnected || it is VpnState.Error }
-                connect()
-            }
+        reconnectIfActive()
+    }
+
+    /** Restarts a running VPN so a new server or split tunneling setting takes effect. */
+    fun reconnectIfActive() {
+        if (vpn.value !is VpnState.Connected && vpn.value !is VpnState.Connecting) return
+        viewModelScope.launch {
+            disconnect()
+            VpnStatus.state.first { it is VpnState.Disconnected || it is VpnState.Error }
+            connect()
         }
     }
 

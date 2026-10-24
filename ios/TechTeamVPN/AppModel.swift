@@ -12,6 +12,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var internetCheck: InternetCheck = .idle
     /// Shows "add the subscription from the clipboard?"; set by offerClipboard.
     @Published var clipboardOffer = false
+    /// A newer release to offer; nil hides the alert.
+    @Published var update: Updates.Release?
 
     @Published private(set) var diagnostics: [DiagnosticStep] = []
     @Published private(set) var diagnosticsRunning = false
@@ -28,6 +30,39 @@ final class AppModel: ObservableObject {
         if !state.subscriptionURL.isEmpty {
             Task { await refreshSubscription(silent: true) }
         }
+        Task { await checkForUpdate(manual: false) }
+    }
+
+    /// The automatic check runs at most every 12 hours and stays quiet about a version the user
+    /// already put off; the button in settings always asks GitHub and reports the result.
+    func checkForUpdate(manual: Bool) async {
+        let defaults = UserDefaults.standard
+        let now = Date().timeIntervalSince1970
+        if !manual, now - defaults.double(forKey: "updateCheckedAt") < 12 * 3600 { return }
+        let release: Updates.Release
+        do {
+            release = try await Updates.fetchLatest()
+        } catch {
+            if manual { message = "Не удалось проверить обновления: \(error.localizedDescription)" }
+            return
+        }
+        defaults.set(now, forKey: "updateCheckedAt")
+        if !Updates.isNewer(release.version, than: AppSettings.shortVersion) {
+            if manual { message = "У вас последняя версия" }
+        } else if manual || defaults.string(forKey: "updateDismissed") != release.version {
+            update = release
+        }
+    }
+
+    /// "Later": the automatic check does not offer this version again.
+    func dismissUpdate() {
+        if let update { UserDefaults.standard.set(update.version, forKey: "updateDismissed") }
+        update = nil
+    }
+
+    /// Restarts a running tunnel so a changed split tunneling setting takes effect.
+    func applyTunnelSettings() async {
+        if let profile = state.selected { await vpn.reconnect(profile) }
     }
 
     func toggle() async {

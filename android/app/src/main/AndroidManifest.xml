@@ -11,6 +11,14 @@
 
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
+    <!-- The split tunneling screen lists the installed apps that have a launcher icon. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
     <application
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"

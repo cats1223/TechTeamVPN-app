@@ -66,12 +66,16 @@ class TechTeamVpnService : VpnService() {
         }
         VpnStatus.set(VpnState.Connecting(profile.name))
         try {
-            val fd = establish(profile)
+            val settings = AppSettings.get(this)
+            val fd = establish(profile, settings.bypassApps.value)
             tun = fd
             // The detailed Xray log is only kept in developer mode.
             val log = java.io.File(filesDir, LOG_FILE).apply { writeText("") }
-            val logPath = if (AppSettings.get(this).devMode.value) log.path else null
-            XrayCore.start(XrayConfig.build(profile, fd.fd, logPath), "${XrayConfig.DNS_SERVERS.first()}:53") { protect(it) }
+            val logPath = if (settings.devMode.value) log.path else null
+            val russiaDirect = settings.russiaDirect.value
+            val assetDir = if (russiaDirect) installGeoData() else null
+            val config = XrayConfig.build(profile, fd.fd, logPath, russiaDirect, assetDir)
+            XrayCore.start(config, "${XrayConfig.DNS_SERVERS.first()}:53") { protect(it) }
             VpnStatus.set(VpnState.Connected(profile.name, System.currentTimeMillis()))
             updateNotification(getString(R.string.notification_connected, profile.name))
         } catch (e: Exception) {
@@ -88,7 +92,16 @@ class TechTeamVpnService : VpnService() {
         stopSelfCompletely()
     }
 
-    private fun establish(profile: VlessProfile): ParcelFileDescriptor {
+    /** Xray reads geoip.dat and geosite.dat from a directory, so copy them out of the APK. */
+    private fun installGeoData(): String {
+        val dir = java.io.File(filesDir, "geodata").apply { mkdirs() }
+        for (name in listOf("geoip.dat", "geosite.dat")) {
+            assets.open(name).use { input -> java.io.File(dir, name).outputStream().use { input.copyTo(it) } }
+        }
+        return dir.path
+    }
+
+    private fun establish(profile: VlessProfile, bypassApps: Set<String>): ParcelFileDescriptor {
         val builder = Builder()
             .setSession(profile.name)
             .setMtu(XrayConfig.TUN_MTU)
@@ -101,6 +114,14 @@ class TechTeamVpnService : VpnService() {
         XrayConfig.DNS_SERVERS.forEach { builder.addDnsServer(it) }
         // Our own sockets (Xray's outbound connections) must bypass the tunnel.
         builder.addDisallowedApplication(packageName)
+        // Apps chosen in split tunneling never see the tunnel: their default network stays the
+        // phone's own, so they connect from the real address. Uninstalled ones are skipped.
+        for (app in bypassApps - packageName) {
+            try {
+                builder.addDisallowedApplication(app)
+            } catch (_: android.content.pm.PackageManager.NameNotFoundException) {
+            }
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) builder.setMetered(false)
         return builder.establish() ?: throw IllegalStateException(getString(R.string.error_vpn_permission))
     }

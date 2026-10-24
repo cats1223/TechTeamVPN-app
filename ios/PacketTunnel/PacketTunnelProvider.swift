@@ -33,7 +33,14 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             guard let fd = tunnelFileDescriptor else { throw TunnelError.noTunDescriptor }
             appendLog("TechTeamVPN: utun fd \(fd), starting Xray")
             let verbose = options?["verbose"] as? String == "1" || options?["diagnose"] as? String == "1"
-            let config = try XrayConfig.build(profile, tunFd: fd, logPath: verbose ? logURL.path : nil)
+            let providerConfig = (protocolConfiguration as? NETunnelProviderProtocol)?.providerConfiguration
+            let russiaDirect = providerConfig?["russiaDirect"] as? Bool ?? true
+            // geoip.dat and geosite.dat are bundled with the extension (geodata/ in project.yml).
+            let assetDir = Bundle.main.resourceURL?.appendingPathComponent("geodata").path
+            appendLog("TechTeamVPN: russian sites direct \(russiaDirect ? "on" : "off")")
+            let config = try XrayConfig.build(
+                profile, tunFd: fd, logPath: verbose ? logURL.path : nil, russiaDirect: russiaDirect, assetDir: assetDir
+            )
             try XrayCore.run(config)
             appendLog("TechTeamVPN: Xray started, memory \(Self.memoryMB()) MB")
             log.info("Xray started for \(profile.name, privacy: .public)")

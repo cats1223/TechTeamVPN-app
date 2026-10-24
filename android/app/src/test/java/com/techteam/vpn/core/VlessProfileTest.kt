@@ -80,6 +80,23 @@ class VlessProfileTest {
     }
 
     @Test
+    fun russiaDirectRoutesRussianSitesPastTheProxy() {
+        val p = VlessProfile.parse(reality)!!
+        val plain = JSONObject(XrayConfig.build(p, 42))
+        assertFalse(plain.getJSONObject("env").has("xray.location.asset"))
+        assertEquals(2, plain.getJSONObject("routing").getJSONArray("rules").length())
+
+        val config = JSONObject(XrayConfig.build(p, 42, russiaDirect = true, assetDir = "/geo"))
+        assertEquals("/geo", config.getJSONObject("env").getString("xray.location.asset"))
+        val rules = config.getJSONObject("routing").getJSONArray("rules")
+        val direct = (0 until rules.length()).map { rules.getJSONObject(it) }.filter { it.getString("outboundTag") == "direct" }
+        assertTrue(direct.any { it.optJSONArray("ip")?.toString() == "[\"geoip:ru\"]" })
+        assertTrue(direct.any { it.optJSONArray("domain")?.toString()?.contains("domain:ru") == true })
+        val dns = config.getJSONObject("dns").getJSONArray("servers")
+        assertEquals(XrayConfig.RUSSIAN_DNS, dns.getJSONObject(0).getString("address"))
+    }
+
+    @Test
     fun buildsTransports() {
         val ws = XrayConfig.outbound(VlessProfile.parse("vless://id@h:443?type=ws&security=tls&path=%2Fws&host=cdn.example&alpn=h2,http/1.1")!!)
             .getJSONObject("streamSettings")
@@ -135,5 +152,32 @@ class VlessProfileTest {
         assertTrue(DeepLink.wantsClipboard("techteamvpn://add/"))
         assertFalse(DeepLink.wantsClipboard("techteamvpn://add?url=https%3A%2F%2Fa.b%2Fc"))
         assertFalse(DeepLink.wantsClipboard("vless://id@h:1"))
+    }
+
+    @Test
+    fun comparesVersions() {
+        assertTrue(Updates.isNewer("1.1.0", "1.0.1"))
+        assertTrue(Updates.isNewer("v1.10.0", "1.9.2"))
+        assertTrue(Updates.isNewer("1.0.1", "1.0"))
+        assertFalse(Updates.isNewer("1.0.1", "1.0.1"))
+        assertFalse(Updates.isNewer("1.0.0", "1.1.0"))
+    }
+
+    @Test
+    fun parsesLatestRelease() {
+        val json = """{"tag_name":"v1.1.0","html_url":"https://github.com/o/r/releases/tag/v1.1.0","assets":[
+            {"name":"TechTeamVPN-v1.1.0-unsigned.ipa","browser_download_url":"https://x/a.ipa"},
+            {"name":"TechTeamVPN-v1.1.0.apk","browser_download_url":"https://x/a.apk"}]}"""
+        val r = Updates.parse(json)
+        assertEquals("1.1.0", r.version)
+        assertEquals("https://x/a.apk", r.downloadUrl)
+        assertEquals("https://github.com/o/r/releases/tag/v1.1.0", Updates.parse("""{"tag_name":"v1.1.0","html_url":"https://github.com/o/r/releases/tag/v1.1.0"}""").downloadUrl)
+    }
+
+    @Test
+    fun recognizesRussianApps() {
+        assertTrue(RussianApps.isRussian("ru.sberbankmobile"))
+        assertTrue(RussianApps.isRussian("com.idamob.tinkoff.android"))
+        assertFalse(RussianApps.isRussian("org.telegram.messenger"))
     }
 }

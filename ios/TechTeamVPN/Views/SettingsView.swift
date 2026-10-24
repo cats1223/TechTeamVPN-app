@@ -4,6 +4,12 @@ import SwiftUI
 enum AppSettings {
     static let themeKey = "theme"
     static let devModeKey = "devMode"
+    /// Russian sites and IP ranges go past the VPN; on by default.
+    static let russiaDirectKey = "russiaDirect"
+
+    static var russiaDirect: Bool {
+        UserDefaults.standard.object(forKey: russiaDirectKey) as? Bool ?? true
+    }
 
     enum Theme: String, CaseIterable, Identifiable {
         case dark, light
@@ -18,9 +24,12 @@ enum AppSettings {
         SHA256.hash(data: Data(password.utf8)).map { String(format: "%02x", $0) }.joined() == devPasswordHash
     }
 
+    static var shortVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+    }
+
     static var version: String {
-        let info = Bundle.main.infoDictionary
-        return "\(info?["CFBundleShortVersionString"] as? String ?? "?") (\(info?["CFBundleVersion"] as? String ?? "?"))"
+        "\(shortVersion) (\(Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "?"))"
     }
 }
 
@@ -28,6 +37,7 @@ struct SettingsView: View {
     @EnvironmentObject private var model: AppModel
     @AppStorage(AppSettings.themeKey) private var theme = AppSettings.Theme.dark.rawValue
     @AppStorage(AppSettings.devModeKey) private var devMode = false
+    @AppStorage(AppSettings.russiaDirectKey) private var russiaDirect = true
     @State private var versionTaps = 0
     @State private var lastTap = Date.distantPast
     @State private var askPassword = false
@@ -46,6 +56,21 @@ struct SettingsView: View {
                     .listRowBackground(Brand.surface)
                 }
 
+                Section {
+                    Toggle("Российские сайты напрямую", isOn: $russiaDirect)
+                        .tint(Brand.cyan)
+                        .onChange(of: russiaDirect) { _ in
+                            Task { await model.applyTunnelSettings() }
+                        }
+                        .listRowBackground(Brand.surface)
+                } header: {
+                    Text("Раздельное туннелирование")
+                } footer: {
+                    Text("Сайты в зонах .ru, .su, .рф и российские адреса открываются без VPN, с вашего обычного адреса. "
+                        + "Российские приложения ходят на свои серверы тоже напрямую. Выбрать отдельные приложения "
+                        + "на iPhone нельзя: Apple разрешает это только через MDM.")
+                }
+
                 Section("О приложении") {
                     HStack {
                         Text("Версия")
@@ -55,6 +80,8 @@ struct SettingsView: View {
                     .contentShape(Rectangle())
                     .onTapGesture(perform: tapVersion)
                     .listRowBackground(Brand.surface)
+                    Button("Проверить обновления") { Task { await model.checkForUpdate(manual: true) } }
+                        .listRowBackground(Brand.surface)
                 }
 
                 if devMode { developerSection }

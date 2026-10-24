@@ -62,6 +62,22 @@ final class VlessProfileTests: XCTestCase {
         XCTAssertEqual(r["shortId"] as? String, "6ba85179e30d4fc2")
     }
 
+    func testRussiaDirectRoutesRussianSitesPastTheProxy() throws {
+        let p = try XCTUnwrap(VlessProfile.parse(reality))
+        let plain = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(XrayConfig.build(p, tunFd: 42).utf8)) as? [String: Any])
+        XCTAssertNil((plain["env"] as? [String: String])?["xray.location.asset"])
+        XCTAssertEqual((plain["routing"] as? [String: Any]).flatMap { $0["rules"] as? [Any] }?.count, 2)
+
+        let json = try XrayConfig.build(p, tunFd: 42, russiaDirect: true, assetDir: "/geo")
+        let root = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+        XCTAssertEqual((root["env"] as? [String: String])?["xray.location.asset"], "/geo")
+        let rules = try XCTUnwrap((root["routing"] as? [String: Any])?["rules"] as? [[String: Any]])
+        XCTAssertTrue(rules.contains { $0["ip"] as? [String] == ["geoip:ru"] && $0["outboundTag"] as? String == "direct" })
+        XCTAssertTrue(rules.contains { ($0["domain"] as? [String])?.contains("domain:ru") == true && $0["outboundTag"] as? String == "direct" })
+        let dns = try XCTUnwrap((root["dns"] as? [String: Any])?["servers"] as? [Any])
+        XCTAssertEqual((dns.first as? [String: Any])?["address"] as? String, XrayConfig.russianDNS)
+    }
+
     func testBuildsTransports() throws {
         let xhttp = try XCTUnwrap(VlessProfile.parse(
             "vless://id@h:443?type=xhttp&path=%2Fx&mode=auto&extra=%7B%22xPaddingBytes%22%3A%22100-1000%22%7D"
@@ -103,5 +119,21 @@ final class VlessProfileTests: XCTestCase {
         XCTAssertTrue(DeepLink.wantsClipboard("techteamvpn://add/"))
         XCTAssertFalse(DeepLink.wantsClipboard("techteamvpn://add?url=https%3A%2F%2Fa.b%2Fc"))
         XCTAssertFalse(DeepLink.wantsClipboard("vless://id@h:1"))
+    }
+
+    func testComparesVersions() {
+        XCTAssertTrue(Updates.isNewer("1.1.0", than: "1.0.1"))
+        XCTAssertTrue(Updates.isNewer("v1.10.0", than: "1.9.2"))
+        XCTAssertTrue(Updates.isNewer("1.0.1", than: "1.0"))
+        XCTAssertFalse(Updates.isNewer("1.0.1", than: "1.0.1"))
+        XCTAssertFalse(Updates.isNewer("1.0.0", than: "1.1.0"))
+    }
+
+    func testParsesLatestRelease() throws {
+        let json = #"{"tag_name":"v1.1.0","html_url":"https://github.com/o/r/releases/tag/v1.1.0","assets":[]}"#
+        let r = try XCTUnwrap(Updates.parse(Data(json.utf8)))
+        XCTAssertEqual(r.version, "1.1.0")
+        XCTAssertEqual(r.pageURL.absoluteString, "https://github.com/o/r/releases/tag/v1.1.0")
+        XCTAssertNil(Updates.parse(Data("{}".utf8)))
     }
 }

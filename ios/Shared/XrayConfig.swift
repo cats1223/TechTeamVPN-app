@@ -13,13 +13,34 @@ enum XrayConfig {
         "100.64.0.0/10", "fc00::/7", "fe80::/10", "::1/128",
     ]
 
+    /// Russian sites that go past the VPN when split tunneling is on: the category-ru list
+    /// from geodata/geosite.dat and the .ru, .su and .рф zones.
+    static let russianDomains = ["geosite:category-ru", "domain:ru", "domain:su", "domain:xn--p1ai"]
+    /// Resolver for those sites, reached directly (its address is in geoip:ru), so they get
+    /// the addresses a Russian network would.
+    static let russianDNS = "77.88.8.8"
+
     /// - Parameter tunFd: the utun descriptor; Xray reads it from the `xray.tun.fd` env key.
     ///   Pass nil to build a config for validation only.
     /// - Parameter logPath: file for Xray's error log at info level, shown in the app's connection log.
-    static func build(_ profile: VlessProfile, tunFd: Int32?, logPath: String? = nil) throws -> String {
+    /// - Parameter russiaDirect: send Russian sites and IP ranges past the VPN.
+    /// - Parameter assetDir: directory with geoip.dat and geosite.dat, needed for `russiaDirect`.
+    static func build(
+        _ profile: VlessProfile, tunFd: Int32?, logPath: String? = nil, russiaDirect: Bool = false, assetDir: String? = nil
+    ) throws -> String {
+        var dnsServers: [Any] = upstreamDNS
+        var rules: [[String: Any]] = [
+            ["inboundTag": ["tun-in"], "port": "53", "outboundTag": "dns-out"],
+            ["ip": privateCIDRs, "outboundTag": "direct"],
+        ]
+        if russiaDirect {
+            dnsServers.insert(["address": russianDNS, "domains": russianDomains, "skipFallback": true], at: 0)
+            rules.append(["domain": russianDomains, "outboundTag": "direct"])
+            rules.append(["ip": ["geoip:ru"], "outboundTag": "direct"])
+        }
         var root: [String: Any] = [
             "log": logPath.map { ["loglevel": "info", "access": "none", "error": $0] } ?? ["loglevel": "warning"],
-            "dns": ["servers": upstreamDNS, "queryStrategy": "UseIPv4"],
+            "dns": ["servers": dnsServers, "queryStrategy": "UseIPv4"],
             "inbounds": [[
                 "tag": "tun-in",
                 "protocol": "tun",
@@ -32,17 +53,12 @@ enum XrayConfig {
                 ["tag": "block", "protocol": "blackhole"],
                 ["tag": "dns-out", "protocol": "dns"],
             ],
-            "routing": [
-                "domainStrategy": "AsIs",
-                "rules": [
-                    ["inboundTag": ["tun-in"], "port": "53", "outboundTag": "dns-out"],
-                    ["ip": privateCIDRs, "outboundTag": "direct"],
-                ],
-            ],
+            "routing": ["domainStrategy": "AsIs", "rules": rules],
         ]
-        if let tunFd {
-            root["env"] = ["xray.tun.fd": String(tunFd)]
-        }
+        var env: [String: String] = [:]
+        if let tunFd { env["xray.tun.fd"] = String(tunFd) }
+        if russiaDirect, let assetDir { env["xray.location.asset"] = assetDir }
+        if !env.isEmpty { root["env"] = env }
         let data = try JSONSerialization.data(withJSONObject: root, options: [.sortedKeys])
         return String(decoding: data, as: UTF8.self)
     }

@@ -49,6 +49,19 @@ struct RootView: View {
         } message: {
             Text("В буфере обмена есть ссылка. Добавить её как подписку?")
         }
+        .alert(
+            "Доступно обновление",
+            isPresented: Binding(get: { model.update != nil }, set: { if !$0 { model.update = nil } }),
+            presenting: model.update
+        ) { release in
+            Button("Скачать") {
+                model.dismissUpdate()
+                UIApplication.shared.open(release.pageURL)
+            }
+            Button("Позже", role: .cancel) { model.dismissUpdate() }
+        } message: { release in
+            Text("Вышла версия \(release.version), у вас \(AppSettings.shortVersion). Новый IPA — на странице релиза.")
+        }
     }
 }
 
