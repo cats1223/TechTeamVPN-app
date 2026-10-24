@@ -58,18 +58,23 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
                 self?.appendLog("TechTeamVPN: \(second) s, memory \(Self.memoryMB()) MB")
             }
             guard let self else { return }
-            let error = NSError(domain: "TechTeamVPN", code: 1, userInfo: [NSLocalizedDescriptionKey: self.report(limit: 6000)])
+            let error = NSError(domain: "TechTeamVPN", code: 1, userInfo: [NSLocalizedDescriptionKey: self.report(limit: 8000)])
             self.cancelTunnelWithError(error)
         }
     }
 
+    /// Our notes, then Xray's log with the DNS chatter cut down: the lines about the
+    /// connection to the server are what explain a failure, and DNS lines would crowd them out.
     private func report(limit: Int) -> String {
         var text = notes.joined(separator: "\n") + "\n— Xray —\n"
-        if let data = try? Data(contentsOf: logURL) {
-            text += String(String(decoding: data, as: UTF8.self).suffix(limit))
-        } else {
-            text += "файл журнала не читается"
-        }
+        guard let data = try? Data(contentsOf: logURL) else { return text + "файл журнала не читается" }
+        let lines = String(decoding: data, as: UTF8.self).split(separator: "\n")
+        let isDNS: (Substring) -> Bool = { $0.contains("app/dns") || $0.contains("proxy/dns") }
+        let other = lines.filter { !isDNS($0) }
+        let dns = lines.filter(isDNS)
+        text += "строк в журнале: \(lines.count), из них DNS: \(dns.count)\n"
+        text += String(other.joined(separator: "\n").suffix(limit * 3 / 4))
+        text += "\n— последние DNS —\n" + dns.suffix(8).joined(separator: "\n")
         return text
     }
 
