@@ -50,7 +50,7 @@ fun AddSheet(busy: Boolean, onDismiss: () -> Unit, onSubmit: (String) -> Unit, o
             Modifier.fillMaxWidth().padding(horizontal = 20.dp).navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            Text(stringResource(R.string.add_key), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+            Text(stringResource(R.string.add_key), fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Brand.Text)
             Text(stringResource(R.string.add_hint), color = Brand.TextMuted, fontSize = 13.sp)
             OutlinedTextField(
                 value = text,

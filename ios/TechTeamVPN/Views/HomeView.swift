@@ -5,7 +5,6 @@ struct HomeView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var vpn: VPNManager
     @State private var showAdd = false
-    @State private var showLog = false
 
     var body: some View {
         ScrollView {
@@ -53,7 +52,6 @@ struct HomeView: View {
         }
         .background(Brand.background.ignoresSafeArea())
         .sheet(isPresented: $showAdd) { AddView() }
-        .sheet(isPresented: $showLog) { LogView() }
         .onChange(of: vpn.status) { status in
             if status == .connected {
                 Task { await model.checkInternet() }
@@ -93,12 +91,6 @@ struct HomeView: View {
                 .buttonStyle(.plain)
                 .disabled(model.internetCheck == .running)
             }
-            Button("Журнал подключения") { showLog = true }
-                .font(.footnote)
-                .foregroundStyle(Brand.muted)
-            Text("Сборка \(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?")")
-                .font(.caption2)
-                .foregroundStyle(Brand.muted.opacity(0.6))
         }
     }
 

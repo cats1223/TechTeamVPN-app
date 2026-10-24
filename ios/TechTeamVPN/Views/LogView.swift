@@ -14,7 +14,7 @@ struct LogView: View {
                 recordButton.padding(.horizontal, 12).padding(.top, 12)
                 Text(text.isEmpty ? "VPN включён, но модуль VPN не вернул журнал." : text)
                     .font(.system(.caption2, design: .monospaced))
-                    .foregroundStyle(text.isEmpty ? Brand.muted : .white)
+                    .foregroundStyle(text.isEmpty ? Brand.muted : .primary)
                     .textSelection(.enabled)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(12)

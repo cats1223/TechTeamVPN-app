@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Dns
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -37,6 +38,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import com.techteam.vpn.R
+import com.techteam.vpn.data.AppSettings
+import com.techteam.vpn.data.ProfileRepository
 import com.techteam.vpn.vpn.VpnState
 
 class MainActivity : ComponentActivity() {
@@ -62,8 +65,11 @@ class MainActivity : ComponentActivity() {
         // Links shared from a browser or messenger land here.
         if (savedInstanceState == null) intent?.dataString?.let(vm::addInput)
 
+        val settings = AppSettings.get(this)
         setContent {
-            TechTeamTheme {
+            val lightTheme by settings.lightTheme.collectAsStateWithLifecycle()
+            val devMode by settings.devMode.collectAsStateWithLifecycle()
+            TechTeamTheme(light = lightTheme) {
                 val profiles by vm.profiles.collectAsStateWithLifecycle()
                 val vpn by vm.vpn.collectAsStateWithLifecycle()
                 val pings by vm.pings.collectAsStateWithLifecycle()
@@ -98,6 +104,11 @@ class MainActivity : ComponentActivity() {
                                 icon = { Icon(Icons.Rounded.Dns, null) },
                                 label = { Text(stringResource(R.string.tab_servers)) },
                             )
+                            NavigationBarItem(
+                                selected = tab == 2, onClick = { tab = 2 }, colors = colors,
+                                icon = { Icon(Icons.Rounded.Settings, null) },
+                                label = { Text(stringResource(R.string.tab_settings)) },
+                            )
                         }
                     },
                 ) { padding ->
@@ -109,6 +120,15 @@ class MainActivity : ComponentActivity() {
                                 onToggle = ::toggle,
                                 onAdd = { showAdd = true },
                                 onOpenServers = { tab = 1 },
+                            )
+                            2 -> SettingsScreen(
+                                lightTheme = lightTheme,
+                                devMode = devMode,
+                                hwid = ProfileRepository.get(this@MainActivity).hwid,
+                                selected = profiles.selected,
+                                onTheme = settings::setLightTheme,
+                                onUnlock = settings::unlockDevMode,
+                                onDisableDevMode = { settings.setDevMode(false) },
                             )
                             else -> ServersScreen(
                                 state = profiles,

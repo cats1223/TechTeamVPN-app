@@ -62,7 +62,7 @@ private struct DiagnosticRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(step.kind.title)
                     .font(.subheadline.weight(.medium))
-                    .foregroundStyle(step.state == .pending || step.state == .skipped ? Brand.muted : .white)
+                    .foregroundStyle(step.state == .pending || step.state == .skipped ? Brand.muted : .primary)
                 if let detail {
                     Text(detail).font(.caption).foregroundStyle(Brand.muted)
                 }

@@ -82,10 +82,13 @@ class ProfileRepository private constructor(context: Context) {
     }
 
     /** What panels with per-device keys (HWID binding) expect, as Happ and v2RayTun send it. */
-    private fun deviceHeaders(): Map<String, String> {
-        val hwid = prefs.getString("hwid", null) ?: java.util.UUID.randomUUID().toString().also {
+    /** Stable per install, so the panel keeps treating this phone as the same device. */
+    val hwid: String
+        get() = prefs.getString("hwid", null) ?: java.util.UUID.randomUUID().toString().also {
             prefs.edit().putString("hwid", it).apply()
         }
+
+    private fun deviceHeaders(): Map<String, String> {
         return mapOf(
             "x-hwid" to hwid,
             "x-device-os" to "Android",

@@ -5,6 +5,7 @@
 
     <string name="tab_home">Главная</string>
     <string name="tab_servers">Серверы</string>
+    <string name="tab_settings">Настройки</string>
 
     <string name="status_connected">Подключено</string>
     <string name="status_connecting">Подключение…</string>

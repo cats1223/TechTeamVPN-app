@@ -38,6 +38,20 @@ data class VlessProfile(
     /** The original link, kept so the profile can be shared or re-parsed. */
     val link: String = "",
 ) {
+    /** Connection parameters without the uuid and keys, safe to show in the log. */
+    val summary: String
+        get() {
+            // VLESS encryption strings carry a key after the first dot; only the scheme is shown.
+            val enc = encryption.substringBefore('.')
+            val parts = mutableListOf("$address:$port", "type=$network", "security=$security")
+            listOf(
+                "enc" to enc, "sni" to sni, "fp" to fingerprint, "flow" to flow, "mode" to mode, "spx" to spiderX,
+                "path" to path, "host" to host, "sid" to if (shortId.isEmpty()) "" else "set",
+                "pbk" to if (publicKey.isEmpty()) "" else "set", "extra" to if (extra.isEmpty()) "" else "set",
+            ).filter { it.second.isNotEmpty() }.forEach { parts += "${it.first}=${it.second}" }
+            return parts.joinToString(" ")
+        }
+
     companion object {
         /** Returns null for anything that is not a well-formed vless:// link. */
         fun parse(raw: String): VlessProfile? {

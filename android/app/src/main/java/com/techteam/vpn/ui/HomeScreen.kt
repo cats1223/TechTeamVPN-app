@@ -74,7 +74,7 @@ fun HomeScreen(
             stringResource(R.string.app_name),
             fontSize = 26.sp,
             fontWeight = FontWeight.Bold,
-            color = Color.White,
+            color = Brand.Text,
         )
         Text(stringResource(R.string.tagline), color = Brand.TextMuted, fontSize = 14.sp)
         Spacer(Modifier.height(40.dp))
@@ -108,7 +108,7 @@ fun HomeScreen(
                     Column(Modifier.weight(1f)) {
                         Text(stringResource(R.string.current_server), color = Brand.TextMuted, fontSize = 12.sp)
                         Text(
-                            selected.name, color = Color.White, fontWeight = FontWeight.SemiBold,
+                            selected.name, color = Brand.Text, fontWeight = FontWeight.SemiBold,
                             maxLines = 1, overflow = TextOverflow.Ellipsis,
                         )
                     }
@@ -186,7 +186,7 @@ private fun StatusText(vpn: VpnState) {
                     delay(1000)
                 }
             }
-            Text(formatDuration((now - vpn.since) / 1000), color = Color.White, fontSize = 16.sp)
+            Text(formatDuration((now - vpn.since) / 1000), color = Brand.Text, fontSize = 16.sp)
         }
         is VpnState.Error -> Text(vpn.message, color = Brand.TextMuted, fontSize = 13.sp, maxLines = 3)
         else -> Text(stringResource(R.string.status_hint), color = Brand.TextMuted, fontSize = 13.sp)
@@ -199,7 +199,7 @@ private fun SubscriptionCard(info: SubscriptionInfo) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
                 info.title.ifEmpty { stringResource(R.string.subscription) },
-                color = Color.White, fontWeight = FontWeight.SemiBold,
+                color = Brand.Text, fontWeight = FontWeight.SemiBold,
             )
             val used = info.upload + info.download
             if (info.total > 0) {

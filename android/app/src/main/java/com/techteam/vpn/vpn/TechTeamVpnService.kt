@@ -18,6 +18,7 @@ import com.techteam.vpn.R
 import com.techteam.vpn.core.VlessProfile
 import com.techteam.vpn.core.XrayConfig
 import com.techteam.vpn.core.XrayCore
+import com.techteam.vpn.data.AppSettings
 import com.techteam.vpn.data.ProfileRepository
 import com.techteam.vpn.ui.MainActivity
 import kotlinx.coroutines.CoroutineScope
@@ -67,8 +68,10 @@ class TechTeamVpnService : VpnService() {
         try {
             val fd = establish(profile)
             tun = fd
-            val log = java.io.File(filesDir, "xray.log").apply { writeText("") }
-            XrayCore.start(XrayConfig.build(profile, fd.fd, log.path), "${XrayConfig.DNS_SERVERS.first()}:53") { protect(it) }
+            // The detailed Xray log is only kept in developer mode.
+            val log = java.io.File(filesDir, LOG_FILE).apply { writeText("") }
+            val logPath = if (AppSettings.get(this).devMode.value) log.path else null
+            XrayCore.start(XrayConfig.build(profile, fd.fd, logPath), "${XrayConfig.DNS_SERVERS.first()}:53") { protect(it) }
             VpnStatus.set(VpnState.Connected(profile.name, System.currentTimeMillis()))
             updateNotification(getString(R.string.notification_connected, profile.name))
         } catch (e: Exception) {
@@ -162,6 +165,7 @@ class TechTeamVpnService : VpnService() {
         private const val TAG = "TechTeamVPN"
         private const val CHANNEL_ID = "vpn"
         private const val NOTIFICATION_ID = 1
+        const val LOG_FILE = "xray.log"
         const val ACTION_CONNECT = "com.techteam.vpn.CONNECT"
         const val ACTION_DISCONNECT = "com.techteam.vpn.DISCONNECT"
 

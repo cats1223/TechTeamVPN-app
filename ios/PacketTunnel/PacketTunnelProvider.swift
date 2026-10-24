@@ -32,7 +32,8 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             try await setTunnelNetworkSettings(networkSettings(for: profile))
             guard let fd = tunnelFileDescriptor else { throw TunnelError.noTunDescriptor }
             appendLog("TechTeamVPN: utun fd \(fd), starting Xray")
-            let config = try XrayConfig.build(profile, tunFd: fd, logPath: logURL.path)
+            let verbose = options?["verbose"] as? String == "1" || options?["diagnose"] as? String == "1"
+            let config = try XrayConfig.build(profile, tunFd: fd, logPath: verbose ? logURL.path : nil)
             try XrayCore.run(config)
             appendLog("TechTeamVPN: Xray started, memory \(Self.memoryMB()) MB")
             log.info("Xray started for \(profile.name, privacy: .public)")

@@ -381,7 +381,7 @@ enum DeviceInfo {
     }
 
     /// Stable per install, so the panel keeps treating this phone as the same device.
-    private static var hwid: String {
+    static var hwid: String {
         let key = "deviceHWID"
         if let saved = UserDefaults.standard.string(forKey: key) { return saved }
         let fresh = UUID().uuidString.lowercased()

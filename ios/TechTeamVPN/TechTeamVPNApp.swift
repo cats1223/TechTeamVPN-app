@@ -3,13 +3,14 @@ import SwiftUI
 @main
 struct TechTeamVPNApp: App {
     @StateObject private var model = AppModel()
+    @AppStorage(AppSettings.themeKey) private var theme = AppSettings.Theme.dark.rawValue
 
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environmentObject(model)
                 .environmentObject(model.vpn)
-                .preferredColorScheme(.dark)
+                .preferredColorScheme(AppSettings.Theme(rawValue: theme) == .light ? .light : .dark)
                 // Opening a vless:// link imports the key.
                 .onOpenURL { url in
                     Task { await model.addInput(url.absoluteString) }
@@ -27,6 +28,8 @@ struct RootView: View {
                 .tabItem { Label("Главная", systemImage: "shield.lefthalf.filled") }
             ServersView()
                 .tabItem { Label("Серверы", systemImage: "server.rack") }
+            SettingsView()
+                .tabItem { Label("Настройки", systemImage: "gearshape") }
         }
         .tint(Brand.cyan)
         .alert(
@@ -38,17 +41,25 @@ struct RootView: View {
     }
 }
 
+/// Brand palette; every color has a dark and a light variant for the theme setting.
 enum Brand {
-    static let background = Color(red: 0.043, green: 0.063, blue: 0.125)
-    static let surface = Color(red: 0.082, green: 0.106, blue: 0.180)
-    static let surfaceHigh = Color(red: 0.118, green: 0.149, blue: 0.251)
-    static let cyan = Color(red: 0, green: 0.82, blue: 1)
-    static let violet = Color(red: 0.482, green: 0.361, blue: 1)
-    static let green = Color(red: 0.169, green: 0.851, blue: 0.545)
-    static let amber = Color(red: 1, green: 0.71, blue: 0.278)
-    static let red = Color(red: 1, green: 0.361, blue: 0.478)
-    static let muted = Color(red: 0.541, green: 0.576, blue: 0.698)
+    static let background = adaptive(dark: (0.043, 0.063, 0.125), light: (0.957, 0.965, 0.984))
+    static let surface = adaptive(dark: (0.082, 0.106, 0.180), light: (1, 1, 1))
+    static let surfaceHigh = adaptive(dark: (0.118, 0.149, 0.251), light: (0.902, 0.918, 0.953))
+    static let cyan = adaptive(dark: (0, 0.82, 1), light: (0, 0.58, 0.78))
+    static let violet = adaptive(dark: (0.482, 0.361, 1), light: (0.416, 0.294, 1))
+    static let green = adaptive(dark: (0.169, 0.851, 0.545), light: (0.071, 0.659, 0.400))
+    static let amber = adaptive(dark: (1, 0.71, 0.278), light: (0.851, 0.541, 0))
+    static let red = adaptive(dark: (1, 0.361, 0.478), light: (0.878, 0.267, 0.373))
+    static let muted = adaptive(dark: (0.541, 0.576, 0.698), light: (0.420, 0.447, 0.502))
     static let gradient = LinearGradient(colors: [cyan, violet], startPoint: .topLeading, endPoint: .bottomTrailing)
+
+    private static func adaptive(dark: (Double, Double, Double), light: (Double, Double, Double)) -> Color {
+        Color(UIColor { traits in
+            let c = traits.userInterfaceStyle == .light ? light : dark
+            return UIColor(red: c.0, green: c.1, blue: c.2, alpha: 1)
+        })
+    }
 }
 
 struct CardStyle: ViewModifier {

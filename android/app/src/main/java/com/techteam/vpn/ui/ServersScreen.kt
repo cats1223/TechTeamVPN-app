@@ -62,7 +62,7 @@ fun ServersScreen(
         ) {
             Text(
                 stringResource(R.string.tab_servers),
-                fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White,
+                fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Brand.Text,
                 modifier = Modifier.weight(1f),
             )
             if (busy) CircularProgressIndicator(Modifier.size(20.dp), color = Brand.Cyan, strokeWidth = 2.dp)
@@ -119,7 +119,7 @@ private fun ServerRow(
         )
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
-            Text(p.name, color = Color.White, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(p.name, color = Brand.Text, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Spacer(Modifier.height(2.dp))
             Text(
                 "${p.network.uppercase()} · ${p.security.uppercase()}",

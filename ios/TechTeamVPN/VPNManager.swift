@@ -31,6 +31,8 @@ final class VPNManager: ObservableObject {
             let manager = try await preparedManager(serverAddress: profile.address)
             var options: [String: NSObject] = ["link": profile.link as NSString]
             if diagnose { options["diagnose"] = "1" as NSString }
+            // The detailed Xray log is only kept in developer mode.
+            if UserDefaults.standard.bool(forKey: AppSettings.devModeKey) { options["verbose"] = "1" as NSString }
             try manager.connection.startVPNTunnel(options: options)
         } catch {
             lastError = error.localizedDescription

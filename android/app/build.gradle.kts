@@ -12,7 +12,8 @@ android {
         applicationId = "com.techteam.vpn"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
+        // CI stamps the build number, the same one the iOS build shows.
+        versionCode = System.getenv("GITHUB_RUN_NUMBER")?.toIntOrNull() ?: 1
         versionName = "1.0.0"
     }
 
