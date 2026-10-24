@@ -69,7 +69,12 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         var text = notes.joined(separator: "\n") + "\n— Xray —\n"
         guard let data = try? Data(contentsOf: logURL) else { return text + "файл журнала не читается" }
         let lines = String(decoding: data, as: UTF8.self).split(separator: "\n")
-        let isDNS: (Substring) -> Bool = { $0.contains("app/dns") || $0.contains("proxy/dns") }
+        // DNS handling and its per-packet routing lines are the bulk; what is left is the
+        // connection to the server and errors.
+        let isDNS: (Substring) -> Bool = {
+            $0.contains("app/dns") || $0.contains("proxy/dns") || $0.contains("[dns-out]")
+                || ($0.contains("proxy/tun: processing") && $0.contains(":53"))
+        }
         let other = lines.filter { !isDNS($0) }
         let dns = lines.filter(isDNS)
         text += "строк в журнале: \(lines.count), из них DNS: \(dns.count)\n"
