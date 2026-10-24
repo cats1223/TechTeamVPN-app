@@ -24,8 +24,11 @@ enum AppSettings {
         SHA256.hash(data: Data(password.utf8)).map { String(format: "%02x", $0) }.joined() == devPasswordHash
     }
 
+    /// The release version, with the beta suffix when there is one; the update check compares it.
     static var shortVersion: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+        let info = Bundle.main.infoDictionary
+        let display = info?["TTDisplayVersion"] as? String ?? ""
+        return display.isEmpty ? info?["CFBundleShortVersionString"] as? String ?? "?" : display
     }
 
     static var version: String {

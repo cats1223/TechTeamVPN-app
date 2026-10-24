@@ -28,21 +28,9 @@ struct RootView: View {
     @EnvironmentObject private var model: AppModel
 
     var body: some View {
-        TabView {
-            HomeView()
-                .tabItem { Label("Главная", systemImage: "shield.lefthalf.filled") }
-            ServersView()
-                .tabItem { Label("Серверы", systemImage: "server.rack") }
-            SettingsView()
-                .tabItem { Label("Настройки", systemImage: "gearshape") }
-        }
-        .tint(Brand.cyan)
-        .alert(
-            model.message ?? "",
-            isPresented: Binding(get: { model.message != nil }, set: { if !$0 { model.message = nil } })
-        ) {
-            Button("OK", role: .cancel) {}
-        }
+        // Servers and settings open from the panel on the home screen.
+        HomeView()
+            .tint(Brand.cyan)
         .alert("Добавить подписку?", isPresented: $model.clipboardOffer) {
             Button("Добавить") { Task { await model.addFromClipboard() } }
             Button("Отмена", role: .cancel) {}
@@ -63,6 +51,26 @@ struct RootView: View {
             Text("Вышла версия \(release.version), у вас \(AppSettings.shortVersion). Новый IPA — на странице релиза.")
         }
     }
+}
+
+/// Shows `model.message`. A view covered by a sheet cannot present an alert, so the home screen
+/// turns its copy off while a sheet is open and each sheet carries its own.
+struct MessageAlert: ViewModifier {
+    @EnvironmentObject private var model: AppModel
+    var active: Bool
+
+    func body(content: Content) -> some View {
+        content.alert(
+            model.message ?? "",
+            isPresented: Binding(get: { active && model.message != nil }, set: { if !$0 { model.message = nil } })
+        ) {
+            Button("OK", role: .cancel) {}
+        }
+    }
+}
+
+extension View {
+    func messageAlert(active: Bool = true) -> some View { modifier(MessageAlert(active: active)) }
 }
 
 /// Brand palette; every color has a dark and a light variant for the theme setting.

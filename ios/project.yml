@@ -11,6 +11,8 @@ settings:
     SWIFT_VERSION: "5.9"
     # CI passes the release tag (v1.2.0 -> 1.2.0); the update check compares it with the latest release.
     MARKETING_VERSION: "1.1.0"
+    # The full version with a beta suffix (1.2.0-beta.1); CFBundleShortVersionString only takes numbers.
+    APP_DISPLAY_VERSION: $(MARKETING_VERSION)
     CURRENT_PROJECT_VERSION: "1"
     # CI overrides these from the provisioning profiles (scripts/ci/ios-sign.sh).
     APP_BUNDLE_ID: com.techteam.vpn

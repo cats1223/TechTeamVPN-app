@@ -22,7 +22,10 @@ object Updates {
         return Release(o.getString("tag_name").removePrefix("v"), page, apk ?: page)
     }
 
-    /** Compares dotted versions number by number: 1.10.0 is newer than 1.9.2. */
+    /**
+     * Compares dotted versions number by number: 1.10.0 is newer than 1.9.2. A beta
+     * (1.2.0-beta.1) is older than its release, so beta testers are offered 1.2.0.
+     */
     fun isNewer(latest: String, current: String): Boolean {
         val a = numbers(latest)
         val b = numbers(current)
@@ -31,8 +34,10 @@ object Updates {
             val y = b.getOrElse(i) { 0 }
             if (x != y) return x > y
         }
-        return false
+        return isBeta(current) && !isBeta(latest)
     }
+
+    fun isBeta(version: String): Boolean = '-' in version
 
     private fun numbers(version: String): List<Int> =
         version.removePrefix("v").substringBefore('-').split('.').map { it.toIntOrNull() ?: 0 }

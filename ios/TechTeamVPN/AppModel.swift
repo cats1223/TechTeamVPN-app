@@ -15,6 +15,13 @@ final class AppModel: ObservableObject {
     /// A newer release to offer; nil hides the alert.
     @Published var update: Updates.Release?
 
+    /// Where the phone really is, looked up while the VPN is off.
+    @Published private(set) var homeLocation: GeoIP.Location?
+    /// Where sites see the phone now: the home location, or the server's while connected.
+    @Published private(set) var visibleLocation: GeoIP.Location?
+    /// Server address to its location, for the map pin and the server's flag.
+    @Published private(set) var serverLocations: [String: GeoIP.Location] = [:]
+
     @Published private(set) var diagnostics: [DiagnosticStep] = []
     @Published private(set) var diagnosticsRunning = false
 
@@ -58,6 +65,28 @@ final class AppModel: ObservableObject {
     func dismissUpdate() {
         if let update { UserDefaults.standard.set(update.version, forKey: "updateDismissed") }
         update = nil
+    }
+
+    /// Looks up the address sites see. With the VPN off that is the phone's real location; while
+    /// connected the request goes through the tunnel and shows the server's.
+    func refreshLocation(connected: Bool) async {
+        let location = await GeoIP.lookup()
+        // The status may have changed while the request was out; a stale answer would put the pin in the wrong place.
+        guard connected == (vpn.status == .connected) else { return }
+        visibleLocation = location
+        if !connected, let location { homeLocation = location }
+    }
+
+    /// Location of the selected server, looked up once per address.
+    func locateSelectedServer() async {
+        guard let address = state.selected?.address, serverLocations[address] == nil else { return }
+        let ip = Self.isIPAddress(address) ? address : await Self.resolve(address)
+        guard let ip, let location = await GeoIP.lookup(ip) else { return }
+        serverLocations[address] = location
+    }
+
+    var selectedServerLocation: GeoIP.Location? {
+        state.selected.flatMap { serverLocations[$0.address] }
     }
 
     /// Restarts a running tunnel so a changed split tunneling setting takes effect.

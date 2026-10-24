@@ -161,6 +161,19 @@ class VlessProfileTest {
         assertTrue(Updates.isNewer("1.0.1", "1.0"))
         assertFalse(Updates.isNewer("1.0.1", "1.0.1"))
         assertFalse(Updates.isNewer("1.0.0", "1.1.0"))
+        // The latest-release endpoint never returns betas; a beta tester is offered the release.
+        assertTrue(Updates.isNewer("1.2.0", "1.2.0-beta.1"))
+        assertFalse(Updates.isNewer("1.1.0", "1.2.0-beta.1"))
+    }
+
+    @Test
+    fun parsesGeoIp() {
+        val l = GeoIP.parse("""{"ip":"176.124.220.95","success":true,"country":"Netherlands","country_code":"NL","city":"Amsterdam","latitude":52.37,"longitude":4.89}""")!!
+        assertEquals("Amsterdam, Netherlands", l.place)
+        assertEquals(52.37, l.latitude, 1e-9)
+        assertEquals("\uD83C\uDDF3\uD83C\uDDF1", l.flag)
+        assertNull(GeoIP.parse("""{"success":false,"message":"Reserved range"}"""))
+        assertEquals("\uD83C\uDF10", GeoIP.flag(""))
     }
 
     @Test
@@ -179,5 +192,21 @@ class VlessProfileTest {
         assertTrue(RussianApps.isRussian("ru.sberbankmobile"))
         assertTrue(RussianApps.isRussian("com.idamob.tinkoff.android"))
         assertFalse(RussianApps.isRussian("org.telegram.messenger"))
+    }
+
+    @Test
+    fun globeProjectionRoundTrips() {
+        val g = GlobeMath(55.75, 37.62)
+        val center = g.project(55.75, 37.62)!!
+        assertEquals(0.0, center.first, 1e-9)
+        assertEquals(0.0, center.second, 1e-9)
+        val helsinki = g.project(60.17, 24.94)!!
+        val back = g.unproject(helsinki.first, helsinki.second)!!
+        assertEquals(60.17, back.first, 1e-6)
+        assertEquals(24.94, back.second, 1e-6)
+        assertNull(g.project(-55.75, 37.62 - 180))
+        val path = GlobeMath.greatCircle(55.75 to 37.62, 60.17 to 24.94)
+        assertEquals(55.75, path.first().first, 1e-6)
+        assertEquals(24.94, path.last().second, 1e-6)
     }
 }

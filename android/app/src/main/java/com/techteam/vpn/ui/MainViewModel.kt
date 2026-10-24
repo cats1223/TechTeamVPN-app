@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.techteam.vpn.BuildConfig
 import com.techteam.vpn.R
 import com.techteam.vpn.core.DeepLink
+import com.techteam.vpn.core.GeoIP
 import com.techteam.vpn.core.Updates
 import com.techteam.vpn.data.ProfileRepository
 import com.techteam.vpn.data.ProfilesState
@@ -44,12 +45,52 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** A newer release to offer; null hides the dialog. */
     val update: StateFlow<Updates.Release?> = _update.asStateFlow()
 
+    private val _homeLocation = MutableStateFlow<GeoIP.Location?>(null)
+    /** Where the phone really is, looked up while the VPN is off. */
+    val homeLocation: StateFlow<GeoIP.Location?> = _homeLocation.asStateFlow()
+
+    private val _visibleLocation = MutableStateFlow<GeoIP.Location?>(null)
+    /** Where sites see the phone now: the home location, or the server's while connected. */
+    val visibleLocation: StateFlow<GeoIP.Location?> = _visibleLocation.asStateFlow()
+
+    private val _serverLocations = MutableStateFlow<Map<String, GeoIP.Location>>(emptyMap())
+    /** Server address to its location, for the globe pin and the server's flag. */
+    val serverLocations: StateFlow<Map<String, GeoIP.Location>> = _serverLocations.asStateFlow()
+
     private val prefs = app.getSharedPreferences("settings", android.content.Context.MODE_PRIVATE)
 
     init {
         // Pick up server list changes made in the panel since the last launch.
         if (repo.state.value.subscriptionUrl.isNotEmpty()) refreshSubscription(silent = true)
         checkForUpdate(manual = false)
+        viewModelScope.launch {
+            // Look the address up again whenever the VPN settles: the real one when off, the server's when on.
+            VpnStatus.state.collect { state ->
+                when (state) {
+                    is VpnState.Connected -> refreshLocation(connected = true)
+                    is VpnState.Disconnected, is VpnState.Error -> refreshLocation(connected = false)
+                    else -> {}
+                }
+            }
+        }
+        viewModelScope.launch { repo.state.collect { locateSelectedServer() } }
+    }
+
+    private suspend fun refreshLocation(connected: Boolean) {
+        val location = withContext(Dispatchers.IO) { GeoIP.lookup() }
+        // The VPN may have changed state while the request was out; a stale answer would misplace the pin.
+        if (connected != (vpn.value is VpnState.Connected)) return
+        _visibleLocation.value = location
+        if (!connected && location != null) _homeLocation.value = location
+    }
+
+    private suspend fun locateSelectedServer() {
+        val address = repo.state.value.selected?.address ?: return
+        if (address in _serverLocations.value) return
+        val location = withContext(Dispatchers.IO) {
+            runCatching { java.net.InetAddress.getByName(address).hostAddress }.getOrNull()?.let { GeoIP.lookup(it) }
+        } ?: return
+        _serverLocations.value = _serverLocations.value + (address to location)
     }
 
     /**

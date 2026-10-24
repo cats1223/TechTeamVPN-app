@@ -127,6 +127,19 @@ final class VlessProfileTests: XCTestCase {
         XCTAssertTrue(Updates.isNewer("1.0.1", than: "1.0"))
         XCTAssertFalse(Updates.isNewer("1.0.1", than: "1.0.1"))
         XCTAssertFalse(Updates.isNewer("1.0.0", than: "1.1.0"))
+        // The latest-release endpoint never returns betas; a beta tester is offered the release.
+        XCTAssertTrue(Updates.isNewer("1.2.0", than: "1.2.0-beta.1"))
+        XCTAssertFalse(Updates.isNewer("1.1.0", than: "1.2.0-beta.1"))
+    }
+
+    func testParsesGeoIP() throws {
+        let json = #"{"ip":"176.124.220.95","success":true,"country":"Netherlands","country_code":"NL","city":"Amsterdam","latitude":52.37,"longitude":4.89}"#
+        let l = try XCTUnwrap(GeoIP.parse(Data(json.utf8)))
+        XCTAssertEqual(l.place, "Amsterdam, Netherlands")
+        XCTAssertEqual(l.latitude, 52.37, accuracy: 1e-9)
+        XCTAssertEqual(l.flag, "🇳🇱")
+        XCTAssertNil(GeoIP.parse(Data(#"{"success":false,"message":"Reserved range"}"#.utf8)))
+        XCTAssertEqual(GeoIP.flag(""), "🌐")
     }
 
     func testParsesLatestRelease() throws {
