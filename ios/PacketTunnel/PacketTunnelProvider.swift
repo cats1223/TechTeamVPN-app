@@ -37,21 +37,23 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     }
 
     override func startTunnel(options: [String: NSObject]?) async throws {
-        // The app passes the link explicitly; on-demand restarts fall back to the stored selection.
-        let link = options?["link"] as? String
+        // The app passes the link explicitly; when iOS restarts the tunnel on its own (after a
+        // crash, on demand) it comes from the saved configuration.
+        let providerConfig = (protocolConfiguration as? NETunnelProviderProtocol)?.providerConfiguration
+        let link = options?["link"] as? String ?? providerConfig?["link"] as? String
         guard let profile = link.flatMap(VlessProfile.parse) ?? ProfileStore.load().selected else {
             throw TunnelError.noServer
         }
 
         captureCrashOutput()
-        appendLog("TechTeamVPN: \(profile.summary)")
+        appendLog("TechTeamVPN: \(profile.summary)\(options == nil ? " (перезапуск системой)" : "")")
         appendLog("TechTeamVPN: log \(logURL.path), App Group \(AppGroup.logURL == nil ? "нет в профиле подписи" : "есть")")
         do {
             try await setTunnelNetworkSettings(networkSettings(for: profile))
             guard let fd = tunnelFileDescriptor else { throw TunnelError.noTunDescriptor }
             appendLog("TechTeamVPN: utun fd \(fd), starting Xray")
             let verbose = options?["verbose"] as? String == "1" || options?["diagnose"] as? String == "1"
-            let providerConfig = (protocolConfiguration as? NETunnelProviderProtocol)?.providerConfiguration
+                || (options == nil && providerConfig?["verbose"] as? Bool == true)
             let russiaDirect = providerConfig?["russiaDirect"] as? Bool ?? true
             // geoip.dat and geosite.dat are bundled with the extension (geodata/ in project.yml).
             let assetDir = Bundle.main.resourceURL?.appendingPathComponent("geodata").path

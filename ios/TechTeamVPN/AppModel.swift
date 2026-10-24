@@ -103,7 +103,7 @@ final class AppModel: ObservableObject {
 
     func toggle() async {
         if vpn.isActive {
-            vpn.disconnect()
+            await vpn.disconnect()
         } else if let profile = state.selected {
             await vpn.connect(profile)
         } else {
