@@ -1,0 +1,75 @@
+# Generate the Xcode project with XcodeGen:  brew install xcodegen && xcodegen
+name: TechTeamVPN
+options:
+  bundleIdPrefix: com.techteam
+  deploymentTarget:
+    iOS: "16.0"
+  developmentLanguage: ru
+settings:
+  base:
+    DEVELOPMENT_TEAM: ""   # set your Apple Developer Team ID
+    SWIFT_VERSION: "5.9"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    # CI overrides these from the provisioning profiles (scripts/ci/ios-sign.sh).
+    APP_BUNDLE_ID: com.techteam.vpn
+    TUNNEL_BUNDLE_ID: $(APP_BUNDLE_ID).tunnel
+    APP_GROUP_ID: group.com.techteam.vpn
+
+targets:
+  TechTeamVPN:
+    type: application
+    platform: iOS
+    sources:
+      - TechTeamVPN
+      - Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID)
+        PROVISIONING_PROFILE_SPECIFIER: $(APP_PROFILE)
+        INFOPLIST_FILE: TechTeamVPN/Info.plist
+        CODE_SIGN_ENTITLEMENTS: TechTeamVPN/TechTeamVPN.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1,2"
+    dependencies:
+      - target: PacketTunnel
+        embed: true
+
+  PacketTunnel:
+    type: app-extension
+    platform: iOS
+    sources:
+      - PacketTunnel
+      - Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(TUNNEL_BUNDLE_ID)
+        PROVISIONING_PROFILE_SPECIFIER: $(TUNNEL_PROFILE)
+        INFOPLIST_FILE: PacketTunnel/Info.plist
+        CODE_SIGN_ENTITLEMENTS: PacketTunnel/PacketTunnel.entitlements
+        # gomobile frameworks carry no bitcode and need libresolv for Go's DNS client.
+        OTHER_LDFLAGS: ["-lresolv"]
+    dependencies:
+      # Built by scripts/build-libxray.sh
+      - framework: Frameworks/LibXray.xcframework
+        embed: false
+      - sdk: NetworkExtension.framework
+
+  TechTeamVPNTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - Tests
+      - Shared
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  TechTeamVPN:
+    build:
+      targets:
+        TechTeamVPN: all
+    test:
+      targets:
+        - TechTeamVPNTests

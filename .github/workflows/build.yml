@@ -1,0 +1,120 @@
+name: Build
+
+on:
+  push:
+    branches: [main, "feature/**"]
+    # A v* tag also publishes a GitHub release with the .apk and .ipa (see the release job).
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Опубликовать релиз с этим тегом, например v1.0.0 (пусто — только сборка)"
+        required: false
+        default: ""
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Build libXray.aar
+        run: ANDROID_NDK_HOME="$ANDROID_NDK_LATEST_HOME" scripts/build-libxray.sh android
+      - name: Unit tests and APK
+        working-directory: android
+        run: ./gradlew --no-daemon testDebugUnitTest assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TechTeamVPN-android
+          path: android/app/build/outputs/apk/debug/*.apk
+
+  ios:
+    runs-on: macos-15
+    env:
+      # Optional signing secrets; without them only the unsigned IPA is built.
+      IOS_P12_BASE64: ${{ secrets.IOS_P12_BASE64 }}
+      IOS_P12_PASSWORD: ${{ secrets.IOS_P12_PASSWORD }}
+      IOS_PROFILE_APP_BASE64: ${{ secrets.IOS_PROFILE_APP_BASE64 }}
+      IOS_PROFILE_TUNNEL_BASE64: ${{ secrets.IOS_PROFILE_TUNNEL_BASE64 }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+      - name: Build LibXray.xcframework
+        run: scripts/build-libxray.sh ios
+      - name: Generate Xcode project
+        working-directory: ios
+        run: brew install xcodegen && xcodegen
+      - name: Archive (unsigned)
+        working-directory: ios
+        run: |
+          xcodebuild archive -project TechTeamVPN.xcodeproj -scheme TechTeamVPN \
+            -destination 'generic/platform=iOS' -archivePath build/TechTeamVPN.xcarchive \
+            CODE_SIGNING_ALLOWED=NO CURRENT_PROJECT_VERSION=${{ github.run_number }}
+          mkdir -p build/Payload
+          cp -R build/TechTeamVPN.xcarchive/Products/Applications/TechTeamVPN.app build/Payload/
+          (cd build && zip -qry TechTeamVPN-unsigned.ipa Payload)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TechTeamVPN-ios-unsigned
+          path: ios/build/TechTeamVPN-unsigned.ipa
+      - name: Signed IPA
+        if: env.IOS_P12_BASE64 != ''
+        working-directory: ios
+        run: ../scripts/ci/ios-sign.sh
+      - uses: actions/upload-artifact@v4
+        if: env.IOS_P12_BASE64 != ''
+        with:
+          name: TechTeamVPN-ios-signed
+          path: ios/build/TechTeamVPN.ipa
+      - name: Unit tests
+        working-directory: ios
+        run: |
+          xcodebuild test -project TechTeamVPN.xcodeproj -scheme TechTeamVPN \
+            -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && inputs.version != '')
+    env:
+      # A tag push names the release by the tag; a manual run creates the tag on the built commit.
+      TAG: ${{ inputs.version || github.ref_name }}
+    needs: [android, ios]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: TechTeamVPN-android
+          path: android
+      - uses: actions/download-artifact@v4
+        with:
+          name: TechTeamVPN-ios-unsigned
+          path: ios
+      - name: Name the files
+        run: |
+          cp android/app-universal-debug.apk "TechTeamVPN-${TAG}.apk"
+          cp ios/TechTeamVPN-unsigned.ipa "TechTeamVPN-${TAG}-unsigned.ipa"
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          target_commitish: ${{ github.sha }}
+          name: TechTeamVPN ${{ env.TAG }}
+          files: |
+            TechTeamVPN-${{ env.TAG }}.apk
+            TechTeamVPN-${{ env.TAG }}-unsigned.ipa
+          body: |
+            Первая версия TechTeamVPN — клиент VLESS + REALITY + XHTTP на ядре Xray.
+
+            - **Android:** `TechTeamVPN-${{ env.TAG }}.apk` — установите файл на телефон (Android 8+).
+            - **iOS:** `TechTeamVPN-${{ env.TAG }}-unsigned.ipa` — неподписанный, подпишите своим сертификатом (нужны Network Extensions → Packet Tunnel).
+
+            Ключ добавляется ссылкой подписки, ключом `vless://` или QR-кодом.
