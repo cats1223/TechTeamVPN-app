@@ -1,104 +1,125 @@
+<div align="center">
+
+<img src="branding/play-store-icon-512.png" width="128" alt="TechTeamVPN">
+
 # TechTeamVPN
 
-Нативные клиенты VPN-сервиса TechTeamVPN для **Android** (Kotlin + Jetpack Compose) и **iOS** (Swift + SwiftUI).
-Протокол — **VLESS** (Reality / TLS) на ядре [Xray-core](https://github.com/XTLS/Xray-core) через официальную обёртку [libXray](https://github.com/XTLS/libXray).
+**Быстрый и защищённый VPN для iPhone и Android**
+
+VLESS · REALITY · XHTTP на ядре [Xray-core](https://github.com/XTLS/Xray-core)
+
+[![Релиз](https://img.shields.io/github/v/release/cats1223/TechTeamVPN-app?label=%D1%80%D0%B5%D0%BB%D0%B8%D0%B7&color=00D1FF)](https://github.com/cats1223/TechTeamVPN-app/releases/latest)
+![iOS 16+](https://img.shields.io/badge/iOS-16%2B-7B5CFF)
+![Android 8+](https://img.shields.io/badge/Android-8%2B-2BD98B)
+[![Сборка](https://img.shields.io/github/actions/workflow/status/cats1223/TechTeamVPN-app/build.yml?branch=feature%2Fvless-apps&label=%D1%81%D0%B1%D0%BE%D1%80%D0%BA%D0%B0)](https://github.com/cats1223/TechTeamVPN-app/actions)
+
+[**Скачать**](https://github.com/cats1223/TechTeamVPN-app/releases/latest) · [Добавить подписку](https://cats1223.github.io/TechTeamVPN-app/)
+
+</div>
+
+---
 
 ## Возможности
 
-- Подключение одной кнопкой, таймер сессии, статус в уведомлении (Android) и в системных настройках VPN (iOS)
-- Добавление ключа `vless://…`: вставка, буфер обмена, сканирование QR-кода, открытие ссылки `vless://` из браузера или мессенджера
-- Ссылка подписки (`https://…`): список серверов, обновление, трафик и срок действия из заголовка `subscription-userinfo`, название из `profile-title`
-- Список серверов, выбор, проверка пинга (TCP), удаление своих ключей
-- Транспорты: TCP (RAW), XHTTP, WebSocket, gRPC, HTTPUpgrade; безопасность: REALITY (включая `pqv`), TLS (`alpn`, `fp`, `pcs`, `vcn`, `ech`), flow `xtls-rprx-vision`
-- DNS идёт через туннель, локальные сети (`10.0.0.0/8`, `192.168.0.0/16` и т. д.) — напрямую
-- Android: плитка в шторке быстрых настроек, поддержка «Постоянной VPN»
+- 🔌 **Одна кнопка** — подключение, таймер сессии и статус соединения.
+- 🔗 **Подписка в одно касание** — скопируйте ссылку в боте, откройте приложение, и оно само предложит её добавить.
+- 📷 **Любой способ добавить ключ** — ссылка подписки, ключ `vless://`, QR-код или ссылка из мессенджера.
+- 📊 **Подписка под рукой** — остаток трафика, срок действия и список серверов с пингом.
+- 🛡 **Современная маскировка** — VLESS + REALITY, транспорты XHTTP, TCP, WebSocket, gRPC и HTTPUpgrade.
+- 🌐 **Без утечек** — DNS идёт через туннель (DNS-over-HTTPS), локальная сеть — напрямую.
+- 🌓 **Тёмная и светлая тема.**
+- 📱 **Android** — плитка в шторке быстрых настроек и «Постоянная VPN».
 
-## Как устроено
+## Установка
+
+Все версии — на странице [**Релизы**](https://github.com/cats1223/TechTeamVPN-app/releases/latest).
+
+| Платформа | Файл | Как установить |
+|---|---|---|
+| **Android 8+** | `TechTeamVPN-vX.Y.Z.apk` | Скачайте и откройте файл, разрешите установку из этого источника. |
+| **iPhone, iOS 16+** | `TechTeamVPN-vX.Y.Z-unsigned.ipa` | Подпишите своим сертификатом (ESign, Feather, Sideloadly и т. п.). В профиле должны быть **Network Extensions → Packet Tunnel**. |
+
+## Как добавить подписку
+
+1. В Telegram-боте сервиса скопируйте ссылку подписки.
+2. Откройте [cats1223.github.io/TechTeamVPN-app](https://cats1223.github.io/TechTeamVPN-app/) и нажмите **«Открыть TechTeamVPN»**.
+3. Приложение спросит **«Добавить подписку?»** — нажмите «Добавить». На iPhone разрешите вставку из буфера.
+
+Можно и вручную: **Серверы → «+»** → вставьте ссылку или отсканируйте QR-код.
+
+Приложение открывает ссылки `vless://…` и `techteamvpn://add?url=<ссылка подписки>`.
+
+---
+
+## Для разработчиков
+
+<details>
+<summary><b>Устройство проекта</b></summary>
 
 ```
-android/                    Kotlin, Jetpack Compose
-  core/VlessProfile.kt      разбор ссылок vless://
-  core/XrayConfig.kt        генерация JSON-конфига Xray (TUN-вход + VLESS-выход)
-  core/Subscription.kt      загрузка и разбор подписки
-  core/XrayCore.kt          вызовы libXray (runXray / stopXray)
-  vpn/TechTeamVpnService.kt VpnService: поднимает TUN и передаёт его fd в Xray
-ios/                        Swift, SwiftUI (проект генерируется XcodeGen)
-  Shared/                   общий код приложения и расширения: разбор ссылок, конфиг, подписка, хранилище
-  TechTeamVPN/              приложение: UI, NETunnelProviderManager
-  PacketTunnel/             Network Extension: находит fd utun и запускает Xray
-scripts/build-libxray.sh    сборка ядра libXray для обеих платформ
+android/                     Kotlin, Jetpack Compose, VpnService
+  app/src/main/java/.../core VLESS-ссылки, конфиг Xray, подписка, deep link
+  app/src/main/java/.../vpn  VpnService: TUN → Xray
+ios/                         Swift, SwiftUI (проект генерирует XcodeGen)
+  Shared/                    общий код приложения и VPN-расширения
+  TechTeamVPN/               приложение
+  PacketTunnel/              Network Extension: находит fd utun и запускает Xray
+docs/                        страница «Открыть TechTeamVPN» (GitHub Pages)
+server/link-page/            та же страница для своего сервера
+scripts/build-libxray.sh     сборка ядра libXray
+scripts/server/              проверка VPN-ноды с сервера
 ```
 
-Ядро Xray само читает пакеты из TUN-интерфейса: приложение кладёт номер дескриптора в `env["xray.tun.fd"]` конфига.
-Отдельный tun2socks не нужен.
+Xray сам читает пакеты из TUN: приложение передаёт номер дескриптора через `env["xray.tun.fd"]`, отдельный tun2socks не нужен.
+Логика разбора ссылок и конфига продублирована в `android/.../core` и `ios/Shared` и покрыта тестами на обеих платформах.
 
-## Сборка
+</details>
 
-### 1. Ядро libXray
+<details>
+<summary><b>Сборка</b></summary>
 
-Нужны Go 1.25+ и Python 3. Скрипт скачивает libXray (закреплённая версия `v26.10.21`) и собирает его через gomobile.
+Всё собирается в **GitHub Actions** (`.github/workflows/build.yml`): ядро libXray, тесты, APK и неподписанный IPA.
+Артефакты лежат на странице запуска. Ручной запуск с параметром `version` (например, `v1.2.0`) публикует релиз
+и создаёт тег.
+
+Локально:
 
 ```bash
-# Android: нужен Android NDK
-export ANDROID_NDK_HOME=$ANDROID_HOME/ndk/<версия>
-scripts/build-libxray.sh android   # -> android/app/libs/libXray.aar
+scripts/build-libxray.sh android        # нужны Go 1.25+ и Android NDK
+cd android && ./gradlew assembleDebug
 
-# iOS: только на macOS с Xcode
-scripts/build-libxray.sh ios       # -> ios/Frameworks/LibXray.xcframework
+scripts/build-libxray.sh ios            # только macOS + Xcode
+cd ios && xcodegen && open TechTeamVPN.xcodeproj
 ```
 
-### 2. Android
+</details>
 
-```bash
-cd android
-./gradlew testDebugUnitTest   # юнит-тесты разбора ссылок и конфига
-./gradlew assembleDebug       # APK в app/build/outputs/apk/debug/
-```
+<details>
+<summary><b>Подпись iOS в GitHub</b></summary>
 
-Или откройте папку `android/` в Android Studio. Для публикации в Google Play настройте подпись release-сборки
-и объясните использование `FOREGROUND_SERVICE_SPECIAL_USE` (подтип `vpn`) в консоли Play.
-
-### 3. iOS — сборка и подпись в GitHub (Mac не нужен)
-
-Каждый пуш в `main` или `feature/**` собирает iOS на macOS-раннере GitHub. В разделе Actions → запуск → Artifacts:
-
-- `TechTeamVPN-ios-unsigned` — неподписанный IPA (можно подписать на телефоне, например в ESign/Feather);
-- `TechTeamVPN-ios-signed` — подписанный IPA, если заданы секреты ниже.
-
-#### Подпись iOS в GitHub
-
-Settings → Secrets and variables → Actions → New repository secret:
+Если добавить секреты репозитория, CI выпустит ещё и подписанный IPA (`TechTeamVPN-ios-signed`):
 
 | Секрет | Что положить |
 |---|---|
 | `IOS_P12_BASE64` | сертификат `.p12` в base64 |
-| `IOS_P12_PASSWORD` | пароль от `.p12` (если нет — пустая строка) |
-| `IOS_PROFILE_APP_BASE64` | `.mobileprovision` для приложения, base64 |
-| `IOS_PROFILE_TUNNEL_BASE64` | `.mobileprovision` для VPN-расширения, base64 |
+| `IOS_P12_PASSWORD` | пароль от `.p12` |
+| `IOS_PROFILE_APP_BASE64` | `.mobileprovision` приложения в base64 |
+| `IOS_PROFILE_TUNNEL_BASE64` | `.mobileprovision` VPN-расширения в base64 |
 
-Base64 делается так: `base64 -i файл | pbcopy` (macOS), `base64 -w0 файл` (Linux), `[Convert]::ToBase64String([IO.File]::ReadAllBytes("файл"))` (Windows PowerShell)
-или любым онлайн-конвертером «file to base64» на телефоне.
+Нужны два явных App ID (приложение и `….tunnel`). У обоих должны быть **Network Extensions → Packet Tunnel** и
+одна общая **App Group**. Bundle id, команда и группа берутся из профилей.
 
-Требования к профилям (иначе сборка остановится с понятной ошибкой):
+</details>
 
-- два **явных** App ID (не `*`): приложение, например `com.techteam.vpn`, и расширение `com.techteam.vpn.tunnel`;
-- у обоих включены **Network Extensions → Packet Tunnel** и **App Groups** с одной и той же группой;
-- профиль подходит к сертификату из `.p12`; для Ad Hoc/Development — в профиль добавлен UDID вашего iPhone.
-
-Bundle id, команда и App Group берутся из профилей автоматически.
-
-### CI
-
-`.github/workflows/build.yml` собирает libXray, прогоняет тесты, собирает APK (артефакт `TechTeamVPN-android`)
-и iOS-сборки (см. выше).
-
-## Формат ключа
+<details>
+<summary><b>Формат ключа</b></summary>
 
 ```
-vless://<uuid>@<host>:<port>?type=tcp&security=reality&pbk=<публичный ключ>&sid=<short id>&sni=<домен>&fp=chrome&flow=xtls-rprx-vision#Название
+vless://<uuid>@<host>:<port>?type=xhttp&security=reality&pbk=<ключ>&sid=<short id>&sni=<домен>&fp=chrome&path=/…&mode=stream-one#Название
 ```
 
-Подписка — обычный текст или base64 со ссылками по одной на строку (совместимо с Marzban, 3x-ui, Remnawave и т. п.).
+Подписка — текст или base64 со ссылками по одной на строку (Marzban, 3x-ui, Remnawave, mikan и др.).
+При загрузке приложение отправляет заголовки `x-hwid`, `x-device-os`, `x-ver-os` и `x-device-model` для панелей,
+которые привязывают ключи к устройствам.
 
-> Xray запрещает VLESS без шифрования (`security=none`) к публичным адресам — такие ключи не подключатся.
-> Используйте REALITY или TLS.
+</details>
