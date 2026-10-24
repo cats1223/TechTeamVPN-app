@@ -9,6 +9,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     private let logURL = PacketTunnelProvider.writableLogURL()
     /// Our own lines, kept in memory so the app gets something even if no file can be written.
     private var notes: [String] = []
+    private var diagnoseTask: Task<Void, Never>?
 
     private static func writableLogURL() -> URL {
         let candidates = [AppGroup.logURL, FileManager.default.temporaryDirectory.appendingPathComponent("xray.log")]
@@ -33,8 +34,9 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             appendLog("TechTeamVPN: utun fd \(fd), starting Xray")
             let config = try XrayConfig.build(profile, tunFd: fd, logPath: logURL.path)
             try XrayCore.run(config)
-            appendLog("TechTeamVPN: Xray started")
+            appendLog("TechTeamVPN: Xray started, memory \(Self.memoryMB()) MB")
             log.info("Xray started for \(profile.name, privacy: .public)")
+            if options?["diagnose"] as? String == "1" { scheduleDiagnosticStop() }
         } catch {
             appendLog("TechTeamVPN: start failed: \(error.localizedDescription)")
             throw error
@@ -44,17 +46,43 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     /// The app sends "log" and gets the last 64 KB of the log back.
     override func handleAppMessage(_ messageData: Data) async -> Data? {
         guard String(decoding: messageData, as: UTF8.self) == "log" else { return nil }
-        var text = notes.joined(separator: "\n") + "\n— Xray —\n"
-        do {
-            let handle = try FileHandle(forReadingFrom: logURL)
-            defer { try? handle.close() }
-            let size = handle.seekToEndOfFile()
-            handle.seek(toFileOffset: size > 65_536 ? size - 65_536 : 0)
-            text += String(decoding: handle.readDataToEndOfFile(), as: UTF8.self)
-        } catch {
-            text += "файл журнала не читается: \(error.localizedDescription)"
+        return Data(report(limit: 65_536).utf8)
+    }
+
+    /// Diagnostic run: after 20 s the tunnel stops itself and hands the log to the app as the
+    /// disconnect error, which needs neither App Groups nor app-to-provider messages.
+    private func scheduleDiagnosticStop() {
+        diagnoseTask = Task { [weak self] in
+            for second in stride(from: 5, through: 20, by: 5) {
+                try? await Task.sleep(nanoseconds: 5_000_000_000)
+                self?.appendLog("TechTeamVPN: \(second) s, memory \(Self.memoryMB()) MB")
+            }
+            guard let self else { return }
+            let error = NSError(domain: "TechTeamVPN", code: 1, userInfo: [NSLocalizedDescriptionKey: self.report(limit: 6000)])
+            self.cancelTunnelWithError(error)
         }
-        return Data(text.utf8)
+    }
+
+    private func report(limit: Int) -> String {
+        var text = notes.joined(separator: "\n") + "\n— Xray —\n"
+        if let data = try? Data(contentsOf: logURL) {
+            text += String(String(decoding: data, as: UTF8.self).suffix(limit))
+        } else {
+            text += "файл журнала не читается"
+        }
+        return text
+    }
+
+    /// Physical memory of this process; iOS stops packet tunnels at about 50 MB.
+    private static func memoryMB() -> Int {
+        var info = task_vm_info_data_t()
+        var count = mach_msg_type_number_t(MemoryLayout<task_vm_info_data_t>.size / MemoryLayout<natural_t>.size)
+        let result = withUnsafeMutablePointer(to: &info) {
+            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                task_info(mach_task_self_, task_flavor_t(TASK_VM_INFO), $0, &count)
+            }
+        }
+        return result == KERN_SUCCESS ? Int(info.phys_footprint / 1_048_576) : -1
     }
 
     private func appendLog(_ line: String) {
@@ -66,6 +94,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     }
 
     override func stopTunnel(with reason: NEProviderStopReason) async {
+        diagnoseTask?.cancel()
         log.info("stopping tunnel, reason \(reason.rawValue)")
         XrayCore.stop()
     }

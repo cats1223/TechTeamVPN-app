@@ -164,7 +164,7 @@ private struct StatusText: View {
                     Text(duration(context.date.timeIntervalSince(since))).monospacedDigit()
                 }
             } else if status == .disconnected, let error {
-                Text(error).font(.footnote).foregroundStyle(Brand.muted).multilineTextAlignment(.center)
+                Text(error).font(.footnote).foregroundStyle(Brand.muted).multilineTextAlignment(.center).lineLimit(3)
             } else if status == .disconnected || status == .invalid {
                 Text("Нажмите кнопку, чтобы подключиться").font(.footnote).foregroundStyle(Brand.muted)
             }

@@ -4,11 +4,14 @@ import SwiftUI
 struct LogView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var vpn: VPNManager
+    @EnvironmentObject private var model: AppModel
     @State private var text = ""
+    @State private var recording = false
 
     var body: some View {
         NavigationStack {
             ScrollView {
+                recordButton.padding(.horizontal, 12).padding(.top, 12)
                 Text(text.isEmpty ? "VPN включён, но модуль VPN не вернул журнал." : text)
                     .font(.system(.caption2, design: .monospaced))
                     .foregroundStyle(text.isEmpty ? Brand.muted : .white)
@@ -31,6 +34,36 @@ struct LogView: View {
             }
             .task { await load() }
         }
+    }
+
+    private var recordButton: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Button {
+                Task { await record() }
+            } label: {
+                HStack {
+                    if recording { ProgressView().controlSize(.small) } else { Image(systemName: "record.circle") }
+                    Text(recording ? "Записываю…" : "Записать журнал (20 с)")
+                }
+                .font(.subheadline.weight(.semibold))
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(Brand.surface, in: RoundedRectangle(cornerRadius: 12))
+            }
+            .disabled(recording || model.state.selected == nil)
+            Text(recording
+                 ? "Сейчас откройте любой сайт в Safari и вернитесь сюда. VPN сам отключится через 20 секунд."
+                 : "VPN включится на 20 секунд, затем сам отключится и покажет журнал.")
+                .font(.caption)
+                .foregroundStyle(Brand.muted)
+        }
+    }
+
+    private func record() async {
+        guard let profile = model.state.selected else { return }
+        recording = true
+        defer { recording = false }
+        let report = await vpn.recordLog(profile)
+        text = report ?? "Модуль VPN не вернул отчёт: скорее всего, iOS его выгрузила (например, по памяти)."
     }
 
     private func load() async {

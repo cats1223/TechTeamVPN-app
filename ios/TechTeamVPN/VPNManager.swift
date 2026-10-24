@@ -25,11 +25,13 @@ final class VPNManager: ObservableObject {
         refresh()
     }
 
-    func connect(_ profile: VlessProfile) async {
+    func connect(_ profile: VlessProfile, diagnose: Bool = false) async {
         lastError = nil
         do {
             let manager = try await preparedManager(serverAddress: profile.address)
-            try manager.connection.startVPNTunnel(options: ["link": profile.link as NSString])
+            var options: [String: NSObject] = ["link": profile.link as NSString]
+            if diagnose { options["diagnose"] = "1" as NSString }
+            try manager.connection.startVPNTunnel(options: options)
         } catch {
             lastError = error.localizedDescription
         }
@@ -45,6 +47,27 @@ final class VPNManager: ObservableObject {
                 }
             } catch {
                 continuation.resume(returning: nil)
+            }
+        }
+    }
+
+    /// Runs the tunnel for 20 s in diagnostic mode and returns the log it hands back as its
+    /// disconnect error, or nil when the tunnel died without reporting.
+    func recordLog(_ profile: VlessProfile) async -> String? {
+        if isActive {
+            disconnect()
+            for _ in 0..<50 where status != .disconnected { try? await Task.sleep(nanoseconds: 100_000_000) }
+        }
+        await connect(profile, diagnose: true)
+        var wasActive = false
+        for _ in 0..<600 {
+            if isActive { wasActive = true } else if wasActive || lastError != nil { break }
+            try? await Task.sleep(nanoseconds: 100_000_000)
+        }
+        guard let connection = manager?.connection else { return lastError }
+        return await withCheckedContinuation { continuation in
+            connection.fetchLastDisconnectError { error in
+                continuation.resume(returning: error.map { ($0 as NSError).localizedDescription })
             }
         }
     }
