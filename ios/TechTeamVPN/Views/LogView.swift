@@ -9,7 +9,7 @@ struct LogView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                Text(text.isEmpty ? "Журнал пуст. Подключитесь и попробуйте открыть сайт." : text)
+                Text(text.isEmpty ? "VPN включён, но модуль VPN не вернул журнал." : text)
                     .font(.system(.caption2, design: .monospaced))
                     .foregroundStyle(text.isEmpty ? Brand.muted : .white)
                     .textSelection(.enabled)

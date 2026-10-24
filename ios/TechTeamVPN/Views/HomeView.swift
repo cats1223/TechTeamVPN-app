@@ -96,6 +96,9 @@ struct HomeView: View {
             Button("Журнал подключения") { showLog = true }
                 .font(.footnote)
                 .foregroundStyle(Brand.muted)
+            Text("Сборка \(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "?")")
+                .font(.caption2)
+                .foregroundStyle(Brand.muted.opacity(0.6))
         }
     }
 

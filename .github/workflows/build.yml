@@ -51,7 +51,7 @@ jobs:
         run: |
           xcodebuild archive -project TechTeamVPN.xcodeproj -scheme TechTeamVPN \
             -destination 'generic/platform=iOS' -archivePath build/TechTeamVPN.xcarchive \
-            CODE_SIGNING_ALLOWED=NO
+            CODE_SIGNING_ALLOWED=NO CURRENT_PROJECT_VERSION=${{ github.run_number }}
           mkdir -p build/Payload
           cp -R build/TechTeamVPN.xcarchive/Products/Applications/TechTeamVPN.app build/Payload/
           (cd build && zip -qry TechTeamVPN-unsigned.ipa Payload)
