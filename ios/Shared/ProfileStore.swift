@@ -1,9 +1,10 @@
 import Foundation
 
 enum AppGroup {
-    /// Must match the App Group capability of both targets.
-    static let id = "group.com.techteam.vpn"
-    static let tunnelBundleId = "com.techteam.vpn.tunnel"
+    /// Both come from build settings (APP_GROUP_ID, TUNNEL_BUNDLE_ID) via Info.plist, so CI can re-sign under other ids.
+    static let id = Bundle.main.object(forInfoDictionaryKey: "AppGroupIdentifier") as? String ?? "group.com.techteam.vpn"
+    static let tunnelBundleId = Bundle.main.object(forInfoDictionaryKey: "TunnelBundleIdentifier") as? String
+        ?? (Bundle.main.bundleIdentifier ?? "com.techteam.vpn") + ".tunnel"
 
     static var defaults: UserDefaults { UserDefaults(suiteName: id) ?? .standard }
 }

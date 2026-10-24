@@ -3,7 +3,7 @@ import NetworkExtension
 import os
 
 final class PacketTunnelProvider: NEPacketTunnelProvider {
-    private let log = Logger(subsystem: AppGroup.tunnelBundleId, category: "tunnel")
+    private let log = Logger(subsystem: Bundle.main.bundleIdentifier ?? "tunnel", category: "tunnel")
 
     override func startTunnel(options: [String: NSObject]?) async throws {
         // The app passes the link explicitly; on-demand restarts fall back to the stored selection.

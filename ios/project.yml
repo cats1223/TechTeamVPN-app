@@ -11,6 +11,10 @@ settings:
     SWIFT_VERSION: "5.9"
     MARKETING_VERSION: "1.0.0"
     CURRENT_PROJECT_VERSION: "1"
+    # CI overrides these from the provisioning profiles (scripts/ci/ios-sign.sh).
+    APP_BUNDLE_ID: com.techteam.vpn
+    TUNNEL_BUNDLE_ID: $(APP_BUNDLE_ID).tunnel
+    APP_GROUP_ID: group.com.techteam.vpn
 
 targets:
   TechTeamVPN:
@@ -21,7 +25,8 @@ targets:
       - Shared
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.techteam.vpn
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID)
+        PROVISIONING_PROFILE_SPECIFIER: $(APP_PROFILE)
         INFOPLIST_FILE: TechTeamVPN/Info.plist
         CODE_SIGN_ENTITLEMENTS: TechTeamVPN/TechTeamVPN.entitlements
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
@@ -38,7 +43,8 @@ targets:
       - Shared
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.techteam.vpn.tunnel
+        PRODUCT_BUNDLE_IDENTIFIER: $(TUNNEL_BUNDLE_ID)
+        PROVISIONING_PROFILE_SPECIFIER: $(TUNNEL_PROFILE)
         INFOPLIST_FILE: PacketTunnel/Info.plist
         CODE_SIGN_ENTITLEMENTS: PacketTunnel/PacketTunnel.entitlements
         # gomobile frameworks carry no bitcode and need libresolv for Go's DNS client.

@@ -58,25 +58,39 @@ cd android
 Или откройте папку `android/` в Android Studio. Для публикации в Google Play настройте подпись release-сборки
 и объясните использование `FOREGROUND_SERVICE_SPECIAL_USE` (подтип `vpn`) в консоли Play.
 
-### 3. iOS
+### 3. iOS — сборка и подпись в GitHub (Mac не нужен)
 
-```bash
-brew install xcodegen
-cd ios && xcodegen && open TechTeamVPN.xcodeproj
-```
+Каждый пуш в `main` или `feature/**` собирает iOS на macOS-раннере GitHub. В разделе Actions → запуск → Artifacts:
 
-В Xcode:
+- `TechTeamVPN-ios-unsigned` — неподписанный IPA (можно подписать на телефоне, например в ESign/Feather);
+- `TechTeamVPN-ios-signed` — подписанный IPA, если заданы секреты ниже.
 
-1. Укажите свою команду (Team) для таргетов `TechTeamVPN` и `PacketTunnel`.
-2. Если меняете bundle id (`com.techteam.vpn`, `com.techteam.vpn.tunnel`) или App Group (`group.com.techteam.vpn`),
-   поменяйте их также в `ios/Shared/ProfileStore.swift` и в `.entitlements`.
-3. В Apple Developer включите для обоих идентификаторов capability **Network Extensions** (Packet Tunnel) и **App Groups**.
-4. Запускайте на реальном устройстве: Network Extension в симуляторе не работает.
+#### Подпись iOS в GitHub
+
+Settings → Secrets and variables → Actions → New repository secret:
+
+| Секрет | Что положить |
+|---|---|
+| `IOS_P12_BASE64` | сертификат `.p12` в base64 |
+| `IOS_P12_PASSWORD` | пароль от `.p12` (если нет — пустая строка) |
+| `IOS_PROFILE_APP_BASE64` | `.mobileprovision` для приложения, base64 |
+| `IOS_PROFILE_TUNNEL_BASE64` | `.mobileprovision` для VPN-расширения, base64 |
+
+Base64 делается так: `base64 -i файл | pbcopy` (macOS), `base64 -w0 файл` (Linux), `[Convert]::ToBase64String([IO.File]::ReadAllBytes("файл"))` (Windows PowerShell)
+или любым онлайн-конвертером «file to base64» на телефоне.
+
+Требования к профилям (иначе сборка остановится с понятной ошибкой):
+
+- два **явных** App ID (не `*`): приложение, например `com.techteam.vpn`, и расширение `com.techteam.vpn.tunnel`;
+- у обоих включены **Network Extensions → Packet Tunnel** и **App Groups** с одной и той же группой;
+- профиль подходит к сертификату из `.p12`; для Ad Hoc/Development — в профиль добавлен UDID вашего iPhone.
+
+Bundle id, команда и App Group берутся из профилей автоматически.
 
 ### CI
 
 `.github/workflows/build.yml` собирает libXray, прогоняет тесты, собирает APK (артефакт `TechTeamVPN-android`)
-и неподписанную iOS-сборку.
+и iOS-сборки (см. выше).
 
 ## Формат ключа
 
