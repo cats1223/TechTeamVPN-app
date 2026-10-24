@@ -76,7 +76,7 @@ final class AppModel: ObservableObject {
         busy = true
         defer { busy = false }
         do {
-            let result = try await Subscription.fetch(url)
+            let result = try await Subscription.fetch(url, headers: DeviceInfo.headers)
             update { s in
                 let oldIds = Dictionary(
                     s.profiles.filter(\.fromSubscription).map { ($0.profile.link, $0.id) },
@@ -366,4 +366,33 @@ struct DiagnosticStep: Identifiable, Equatable {
     let kind: Kind
     var state: State = .pending
     var id: Kind { kind }
+}
+
+/// What panels with per-device keys (HWID binding) expect from a client, as Happ and v2RayTun send it.
+enum DeviceInfo {
+    static var headers: [String: String] {
+        let os = ProcessInfo.processInfo.operatingSystemVersion
+        return [
+            "x-hwid": hwid,
+            "x-device-os": "iOS",
+            "x-ver-os": "\(os.majorVersion).\(os.minorVersion).\(os.patchVersion)",
+            "x-device-model": model,
+        ]
+    }
+
+    /// Stable per install, so the panel keeps treating this phone as the same device.
+    private static var hwid: String {
+        let key = "deviceHWID"
+        if let saved = UserDefaults.standard.string(forKey: key) { return saved }
+        let fresh = UUID().uuidString.lowercased()
+        UserDefaults.standard.set(fresh, forKey: key)
+        return fresh
+    }
+
+    /// Hardware identifier such as "iPhone16,2".
+    private static var model: String {
+        var info = utsname()
+        uname(&info)
+        return withUnsafeBytes(of: &info.machine) { String(decoding: $0.prefix { $0 != 0 }, as: UTF8.self) }
+    }
 }

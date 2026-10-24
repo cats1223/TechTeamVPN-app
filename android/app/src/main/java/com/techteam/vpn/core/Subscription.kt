@@ -20,13 +20,17 @@ data class SubscriptionResult(val profiles: List<VlessProfile>, val info: Subscr
 object Subscription {
     const val USER_AGENT = "TechTeamVPN/1.0"
 
-    /** Blocking; call off the main thread. */
-    fun fetch(url: String): SubscriptionResult {
+    /**
+     * Blocking; call off the main thread.
+     * @param headers device headers (`x-hwid` and friends) for panels that bind keys to devices.
+     */
+    fun fetch(url: String, headers: Map<String, String> = emptyMap()): SubscriptionResult {
         val conn = (URL(url).openConnection() as HttpURLConnection).apply {
             connectTimeout = 15_000
             readTimeout = 15_000
             setRequestProperty("User-Agent", USER_AGENT)
             setRequestProperty("Accept", "*/*")
+            headers.forEach { (name, value) -> setRequestProperty(name, value) }
         }
         try {
             val code = conn.responseCode

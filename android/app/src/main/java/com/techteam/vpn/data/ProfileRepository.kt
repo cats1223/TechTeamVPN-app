@@ -52,7 +52,7 @@ class ProfileRepository private constructor(context: Context) {
     suspend fun refreshSubscription() {
         val url = _state.value.subscriptionUrl
         if (url.isEmpty()) return
-        val result = withContext(Dispatchers.IO) { Subscription.fetch(url) }
+        val result = withContext(Dispatchers.IO) { Subscription.fetch(url, deviceHeaders()) }
         update { s ->
             val previous = s.profiles.firstOrNull { it.profile.id == s.selectedId }?.profile
             // Reuse old ids for the same link so the selection survives a refresh.
@@ -79,6 +79,19 @@ class ProfileRepository private constructor(context: Context) {
 
     fun remove(id: String) = update { s ->
         s.copy(profiles = s.profiles.filterNot { it.profile.id == id }, selectedId = s.selectedId.takeIf { it != id })
+    }
+
+    /** What panels with per-device keys (HWID binding) expect, as Happ and v2RayTun send it. */
+    private fun deviceHeaders(): Map<String, String> {
+        val hwid = prefs.getString("hwid", null) ?: java.util.UUID.randomUUID().toString().also {
+            prefs.edit().putString("hwid", it).apply()
+        }
+        return mapOf(
+            "x-hwid" to hwid,
+            "x-device-os" to "Android",
+            "x-ver-os" to android.os.Build.VERSION.RELEASE,
+            "x-device-model" to "${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}",
+        )
     }
 
     private fun update(block: (ProfilesState) -> ProfilesState) {

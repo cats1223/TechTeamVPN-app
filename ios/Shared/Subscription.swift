@@ -29,9 +29,11 @@ enum SubscriptionError: LocalizedError {
 enum Subscription {
     static let userAgent = "TechTeamVPN/1.0"
 
-    static func fetch(_ url: URL) async throws -> (profiles: [VlessProfile], info: SubscriptionInfo) {
+    /// - Parameter headers: device headers (`x-hwid` and friends) for panels that bind keys to devices.
+    static func fetch(_ url: URL, headers: [String: String] = [:]) async throws -> (profiles: [VlessProfile], info: SubscriptionInfo) {
         var request = URLRequest(url: url, timeoutInterval: 15)
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
+        for (name, value) in headers { request.setValue(value, forHTTPHeaderField: name) }
         let (data, response) = try await URLSession.shared.data(for: request)
         let http = response as? HTTPURLResponse
         if let code = http?.statusCode, !(200..<300).contains(code) {
