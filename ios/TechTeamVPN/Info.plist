@@ -34,6 +34,14 @@
 				<string>vless</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.techteam.vpn.import</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>techteamvpn</string>
+			</array>
+		</dict>
 	</array>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>

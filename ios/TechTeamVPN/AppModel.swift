@@ -51,7 +51,7 @@ final class AppModel: ObservableObject {
 
     /// Accepts a vless:// key, several keys, or a subscription URL.
     func addInput(_ text: String) async {
-        let input = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let input = DeepLink.unwrap(text)
         let lower = input.lowercased()
         if lower.hasPrefix("https://") || lower.hasPrefix("http://") {
             update { $0.subscriptionURL = input }

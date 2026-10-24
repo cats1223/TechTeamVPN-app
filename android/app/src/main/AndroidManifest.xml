@@ -35,6 +35,13 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="vless" />
             </intent-filter>
+            <!-- techteamvpn://add?url=... from the Telegram bot imports a subscription. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="techteamvpn" />
+            </intent-filter>
         </activity>
 
         <!-- zxing's scanner defaults to landscape; let it follow the device. -->

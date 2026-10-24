@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.techteam.vpn.R
+import com.techteam.vpn.core.DeepLink
 import com.techteam.vpn.data.ProfileRepository
 import com.techteam.vpn.data.ProfilesState
 import com.techteam.vpn.vpn.TechTeamVpnService
@@ -62,7 +63,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun remove(id: String) = repo.remove(id)
 
     fun addInput(text: String) {
-        val input = text.trim()
+        val input = DeepLink.unwrap(text)
         when {
             input.startsWith("http://", true) || input.startsWith("https://", true) -> setSubscription(input)
             else -> {

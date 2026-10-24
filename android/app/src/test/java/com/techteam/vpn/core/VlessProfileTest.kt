@@ -122,4 +122,14 @@ class VlessProfileTest {
         assertEquals(1767225600L, info.expire)
         assertNotNull(Subscription.parseUserInfo(null))
     }
+
+    @Test
+    fun unwrapsDeepLinks() {
+        val sub = "https://176.0.0.1:50070/abc/def"
+        assertEquals(sub, DeepLink.unwrap("techteamvpn://add?url=https%3A%2F%2F176.0.0.1%3A50070%2Fabc%2Fdef"))
+        assertEquals(sub, DeepLink.unwrap("techteamvpn://add/$sub"))
+        assertEquals(sub, DeepLink.unwrap("techteamvpn://add/https%3A%2F%2F176.0.0.1%3A50070%2Fabc%2Fdef"))
+        assertEquals("vless://id@h:1", DeepLink.unwrap("vless://id@h:1"))
+        assertEquals("", DeepLink.unwrap("techteamvpn://add"))
+    }
 }

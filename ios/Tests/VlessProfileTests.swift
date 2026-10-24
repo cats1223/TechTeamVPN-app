@@ -91,4 +91,13 @@ final class VlessProfileTests: XCTestCase {
         XCTAssertEqual(info.total, 10_737_418_240)
         XCTAssertEqual(info.expire, 1_767_225_600)
     }
+
+    func testUnwrapsDeepLinks() {
+        let sub = "https://176.0.0.1:50070/abc/def"
+        XCTAssertEqual(DeepLink.unwrap("techteamvpn://add?url=https%3A%2F%2F176.0.0.1%3A50070%2Fabc%2Fdef"), sub)
+        XCTAssertEqual(DeepLink.unwrap("techteamvpn://add/\(sub)"), sub)
+        XCTAssertEqual(DeepLink.unwrap("techteamvpn://add/https%3A%2F%2F176.0.0.1%3A50070%2Fabc%2Fdef"), sub)
+        XCTAssertEqual(DeepLink.unwrap("vless://id@h:1"), "vless://id@h:1")
+        XCTAssertEqual(DeepLink.unwrap("techteamvpn://add"), "")
+    }
 }
