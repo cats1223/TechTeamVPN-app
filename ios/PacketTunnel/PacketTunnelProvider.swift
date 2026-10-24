@@ -4,6 +4,9 @@ import os
 
 final class PacketTunnelProvider: NEPacketTunnelProvider {
     private let log = Logger(subsystem: Bundle.main.bundleIdentifier ?? "tunnel", category: "tunnel")
+    /// Shared with the app when App Groups is in the signing profile, otherwise private to the
+    /// extension; the app can always fetch it through `handleAppMessage`.
+    private let logURL = AppGroup.logURL ?? FileManager.default.temporaryDirectory.appendingPathComponent("xray.log")
 
     override func startTunnel(options: [String: NSObject]?) async throws {
         // The app passes the link explicitly; on-demand restarts fall back to the stored selection.
@@ -12,15 +15,18 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             throw TunnelError.noServer
         }
 
-        let logURL = AppGroup.logURL
-        if let logURL {
-            try? Data("TechTeamVPN: \(profile.summary)\n".utf8).write(to: logURL)
-        }
+        let header = [
+            "TechTeamVPN: \(profile.summary)",
+            "TechTeamVPN: App Group \(AppGroup.logURL == nil ? "недоступна (нет в профиле подписи)" : "ok")",
+        ]
+        try? Data((header.joined(separator: "\n") + "\n").utf8).write(to: logURL)
         do {
             try await setTunnelNetworkSettings(networkSettings(for: profile))
             guard let fd = tunnelFileDescriptor else { throw TunnelError.noTunDescriptor }
-            let config = try XrayConfig.build(profile, tunFd: fd, logPath: logURL?.path)
+            appendLog("TechTeamVPN: utun fd \(fd), starting Xray")
+            let config = try XrayConfig.build(profile, tunFd: fd, logPath: logURL.path)
             try XrayCore.run(config)
+            appendLog("TechTeamVPN: Xray started")
             log.info("Xray started for \(profile.name, privacy: .public)")
         } catch {
             appendLog("TechTeamVPN: start failed: \(error.localizedDescription)")
@@ -28,8 +34,18 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         }
     }
 
+    /// The app sends "log" and gets the last 64 KB of the log back.
+    override func handleAppMessage(_ messageData: Data) async -> Data? {
+        guard String(decoding: messageData, as: UTF8.self) == "log",
+              let handle = try? FileHandle(forReadingFrom: logURL) else { return nil }
+        defer { try? handle.close() }
+        let size = handle.seekToEndOfFile()
+        handle.seek(toFileOffset: size > 65_536 ? size - 65_536 : 0)
+        return handle.readDataToEndOfFile()
+    }
+
     private func appendLog(_ line: String) {
-        guard let url = AppGroup.logURL, let handle = try? FileHandle(forWritingTo: url) else { return }
+        guard let handle = try? FileHandle(forWritingTo: logURL) else { return }
         handle.seekToEndOfFile()
         handle.write(Data((line + "\n").utf8))
         try? handle.close()

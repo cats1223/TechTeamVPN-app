@@ -35,6 +35,20 @@ final class VPNManager: ObservableObject {
         }
     }
 
+    /// Asks the running tunnel for its log; works without App Groups in the signing profile.
+    func fetchTunnelLog() async -> String? {
+        guard let session = manager?.connection as? NETunnelProviderSession, isActive else { return nil }
+        return await withCheckedContinuation { continuation in
+            do {
+                try session.sendProviderMessage(Data("log".utf8)) { data in
+                    continuation.resume(returning: data.map { String(decoding: $0, as: UTF8.self) })
+                }
+            } catch {
+                continuation.resume(returning: nil)
+            }
+        }
+    }
+
     func disconnect() {
         manager?.connection.stopVPNTunnel()
     }
