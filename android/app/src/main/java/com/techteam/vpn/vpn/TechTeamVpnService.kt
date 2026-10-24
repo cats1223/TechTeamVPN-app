@@ -67,7 +67,8 @@ class TechTeamVpnService : VpnService() {
         try {
             val fd = establish(profile)
             tun = fd
-            XrayCore.start(XrayConfig.build(profile, fd.fd), "${XrayConfig.DNS_SERVERS.first()}:53") { protect(it) }
+            val log = java.io.File(filesDir, "xray.log").apply { writeText("") }
+            XrayCore.start(XrayConfig.build(profile, fd.fd, log.path), "${XrayConfig.DNS_SERVERS.first()}:53") { protect(it) }
             VpnStatus.set(VpnState.Connected(profile.name, System.currentTimeMillis()))
             updateNotification(getString(R.string.notification_connected, profile.name))
         } catch (e: Exception) {

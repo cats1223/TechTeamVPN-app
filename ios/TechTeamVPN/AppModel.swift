@@ -8,6 +8,13 @@ final class AppModel: ObservableObject {
     @Published private(set) var pings: [String: Int] = [:]
     @Published private(set) var busy = false
     @Published var message: String?
+    @Published private(set) var internetCheck: InternetCheck = .idle
+
+    enum InternetCheck: Equatable {
+        case idle, running
+        case ok(ms: Int)
+        case failed(String)
+    }
 
     let vpn = VPNManager()
 
@@ -106,6 +113,35 @@ final class AppModel: ObservableObject {
             for await (id, ms) in group { results[id] = ms }
         }
         pings = results
+    }
+
+    /// Requests a tiny page through the tunnel: tells "VPN is up" apart from "traffic actually flows".
+    func checkInternet() async {
+        internetCheck = .running
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = 10
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        let session = URLSession(configuration: config)
+        let start = Date()
+        do {
+            let (_, response) = try await session.data(from: URL(string: "https://www.gstatic.com/generate_204")!)
+            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+            internetCheck = (200..<400).contains(code)
+                ? .ok(ms: Int(Date().timeIntervalSince(start) * 1000))
+                : .failed("HTTP \(code)")
+        } catch let error as URLError {
+            switch error.code {
+            case .cannotFindHost, .dnsLookupFailed: internetCheck = .failed("не работает DNS через VPN")
+            case .timedOut: internetCheck = .failed("нет ответа (таймаут) — трафик не проходит через сервер")
+            default: internetCheck = .failed(error.localizedDescription)
+            }
+        } catch {
+            internetCheck = .failed(error.localizedDescription)
+        }
+    }
+
+    func resetInternetCheck() {
+        internetCheck = .idle
     }
 
     private func update(_ change: (inout ProfilesState) -> Void) {

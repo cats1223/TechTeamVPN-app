@@ -16,10 +16,15 @@ object XrayConfig {
     /**
      * @param tunFd the VpnService tun descriptor; Xray reads it from the `xray.tun.fd` env key.
      *              Pass null to build a config for validation only.
+     * @param logPath file for Xray's error log at info level, used for troubleshooting.
      */
-    fun build(profile: VlessProfile, tunFd: Int?): String {
+    fun build(profile: VlessProfile, tunFd: Int?, logPath: String? = null): String {
         val root = JSONObject()
-        root.put("log", JSONObject().put("loglevel", "warning"))
+        root.put(
+            "log",
+            if (logPath == null) JSONObject().put("loglevel", "warning")
+            else JSONObject().put("loglevel", "info").put("access", "none").put("error", logPath),
+        )
         if (tunFd != null) {
             root.put("env", JSONObject().put("xray.tun.fd", tunFd.toString()))
         }
@@ -27,7 +32,7 @@ object XrayConfig {
             "dns",
             JSONObject()
                 .put("servers", JSONArray(DNS_SERVERS))
-                .put("queryStrategy", "UseIP"),
+                .put("queryStrategy", "UseIPv4"),
         )
         root.put(
             "inbounds",

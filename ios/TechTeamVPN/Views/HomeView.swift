@@ -5,6 +5,7 @@ struct HomeView: View {
     @EnvironmentObject private var model: AppModel
     @EnvironmentObject private var vpn: VPNManager
     @State private var showAdd = false
+    @State private var showLog = false
 
     var body: some View {
         ScrollView {
@@ -23,6 +24,9 @@ struct HomeView: View {
 
                 StatusText(status: vpn.status, since: vpn.connectedDate, error: vpn.lastError)
                     .padding(.top, 28)
+
+                diagnostics
+                    .padding(.top, 16)
 
                 Group {
                     if let selected = model.state.selected {
@@ -49,6 +53,50 @@ struct HomeView: View {
         }
         .background(Brand.background.ignoresSafeArea())
         .sheet(isPresented: $showAdd) { AddView() }
+        .sheet(isPresented: $showLog) { LogView() }
+        .onChange(of: vpn.status) { status in
+            if status == .connected {
+                Task { await model.checkInternet() }
+            } else {
+                model.resetInternetCheck()
+            }
+        }
+    }
+
+    private var diagnostics: some View {
+        VStack(spacing: 10) {
+            if vpn.status == .connected {
+                Button {
+                    Task { await model.checkInternet() }
+                } label: {
+                    HStack(spacing: 8) {
+                        switch model.internetCheck {
+                        case .idle:
+                            Image(systemName: "network")
+                            Text("Проверить интернет")
+                        case .running:
+                            ProgressView().controlSize(.small)
+                            Text("Проверяю интернет…")
+                        case .ok(let ms):
+                            Image(systemName: "checkmark.circle.fill").foregroundStyle(Brand.green)
+                            Text("Интернет работает · \(ms) мс")
+                        case .failed(let reason):
+                            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Brand.amber)
+                            Text("Интернета нет: \(reason)").multilineTextAlignment(.leading)
+                        }
+                    }
+                    .font(.footnote)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 10)
+                    .background(Brand.surface, in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .disabled(model.internetCheck == .running)
+            }
+            Button("Журнал подключения") { showLog = true }
+                .font(.footnote)
+                .foregroundStyle(Brand.muted)
+        }
     }
 
     private func serverCard(_ profile: VlessProfile) -> some View {

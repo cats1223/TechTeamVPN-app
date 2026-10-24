@@ -7,6 +7,11 @@ enum AppGroup {
         ?? (Bundle.main.bundleIdentifier ?? "com.techteam.vpn") + ".tunnel"
 
     static var defaults: UserDefaults { UserDefaults(suiteName: id) ?? .standard }
+
+    /// Xray's log, written by the tunnel and read by the app.
+    static var logURL: URL? {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: id)?.appendingPathComponent("xray.log")
+    }
 }
 
 struct StoredProfile: Codable, Hashable, Identifiable {

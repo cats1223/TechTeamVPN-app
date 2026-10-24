@@ -12,10 +12,11 @@ enum XrayConfig {
 
     /// - Parameter tunFd: the utun descriptor; Xray reads it from the `xray.tun.fd` env key.
     ///   Pass nil to build a config for validation only.
-    static func build(_ profile: VlessProfile, tunFd: Int32?) throws -> String {
+    /// - Parameter logPath: file for Xray's error log at info level, shown in the app's connection log.
+    static func build(_ profile: VlessProfile, tunFd: Int32?, logPath: String? = nil) throws -> String {
         var root: [String: Any] = [
-            "log": ["loglevel": "warning"],
-            "dns": ["servers": dnsServers, "queryStrategy": "UseIP"],
+            "log": logPath.map { ["loglevel": "info", "access": "none", "error": $0] } ?? ["loglevel": "warning"],
+            "dns": ["servers": dnsServers, "queryStrategy": "UseIPv4"],
             "inbounds": [[
                 "tag": "tun-in",
                 "protocol": "tun",
@@ -116,6 +117,20 @@ enum XrayConfig {
             break
         }
         return s
+    }
+}
+
+extension VlessProfile {
+    /// Connection parameters without the uuid and keys, safe to show in the log.
+    var summary: String {
+        var parts = ["\(address):\(port)", "type=\(network)", "security=\(security)"]
+        for (key, value) in [("sni", sni), ("fp", fingerprint), ("flow", flow), ("mode", mode),
+                             ("path", path), ("host", host), ("sid", shortId.isEmpty ? "" : "set"),
+                             ("pbk", publicKey.isEmpty ? "" : "set"), ("extra", extra.isEmpty ? "" : "set")]
+        where !value.isEmpty {
+            parts.append("\(key)=\(value)")
+        }
+        return parts.joined(separator: " ")
     }
 }
 

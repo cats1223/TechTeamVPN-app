@@ -12,12 +12,27 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             throw TunnelError.noServer
         }
 
-        try await setTunnelNetworkSettings(networkSettings(for: profile))
+        let logURL = AppGroup.logURL
+        if let logURL {
+            try? Data("TechTeamVPN: \(profile.summary)\n".utf8).write(to: logURL)
+        }
+        do {
+            try await setTunnelNetworkSettings(networkSettings(for: profile))
+            guard let fd = tunnelFileDescriptor else { throw TunnelError.noTunDescriptor }
+            let config = try XrayConfig.build(profile, tunFd: fd, logPath: logURL?.path)
+            try XrayCore.run(config)
+            log.info("Xray started for \(profile.name, privacy: .public)")
+        } catch {
+            appendLog("TechTeamVPN: start failed: \(error.localizedDescription)")
+            throw error
+        }
+    }
 
-        guard let fd = tunnelFileDescriptor else { throw TunnelError.noTunDescriptor }
-        let config = try XrayConfig.build(profile, tunFd: fd)
-        try XrayCore.run(config)
-        log.info("Xray started for \(profile.name, privacy: .public)")
+    private func appendLog(_ line: String) {
+        guard let url = AppGroup.logURL, let handle = try? FileHandle(forWritingTo: url) else { return }
+        handle.seekToEndOfFile()
+        handle.write(Data((line + "\n").utf8))
+        try? handle.close()
     }
 
     override func stopTunnel(with reason: NEProviderStopReason) async {
