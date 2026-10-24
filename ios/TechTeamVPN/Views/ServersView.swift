@@ -3,6 +3,7 @@ import SwiftUI
 struct ServersView: View {
     @EnvironmentObject private var model: AppModel
     @State private var showAdd = false
+    @State private var showDiagnostics = false
 
     var body: some View {
         NavigationStack {
@@ -37,6 +38,8 @@ struct ServersView: View {
                     if model.busy { ProgressView() }
                     Button { Task { await model.pingAll() } } label: { Image(systemName: "speedometer") }
                         .accessibilityLabel("Проверить пинг")
+                    Button { showDiagnostics = true } label: { Image(systemName: "checklist") }
+                        .accessibilityLabel("Проверка подключения")
                     if !model.state.subscriptionURL.isEmpty {
                         Menu {
                             Button {
@@ -56,6 +59,7 @@ struct ServersView: View {
                 }
             }
             .sheet(isPresented: $showAdd) { AddView() }
+            .sheet(isPresented: $showDiagnostics) { DiagnosticsView() }
         }
     }
 

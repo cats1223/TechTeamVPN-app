@@ -10,6 +10,9 @@ final class AppModel: ObservableObject {
     @Published var message: String?
     @Published private(set) var internetCheck: InternetCheck = .idle
 
+    @Published private(set) var diagnostics: [DiagnosticStep] = []
+    @Published private(set) var diagnosticsRunning = false
+
     enum InternetCheck: Equatable {
         case idle, running
         case ok(ms: Int)
@@ -118,26 +121,76 @@ final class AppModel: ObservableObject {
     /// Requests a tiny page through the tunnel: tells "VPN is up" apart from "traffic actually flows".
     func checkInternet() async {
         internetCheck = .running
-        let config = URLSessionConfiguration.ephemeral
-        config.timeoutIntervalForRequest = 10
-        config.requestCachePolicy = .reloadIgnoringLocalCacheData
-        let session = URLSession(configuration: config)
-        let start = Date()
-        do {
-            let (_, response) = try await session.data(from: URL(string: "https://www.gstatic.com/generate_204")!)
-            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
-            internetCheck = (200..<400).contains(code)
-                ? .ok(ms: Int(Date().timeIntervalSince(start) * 1000))
-                : .failed("HTTP \(code)")
-        } catch let error as URLError {
-            switch error.code {
-            case .cannotFindHost, .dnsLookupFailed: internetCheck = .failed("не работает DNS через VPN")
-            case .timedOut: internetCheck = .failed("нет ответа (таймаут) — трафик не проходит через сервер")
-            default: internetCheck = .failed(error.localizedDescription)
-            }
-        } catch {
-            internetCheck = .failed(error.localizedDescription)
+        switch await Self.probeInternet() {
+        case .success(let ms): internetCheck = .ok(ms: ms)
+        case .failure(let reason): internetCheck = .failed(reason.message)
         }
+    }
+
+    /// Runs the checklist on the Servers tab step by step; nothing leaves the app.
+    func runDiagnostics() async {
+        guard !diagnosticsRunning else { return }
+        guard let profile = state.selected else {
+            message = "Сначала добавьте сервер"
+            return
+        }
+        diagnosticsRunning = true
+        defer { diagnosticsRunning = false }
+        diagnostics = DiagnosticStep.Kind.allCases.map { DiagnosticStep(kind: $0) }
+
+        // 1. The server answers on its port, checked outside the tunnel.
+        set(.server, .running)
+        let ms = await Self.tcpPing(host: profile.address, port: profile.port)
+        set(.server, ms >= 0 ? .ok("\(profile.address):\(profile.port) · \(ms) мс") : .failed("не отвечает \(profile.address):\(profile.port)"))
+
+        // 2. The tunnel is up.
+        set(.vpn, .running)
+        guard vpn.status == .connected else {
+            set(.vpn, .failed("VPN не подключён — нажмите кнопку на главной"))
+            skipRemaining()
+            return
+        }
+        set(.vpn, .ok(profile.name))
+
+        // 3. Names resolve through the tunnel.
+        set(.dns, .running)
+        if let ip = await Self.resolve("www.gstatic.com") {
+            set(.dns, .ok("www.gstatic.com → \(ip)"))
+        } else {
+            set(.dns, .failed("адреса сайтов не определяются через VPN"))
+            skipRemaining()
+            return
+        }
+
+        // 4. A real HTTPS request goes through.
+        set(.internet, .running)
+        switch await Self.probeInternet() {
+        case .success(let ms): set(.internet, .ok("ответ за \(ms) мс"))
+        case .failure(let reason):
+            set(.internet, .failed(reason.message))
+            skipRemaining()
+            return
+        }
+
+        // 5. Sites see the server's address, so traffic really exits there.
+        set(.exitIP, .running)
+        guard let exitIP = await Self.fetchText("https://api.ipify.org") else {
+            set(.exitIP, .failed("не удалось узнать внешний IP"))
+            return
+        }
+        var serverIP: String? = profile.address
+        if !Self.isIPAddress(profile.address) { serverIP = await Self.resolve(profile.address) }
+        set(.exitIP, exitIP == serverIP
+            ? .ok("внешний IP \(exitIP) — ваш сервер")
+            : .warning("внешний IP \(exitIP), сервер \(serverIP ?? profile.address)"))
+    }
+
+    private func set(_ kind: DiagnosticStep.Kind, _ state: DiagnosticStep.State) {
+        if let i = diagnostics.firstIndex(where: { $0.kind == kind }) { diagnostics[i].state = state }
+    }
+
+    private func skipRemaining() {
+        for i in diagnostics.indices where diagnostics[i].state == .pending { diagnostics[i].state = .skipped }
     }
 
     func resetInternetCheck() {
@@ -149,9 +202,79 @@ final class AppModel: ObservableObject {
         ProfileStore.save(state)
     }
 
+    private struct ProbeError: Error {
+        let message: String
+    }
+
+    private nonisolated static func session() -> URLSession {
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = 10
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        return URLSession(configuration: config)
+    }
+
+    private nonisolated static func probeInternet() async -> Result<Int, ProbeError> {
+        let start = Date()
+        do {
+            let (_, response) = try await session().data(from: URL(string: "https://www.gstatic.com/generate_204")!)
+            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+            guard (200..<400).contains(code) else { return .failure(ProbeError(message: "HTTP \(code)")) }
+            return .success(Int(Date().timeIntervalSince(start) * 1000))
+        } catch let error as URLError {
+            switch error.code {
+            case .cannotFindHost, .dnsLookupFailed: return .failure(ProbeError(message: "не работает DNS через VPN"))
+            case .timedOut: return .failure(ProbeError(message: "нет ответа — трафик не проходит через сервер"))
+            default: return .failure(ProbeError(message: error.localizedDescription))
+            }
+        } catch {
+            return .failure(ProbeError(message: error.localizedDescription))
+        }
+    }
+
+    private nonisolated static func fetchText(_ url: String) async -> String? {
+        guard let url = URL(string: url), let result = try? await session().data(from: url) else { return nil }
+        return String(decoding: result.0, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private nonisolated static func isIPAddress(_ s: String) -> Bool {
+        IPv4Address(s) != nil || IPv6Address(s) != nil
+    }
+
+    /// First IPv4 address of [host], or nil after 5 s.
+    private nonisolated static func resolve(_ host: String) async -> String? {
+        await withCheckedContinuation { continuation in
+            let once = OnceFlag()
+            let finish: (String?) -> Void = { value in
+                if once.set() { continuation.resume(returning: value) }
+            }
+            DispatchQueue.global().async {
+                var hints = addrinfo()
+                hints.ai_family = AF_INET
+                hints.ai_socktype = SOCK_STREAM
+                var result: UnsafeMutablePointer<addrinfo>?
+                guard getaddrinfo(host, nil, &hints, &result) == 0, let addr = result?.pointee.ai_addr else {
+                    finish(nil)
+                    return
+                }
+                defer { freeaddrinfo(result) }
+                var buf = [CChar](repeating: 0, count: Int(INET_ADDRSTRLEN))
+                addr.withMemoryRebound(to: sockaddr_in.self, capacity: 1) { sin in
+                    var a = sin.pointee.sin_addr
+                    _ = inet_ntop(AF_INET, &a, &buf, socklen_t(buf.count))
+                }
+                finish(String(cString: buf))
+            }
+            DispatchQueue.global().asyncAfter(deadline: .now() + 5) { finish(nil) }
+        }
+    }
+
+    /// TCP connect time to the server. Bound to the physical network: through the tunnel the local
+    /// TUN stack would accept every connection instantly and the number would mean nothing.
     private nonisolated static func tcpPing(host: String, port: Int) async -> Int {
         guard let nwPort = NWEndpoint.Port(rawValue: UInt16(port)) else { return -1 }
-        let connection = NWConnection(host: NWEndpoint.Host(host), port: nwPort, using: .tcp)
+        let parameters = NWParameters.tcp
+        parameters.prohibitedInterfaceTypes = [.other]
+        let connection = NWConnection(host: NWEndpoint.Host(host), port: nwPort, using: parameters)
         let start = Date()
         return await withCheckedContinuation { continuation in
             let once = OnceFlag()
@@ -185,4 +308,31 @@ private final class OnceFlag: @unchecked Sendable {
         done = true
         return true
     }
+}
+
+struct DiagnosticStep: Identifiable, Equatable {
+    enum Kind: CaseIterable {
+        case server, vpn, dns, internet, exitIP
+
+        var title: String {
+            switch self {
+            case .server: return "Сервер доступен"
+            case .vpn: return "VPN подключён"
+            case .dns: return "DNS работает через VPN"
+            case .internet: return "Интернет через VPN"
+            case .exitIP: return "Трафик идёт через сервер"
+            }
+        }
+    }
+
+    enum State: Equatable {
+        case pending, running, skipped
+        case ok(String)
+        case warning(String)
+        case failed(String)
+    }
+
+    let kind: Kind
+    var state: State = .pending
+    var id: Kind { kind }
 }
