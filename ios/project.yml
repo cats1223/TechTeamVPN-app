@@ -1,0 +1,69 @@
+# Generate the Xcode project with XcodeGen:  brew install xcodegen && xcodegen
+name: TechTeamVPN
+options:
+  bundleIdPrefix: com.techteam
+  deploymentTarget:
+    iOS: "16.0"
+  developmentLanguage: ru
+settings:
+  base:
+    DEVELOPMENT_TEAM: ""   # set your Apple Developer Team ID
+    SWIFT_VERSION: "5.9"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+
+targets:
+  TechTeamVPN:
+    type: application
+    platform: iOS
+    sources:
+      - TechTeamVPN
+      - Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.techteam.vpn
+        INFOPLIST_FILE: TechTeamVPN/Info.plist
+        CODE_SIGN_ENTITLEMENTS: TechTeamVPN/TechTeamVPN.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1,2"
+    dependencies:
+      - target: PacketTunnel
+        embed: true
+
+  PacketTunnel:
+    type: app-extension
+    platform: iOS
+    sources:
+      - PacketTunnel
+      - Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.techteam.vpn.tunnel
+        INFOPLIST_FILE: PacketTunnel/Info.plist
+        CODE_SIGN_ENTITLEMENTS: PacketTunnel/PacketTunnel.entitlements
+        # gomobile frameworks carry no bitcode and need libresolv for Go's DNS client.
+        OTHER_LDFLAGS: ["-lresolv"]
+    dependencies:
+      # Built by scripts/build-libxray.sh
+      - framework: Frameworks/LibXray.xcframework
+        embed: false
+      - sdk: NetworkExtension.framework
+
+  TechTeamVPNTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - Tests
+      - Shared
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+
+schemes:
+  TechTeamVPN:
+    build:
+      targets:
+        TechTeamVPN: all
+    test:
+      targets:
+        - TechTeamVPNTests

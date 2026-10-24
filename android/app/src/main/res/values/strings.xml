@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TechTeamVPN</string>
+    <string name="tagline">Быстрый и защищённый доступ</string>
+
+    <string name="tab_home">Главная</string>
+    <string name="tab_servers">Серверы</string>
+
+    <string name="status_connected">Подключено</string>
+    <string name="status_connecting">Подключение…</string>
+    <string name="status_disconnected">Не подключено</string>
+    <string name="status_error">Ошибка подключения</string>
+    <string name="status_hint">Нажмите кнопку, чтобы подключиться</string>
+
+    <string name="action_connect">Подключить</string>
+    <string name="action_disconnect">Отключить</string>
+
+    <string name="current_server">Сервер</string>
+    <string name="subscription">Подписка</string>
+    <string name="traffic_of">Трафик: %1$s из %2$s</string>
+    <string name="traffic_used">Использовано: %1$s</string>
+    <string name="expires_in_days">Осталось дней: %1$d</string>
+
+    <string name="add_key">Добавить ключ</string>
+    <string name="add_hint">Вставьте ключ vless://, несколько ключей или ссылку на подписку. Можно отсканировать QR-код.</string>
+    <string name="paste">Вставить</string>
+    <string name="scan_qr">QR-код</string>
+    <string name="scan_prompt">Наведите камеру на QR-код с ключом</string>
+    <string name="save">Сохранить</string>
+    <string name="delete">Удалить</string>
+    <string name="ping">Проверить пинг</string>
+    <string name="refresh_subscription">Обновить подписку</string>
+    <string name="remove_subscription">Удалить подписку</string>
+    <string name="no_servers">Серверов пока нет. Добавьте ключ или подписку.</string>
+
+    <string name="msg_added">Добавлено серверов: %1$d</string>
+    <string name="msg_invalid_key">Не удалось распознать ключ</string>
+    <string name="msg_subscription_updated">Подписка обновлена</string>
+    <string name="msg_subscription_error">Ошибка подписки: %1$s</string>
+
+    <string name="error_no_server">Сначала добавьте сервер</string>
+    <string name="error_vpn_permission">Нужно разрешение на VPN</string>
+
+    <string name="notification_channel">Состояние VPN</string>
+    <string name="notification_connected">Подключено: %1$s</string>
+</resources>
