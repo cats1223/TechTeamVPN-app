@@ -20,12 +20,14 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Dns
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -37,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.journeyapps.barcodescanner.ScanContract
+import kotlinx.coroutines.flow.MutableStateFlow
 import com.journeyapps.barcodescanner.ScanOptions
 import com.techteam.vpn.R
 import com.techteam.vpn.core.DeepLink
@@ -147,6 +150,23 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
+                val offer by clipboardOffer.collectAsStateWithLifecycle()
+                offer?.let { text ->
+                    AlertDialog(
+                        onDismissRequest = { clipboardOffer.value = null },
+                        title = { Text(stringResource(R.string.clipboard_offer_title)) },
+                        text = { Text(stringResource(R.string.clipboard_offer_text, text.take(80))) },
+                        confirmButton = {
+                            TextButton(onClick = { clipboardOffer.value = null; vm.addInput(text) }) {
+                                Text(stringResource(R.string.clipboard_offer_add))
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { clipboardOffer.value = null }) { Text(stringResource(R.string.cancel)) }
+                        },
+                    )
+                }
+
                 if (showAdd) {
                     AddSheet(
                         busy = busy,
@@ -179,6 +199,9 @@ class MainActivity : ComponentActivity() {
     /** Set by techteamvpn://add without a link: the subscription is in the clipboard. */
     private var importFromClipboard = false
 
+    /** The clipboard text the "add subscription?" dialog offers; null hides it. */
+    private val clipboardOffer = MutableStateFlow<String?>(null)
+
     private fun handleLink(link: String) {
         if (DeepLink.wantsClipboard(link)) {
             importFromClipboard = true
@@ -188,17 +211,28 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // Android 10+ only lets the focused app read the clipboard, so wait for focus.
+    // Android 10+ only lets the focused app read the clipboard, so this waits for focus. After
+    // the bot's link the copied text is always offered; otherwise only a link, only while there
+    // are no servers yet, and each text once.
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (!hasFocus || !importFromClipboard) return
+        if (!hasFocus) return
+        val force = importFromClipboard
         importFromClipboard = false
-        val clip = getSystemService(ClipboardManager::class.java).primaryClip?.getItemAt(0)?.coerceToText(this)?.toString()
-        if (clip.isNullOrBlank()) {
-            Toast.makeText(this, R.string.msg_clipboard_empty, Toast.LENGTH_LONG).show()
-        } else {
-            vm.addInput(clip)
+        // Reading the clipboard makes Android 12+ show a "pasted" notice, so skip it when there is nothing to offer.
+        if (!force && vm.profiles.value.profiles.isNotEmpty()) return
+        val clip = getSystemService(ClipboardManager::class.java).primaryClip?.getItemAt(0)?.coerceToText(this)?.toString()?.trim()
+        if (clip.isNullOrEmpty()) {
+            if (force) Toast.makeText(this, R.string.msg_clipboard_empty, Toast.LENGTH_LONG).show()
+            return
         }
+        if (!force) {
+            val prefs = getSharedPreferences("settings", MODE_PRIVATE)
+            val looksLikeLink = clip.startsWith("http", ignoreCase = true) || clip.startsWith("vless://", ignoreCase = true)
+            if (!looksLikeLink || prefs.getString("clipboardOffered", null) == clip) return
+            prefs.edit().putString("clipboardOffered", clip).apply()
+        }
+        clipboardOffer.value = clip
     }
 
     private fun toggle() {

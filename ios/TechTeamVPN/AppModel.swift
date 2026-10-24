@@ -10,6 +10,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var busy = false
     @Published var message: String?
     @Published private(set) var internetCheck: InternetCheck = .idle
+    /// Shows "add the subscription from the clipboard?"; set by offerClipboard.
+    @Published var clipboardOffer = false
 
     @Published private(set) var diagnostics: [DiagnosticStep] = []
     @Published private(set) var diagnosticsRunning = false
@@ -53,12 +55,8 @@ final class AppModel: ObservableObject {
     /// Accepts a vless:// key, several keys, or a subscription URL.
     func addInput(_ text: String) async {
         if DeepLink.wantsClipboard(text) {
-            // Opened by the bot's "copy the link, then open" page: iOS asks once to allow the paste.
-            guard let pasted = UIPasteboard.general.string, !pasted.isEmpty else {
-                message = "В буфере обмена нет ссылки. Скопируйте подписку в боте и откройте ссылку ещё раз."
-                return
-            }
-            await addInput(pasted)
+            // Opened by the bot's "copy the link, then open" page: offer what was copied.
+            await offerClipboard(force: true)
             return
         }
         let input = DeepLink.unwrap(text)
@@ -78,6 +76,33 @@ final class AppModel: ObservableObject {
             if s.selectedId == nil { s.selectedId = parsed.first?.id }
         }
         message = "Добавлено серверов: \(parsed.count)"
+    }
+
+    /// Offers to add what is in the clipboard: always after the bot's link (`force`), otherwise
+    /// only while there are no servers yet and only once per clipboard content. Nothing is read
+    /// until the user agrees, so iOS shows its paste prompt only then.
+    func offerClipboard(force: Bool) async {
+        let board = UIPasteboard.general
+        guard board.hasStrings || board.hasURLs else {
+            if force { message = "В буфере обмена нет ссылки. Скопируйте подписку в боте и откройте ссылку ещё раз." }
+            return
+        }
+        if !force {
+            let key = "clipboardOfferedChange"
+            guard state.profiles.isEmpty, UserDefaults.standard.integer(forKey: key) != board.changeCount else { return }
+            let patterns = try? await board.detectPatterns(for: [\UIPasteboard.DetectedValues.probableWebURL])
+            guard board.hasURLs || patterns?.isEmpty == false else { return }
+            UserDefaults.standard.set(board.changeCount, forKey: key)
+        }
+        clipboardOffer = true
+    }
+
+    func addFromClipboard() async {
+        guard let pasted = UIPasteboard.general.string ?? UIPasteboard.general.url?.absoluteString, !pasted.isEmpty else {
+            message = "В буфере обмена нет ссылки"
+            return
+        }
+        await addInput(pasted)
     }
 
     /// Replaces subscription servers with a fresh copy, keeping the selection when the server still exists.

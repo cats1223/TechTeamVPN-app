@@ -4,6 +4,7 @@ import SwiftUI
 struct TechTeamVPNApp: App {
     @StateObject private var model = AppModel()
     @AppStorage(AppSettings.themeKey) private var theme = AppSettings.Theme.dark.rawValue
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
@@ -14,6 +15,10 @@ struct TechTeamVPNApp: App {
                 // Opening a vless:// link imports the key.
                 .onOpenURL { url in
                     Task { await model.addInput(url.absoluteString) }
+                }
+                // First launch with a subscription link already copied: offer it.
+                .onChange(of: scenePhase) { phase in
+                    if phase == .active { Task { await model.offerClipboard(force: false) } }
                 }
         }
     }
@@ -37,6 +42,12 @@ struct RootView: View {
             isPresented: Binding(get: { model.message != nil }, set: { if !$0 { model.message = nil } })
         ) {
             Button("OK", role: .cancel) {}
+        }
+        .alert("Добавить подписку?", isPresented: $model.clipboardOffer) {
+            Button("Добавить") { Task { await model.addFromClipboard() } }
+            Button("Отмена", role: .cancel) {}
+        } message: {
+            Text("В буфере обмена есть ссылка. Добавить её как подписку?")
         }
     }
 }
