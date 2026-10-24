@@ -11,7 +11,7 @@ VLESS · REALITY · XHTTP на ядре [Xray-core](https://github.com/XTLS/Xray
 [![Релиз](https://img.shields.io/github/v/release/cats1223/TechTeamVPN-app?label=%D1%80%D0%B5%D0%BB%D0%B8%D0%B7&color=00D1FF)](https://github.com/cats1223/TechTeamVPN-app/releases/latest)
 ![iOS 16+](https://img.shields.io/badge/iOS-16%2B-7B5CFF)
 ![Android 8+](https://img.shields.io/badge/Android-8%2B-2BD98B)
-[![Сборка](https://img.shields.io/github/actions/workflow/status/cats1223/TechTeamVPN-app/build.yml?branch=feature%2Fvless-apps&label=%D1%81%D0%B1%D0%BE%D1%80%D0%BA%D0%B0)](https://github.com/cats1223/TechTeamVPN-app/actions)
+[![Сборка](https://img.shields.io/github/actions/workflow/status/cats1223/TechTeamVPN-app/build.yml?branch=main&label=%D1%81%D0%B1%D0%BE%D1%80%D0%BA%D0%B0)](https://github.com/cats1223/TechTeamVPN-app/actions)
 
 [**Скачать**](https://github.com/cats1223/TechTeamVPN-app/releases/latest) · [Добавить подписку](https://cats1223.github.io/TechTeamVPN-app/)
 
