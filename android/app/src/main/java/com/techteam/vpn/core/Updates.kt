@@ -8,18 +8,22 @@ import java.net.URL
 /** Checks GitHub for a newer release of the app. */
 object Updates {
     const val LATEST_URL = "https://api.github.com/repos/cats1223/TechTeamVPN-app/releases/latest"
-    /** All releases, newest first, betas included; used when the user opted into betas. */
-    const val ALL_URL = "https://api.github.com/repos/cats1223/TechTeamVPN-app/releases?per_page=10"
+    /** All releases, betas included; used when the user opted into betas. GitHub may sort them by tag name. */
+    const val ALL_URL = "https://api.github.com/repos/cats1223/TechTeamVPN-app/releases?per_page=100"
 
     /** [downloadUrl] is the APK itself when the release has one, otherwise the release page. */
     data class Release(val version: String, val pageUrl: String, val downloadUrl: String)
 
     fun parse(json: String): Release = parse(JSONObject(json))
 
-    /** The newest published release in a list, beta or not. */
+    /**
+     * The newest published release in a list, beta or not, by version: GitHub may list tags as
+     * text, which puts beta.10 after beta.9.
+     */
     fun parseNewest(json: String): Release? {
         val list = JSONArray(json)
-        return (0 until list.length()).map { list.getJSONObject(it) }.firstOrNull { !it.optBoolean("draft") }?.let(::parse)
+        return (0 until list.length()).map { list.getJSONObject(it) }.filter { !it.optBoolean("draft") }.map(::parse)
+            .reduceOrNull { best, r -> if (isNewer(r.version, best.version)) r else best }
     }
 
     private fun parse(o: JSONObject): Release {

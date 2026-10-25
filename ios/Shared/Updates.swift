@@ -6,8 +6,8 @@ import FoundationNetworking
 /// Checks GitHub for a newer release of the app.
 enum Updates {
     static let latestURL = URL(string: "https://api.github.com/repos/cats1223/TechTeamVPN-app/releases/latest")!
-    /// All releases, newest first, betas included; used when the user opted into betas.
-    static let allURL = URL(string: "https://api.github.com/repos/cats1223/TechTeamVPN-app/releases?per_page=10")!
+    /// All releases, betas included; used when the user opted into betas. GitHub may sort them by tag name.
+    static let allURL = URL(string: "https://api.github.com/repos/cats1223/TechTeamVPN-app/releases?per_page=100")!
 
     struct Release: Equatable {
         var version: String
@@ -18,10 +18,12 @@ enum Updates {
         (try? JSONSerialization.jsonObject(with: data) as? [String: Any]).flatMap(parse)
     }
 
-    /// The newest published release in a list, beta or not.
+    /// The newest published release in a list, beta or not, by version: GitHub may list tags as
+    /// text, which puts beta.10 after beta.9.
     static func parseNewest(_ data: Data) -> Release? {
         let list = (try? JSONSerialization.jsonObject(with: data) as? [[String: Any]]) ?? []
-        return list.first { $0["draft"] as? Bool != true }.flatMap(parse)
+        return list.filter { $0["draft"] as? Bool != true }.compactMap(parse)
+            .reduce(nil) { best, r in best.map { isNewer(r.version, than: $0.version) ? r : $0 } ?? r }
     }
 
     private static func parse(_ json: [String: Any]) -> Release? {

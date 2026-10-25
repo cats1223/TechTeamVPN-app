@@ -169,6 +169,9 @@ class ServerProfileTest {
         assertFalse(Updates.isNewer("1.2.0-beta.6", "1.2.0"))
         val list = """[{"draft":true,"tag_name":"v9","html_url":"x"},{"tag_name":"v1.2.0-beta.6","html_url":"https://x/b6","prerelease":true}]"""
         assertEquals("1.2.0-beta.6", Updates.parseNewest(list)!!.version)
+        // GitHub sorted the tags as text: beta.9, beta.3, beta.10.
+        val textOrder = """[{"tag_name":"v1.2.0-beta.9","html_url":"x"},{"tag_name":"v1.2.0-beta.3","html_url":"x"},{"tag_name":"v1.2.0-beta.10","html_url":"x"}]"""
+        assertEquals("1.2.0-beta.10", Updates.parseNewest(textOrder)!!.version)
     }
 
     @Test

@@ -135,6 +135,9 @@ final class ServerProfileTests: XCTestCase {
         XCTAssertFalse(Updates.isNewer("1.2.0-beta.6", than: "1.2.0"))
         let list = #"[{"draft":true,"tag_name":"v9","html_url":"x"},{"tag_name":"v1.2.0-beta.6","html_url":"https://x/b6","prerelease":true}]"#
         XCTAssertEqual(Updates.parseNewest(Data(list.utf8))?.version, "1.2.0-beta.6")
+        // GitHub sorted the tags as text: beta.9, beta.3, beta.10.
+        let textOrder = #"[{"tag_name":"v1.2.0-beta.9","html_url":"x"},{"tag_name":"v1.2.0-beta.3","html_url":"x"},{"tag_name":"v1.2.0-beta.10","html_url":"x"}]"#
+        XCTAssertEqual(Updates.parseNewest(Data(textOrder.utf8))?.version, "1.2.0-beta.10")
     }
 
     func testParsesGeoIP() throws {
