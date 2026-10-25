@@ -81,6 +81,8 @@ class MainActivity : ComponentActivity() {
             val russiaDirect by settings.russiaDirect.collectAsStateWithLifecycle()
             val bypassApps by settings.bypassApps.collectAsStateWithLifecycle()
             val betaUpdates by settings.betaUpdates.collectAsStateWithLifecycle()
+            val directSites by settings.directSites.collectAsStateWithLifecycle()
+            val proxySites by settings.proxySites.collectAsStateWithLifecycle()
             TechTeamTheme(light = lightTheme) {
                 val profiles by vm.profiles.collectAsStateWithLifecycle()
                 val vpn by vm.vpn.collectAsStateWithLifecycle()
@@ -130,6 +132,8 @@ class MainActivity : ComponentActivity() {
                                 russiaDirect = russiaDirect,
                                 bypassApps = bypassApps,
                                 betaUpdates = betaUpdates,
+                                directSites = directSites,
+                                proxySites = proxySites,
                                 onTheme = settings::setLightTheme,
                                 onRussiaDirect = {
                                     settings.setRussiaDirect(it)
@@ -143,6 +147,14 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onCheckUpdate = { vm.checkForUpdate(manual = true) },
                                 onBetaUpdates = settings::setBetaUpdates,
+                                onDirectSites = {
+                                    settings.setDirectSites(it)
+                                    vm.reconnectIfActive()
+                                },
+                                onProxySites = {
+                                    settings.setProxySites(it)
+                                    vm.reconnectIfActive()
+                                },
                                 onUnlock = settings::unlockDevMode,
                                 onDisableDevMode = { settings.setDevMode(false) },
                             )

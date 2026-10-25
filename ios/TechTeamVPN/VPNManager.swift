@@ -106,6 +106,8 @@ final class VPNManager: ObservableObject {
             "russiaDirect": AppSettings.russiaDirect,
             "link": profile.link,
             "verbose": UserDefaults.standard.bool(forKey: AppSettings.devModeKey),
+            "directSites": AppSettings.sites(AppSettings.directSitesKey),
+            "proxySites": AppSettings.sites(AppSettings.proxySitesKey),
         ]
         manager.protocolConfiguration = proto
         manager.localizedDescription = "TechTeamVPN"

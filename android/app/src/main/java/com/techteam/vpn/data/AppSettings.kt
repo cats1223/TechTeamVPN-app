@@ -36,6 +36,22 @@ class AppSettings private constructor(context: Context) {
         prefs.edit().putBoolean("betaUpdates", enabled).apply()
     }
 
+    /** The user's sites that always go past the VPN, and those that always go through it. */
+    private val _directSites = MutableStateFlow(prefs.getStringSet("directSites", null).orEmpty().sorted())
+    val directSites: StateFlow<List<String>> = _directSites.asStateFlow()
+    private val _proxySites = MutableStateFlow(prefs.getStringSet("proxySites", null).orEmpty().sorted())
+    val proxySites: StateFlow<List<String>> = _proxySites.asStateFlow()
+
+    fun setDirectSites(sites: List<String>) {
+        _directSites.value = sites
+        prefs.edit().putStringSet("directSites", sites.toSet()).apply()
+    }
+
+    fun setProxySites(sites: List<String>) {
+        _proxySites.value = sites
+        prefs.edit().putStringSet("proxySites", sites.toSet()).apply()
+    }
+
     fun setRussiaDirect(enabled: Boolean) {
         _russiaDirect.value = enabled
         prefs.edit().putBoolean("russiaDirect", enabled).apply()

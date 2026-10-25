@@ -40,6 +40,14 @@
     <string name="clipboard_offer_text">В буфере обмена есть ссылка:\n%1$s\n\nДобавить её как подписку?</string>
     <string name="clipboard_offer_add">Добавить</string>
     <string name="cancel">Отмена</string>
+    <string name="done">Готово</string>
+    <string name="add">Добавить</string>
+    <string name="none">Нет</string>
+    <string name="sites_title">Свои сайты</string>
+    <string name="sites_direct">Всегда напрямую</string>
+    <string name="sites_proxy">Всегда через VPN</string>
+    <string name="sites_direct_hint">Эти сайты открываются без VPN, с вашего обычного адреса. Поддомены тоже.</string>
+    <string name="sites_proxy_hint">Эти сайты идут через VPN, даже если они российские. Поддомены тоже.</string>
     <string name="msg_invalid_key">Не удалось распознать ключ</string>
     <string name="msg_subscription_updated">Подписка обновлена</string>
     <string name="msg_subscription_error">Ошибка подписки: %1$s</string>

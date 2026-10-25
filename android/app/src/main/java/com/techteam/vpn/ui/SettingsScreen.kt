@@ -36,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -45,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.techteam.vpn.BuildConfig
+import com.techteam.vpn.R
 import com.techteam.vpn.core.ServerProfile
 import com.techteam.vpn.vpn.TechTeamVpnService
 import java.io.File
@@ -58,11 +60,15 @@ fun SettingsScreen(
     russiaDirect: Boolean,
     bypassApps: Set<String>,
     betaUpdates: Boolean,
+    directSites: List<String>,
+    proxySites: List<String>,
     onTheme: (Boolean) -> Unit,
     onRussiaDirect: (Boolean) -> Unit,
     onBypassApps: (Set<String>) -> Unit,
     onCheckUpdate: () -> Unit,
     onBetaUpdates: (Boolean) -> Unit,
+    onDirectSites: (List<String>) -> Unit,
+    onProxySites: (List<String>) -> Unit,
     onUnlock: (String) -> Boolean,
     onDisableDevMode: () -> Unit,
 ) {
@@ -72,6 +78,7 @@ fun SettingsScreen(
     var askPassword by remember { mutableStateOf(false) }
     var showLog by remember { mutableStateOf(false) }
     var showApps by remember { mutableStateOf(false) }
+    var editSites by remember { mutableStateOf<Boolean?>(null) } // true: direct list, false: VPN list
 
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
@@ -110,6 +117,19 @@ fun SettingsScreen(
                     Text("Банки, Госуслуги и другие не увидят VPN", color = Brand.TextMuted, fontSize = 12.sp)
                 }
                 Text(if (bypassApps.isEmpty()) "Нет" else bypassApps.size.toString(), color = Brand.Cyan)
+            }
+        }
+
+        SectionTitle(stringResource(R.string.sites_title))
+        for ((direct, list) in listOf(true to directSites, false to proxySites)) {
+            Card(Modifier.clickable { editSites = direct }) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        stringResource(if (direct) R.string.sites_direct else R.string.sites_proxy),
+                        color = Brand.Text, modifier = Modifier.weight(1f),
+                    )
+                    Text(if (list.isEmpty()) stringResource(R.string.none) else list.size.toString(), color = Brand.Cyan)
+                }
             }
         }
 
@@ -169,6 +189,18 @@ fun SettingsScreen(
         )
     }
     if (showLog) LogDialog(onDismiss = { showLog = false })
+    editSites?.let { direct ->
+        SitesDialog(
+            title = stringResource(if (direct) R.string.sites_direct else R.string.sites_proxy),
+            hint = stringResource(if (direct) R.string.sites_direct_hint else R.string.sites_proxy_hint),
+            sites = if (direct) directSites else proxySites,
+            onDismiss = { editSites = null },
+            onSave = {
+                editSites = null
+                if (direct) onDirectSites(it) else onProxySites(it)
+            },
+        )
+    }
     if (showApps) {
         AppsDialog(
             selected = bypassApps,

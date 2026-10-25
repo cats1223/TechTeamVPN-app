@@ -97,7 +97,10 @@ class TechTeamVpnService : VpnService() {
         val logPath = if (settings.devMode.value) log.path else null
         val russiaDirect = settings.russiaDirect.value
         val assetDir = if (russiaDirect) installGeoData() else null
-        val config = XrayConfig.build(profile, fd.fd, logPath, russiaDirect, assetDir)
+        val config = XrayConfig.build(
+            profile, fd.fd, logPath, russiaDirect, assetDir,
+            directSites = settings.directSites.value, proxySites = settings.proxySites.value,
+        )
         XrayCore.start(config, "${XrayConfig.DNS_SERVERS.first()}:53") { protect(it) }
     }
 

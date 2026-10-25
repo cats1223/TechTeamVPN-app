@@ -9,6 +9,14 @@ enum AppSettings {
     /// Offer betas in the update check too, not only full releases.
     static let betaUpdatesKey = "betaUpdates"
 
+    /// The user's sites that always go past the VPN, and those that always go through it.
+    static let directSitesKey = "directSites"
+    static let proxySitesKey = "proxySites"
+
+    static func sites(_ key: String) -> [String] {
+        UserDefaults.standard.stringArray(forKey: key) ?? []
+    }
+
     static var russiaDirect: Bool {
         UserDefaults.standard.object(forKey: russiaDirectKey) as? Bool ?? true
     }
@@ -77,6 +85,31 @@ struct SettingsView: View {
                         + "на iPhone нельзя: Apple разрешает это только через MDM.")
                 }
 
+                Section {
+                    NavigationLink {
+                        SitesView(
+                            title: "Всегда напрямую",
+                            footer: "Эти сайты открываются без VPN, с вашего обычного адреса. Поддомены тоже.",
+                            key: AppSettings.directSitesKey
+                        ) { Task { await model.applyTunnelSettings() } }
+                    } label: {
+                        siteListLabel("Всегда напрямую", key: AppSettings.directSitesKey)
+                    }
+                    .listRowBackground(Brand.surface)
+                    NavigationLink {
+                        SitesView(
+                            title: "Всегда через VPN",
+                            footer: "Эти сайты идут через VPN, даже если они российские. Поддомены тоже.",
+                            key: AppSettings.proxySitesKey
+                        ) { Task { await model.applyTunnelSettings() } }
+                    } label: {
+                        siteListLabel("Всегда через VPN", key: AppSettings.proxySitesKey)
+                    }
+                    .listRowBackground(Brand.surface)
+                } header: {
+                    Text("Свои сайты")
+                }
+
                 Section("О приложении") {
                     HStack {
                         Text("Версия")
@@ -127,6 +160,15 @@ struct SettingsView: View {
             Text("В режиме разработчика VPN ведёт подробный журнал Xray. Переподключитесь, чтобы он начал записываться.")
         }
         .listRowBackground(Brand.surface)
+    }
+
+    private func siteListLabel(_ title: LocalizedStringKey, key: String) -> some View {
+        HStack {
+            Text(title)
+            Spacer()
+            let count = AppSettings.sites(key).count
+            Text(count == 0 ? "Нет" : "\(count)").foregroundStyle(Brand.muted)
+        }
     }
 
     private func copyRow(_ title: String, _ value: String) -> some View {
