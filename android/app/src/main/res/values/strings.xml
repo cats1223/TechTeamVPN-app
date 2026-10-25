@@ -46,6 +46,11 @@
 
     <string name="error_no_server">Сначала добавьте сервер</string>
     <string name="error_vpn_permission">Нужно разрешение на VPN</string>
+    <string name="vpn_denied_title">Android не дал разрешение на VPN</string>
+    <string name="vpn_denied_text">Окно разрешения не появилось или было закрыто. Чаще всего так бывает, когда у другого приложения включена «Постоянная VPN» (другой VPN-клиент, Samsung «Защищённый Wi-Fi»).
+
+Откройте настройки VPN, нажмите на шестерёнку у другого приложения и выключите «Постоянная VPN», затем подключитесь снова.</string>
+    <string name="vpn_denied_settings">Настройки VPN</string>
 
     <string name="update_title">Доступно обновление</string>
     <string name="update_text">Вышла версия %1$s, у вас %2$s. Обновить?</string>

@@ -6,6 +6,7 @@ import android.content.Intent
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -52,8 +53,9 @@ class MainActivity : ComponentActivity() {
     private val vm: MainViewModel by viewModels()
 
     private val vpnPermission = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-        if (it.resultCode == RESULT_OK) vm.connect()
-        else Toast.makeText(this, R.string.error_vpn_permission, Toast.LENGTH_LONG).show()
+        // Android answers "no" without showing its dialog when another app holds always-on VPN,
+        // so say where to look instead of a bare "permission needed".
+        if (it.resultCode == RESULT_OK) vm.connect() else permissionDenied.value = true
     }
 
     private val notificationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
@@ -173,6 +175,24 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
+                val denied by permissionDenied.collectAsStateWithLifecycle()
+                if (denied) {
+                    AlertDialog(
+                        onDismissRequest = { permissionDenied.value = false },
+                        title = { Text(stringResource(R.string.vpn_denied_title)) },
+                        text = { Text(stringResource(R.string.vpn_denied_text)) },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                permissionDenied.value = false
+                                runCatching { startActivity(Intent(Settings.ACTION_VPN_SETTINGS)) }
+                            }) { Text(stringResource(R.string.vpn_denied_settings)) }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { permissionDenied.value = false }) { Text(stringResource(R.string.cancel)) }
+                        },
+                    )
+                }
+
                 val update by vm.update.collectAsStateWithLifecycle()
                 val updateProgress by vm.updateProgress.collectAsStateWithLifecycle()
                 update?.let { release ->
@@ -231,6 +251,9 @@ class MainActivity : ComponentActivity() {
 
     /** Set by techteamvpn://add without a link: the subscription is in the clipboard. */
     private var importFromClipboard = false
+
+    /** Shows why the VPN consent failed and a way to the system VPN settings. */
+    private val permissionDenied = MutableStateFlow(false)
 
     /** The clipboard text the "add subscription?" dialog offers; null hides it. */
     private val clipboardOffer = MutableStateFlow<String?>(null)
