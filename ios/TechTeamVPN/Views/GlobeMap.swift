@@ -2,7 +2,8 @@ import MapKit
 import SwiftUI
 
 /// Satellite globe with two pins: where the phone really is and the selected server. While
-/// connected a line joins them and the camera turns to the server, where sites now see you.
+/// connected a line joins them, glowing packets run along it towards the server, and the camera
+/// turns to the server, where sites now see you.
 struct GlobeMap: UIViewRepresentable {
     var home: GeoIP.Location?
     var server: GeoIP.Location?
@@ -35,7 +36,7 @@ struct GlobeMap: UIViewRepresentable {
         if let home { pins.append(Pin(kind: .home, location: home, title: connected ? "Реальный адрес" : "Вы здесь")) }
         if let server { pins.append(Pin(kind: .server, location: server, title: connected ? "Вы сейчас здесь" : serverName)) }
         if pins != c.pins {
-            map.removeAnnotations(map.annotations)
+            map.removeAnnotations(c.pins)
             map.addAnnotations(pins)
             c.pins = pins
         }
@@ -49,6 +50,9 @@ struct GlobeMap: UIViewRepresentable {
             if case let (from, to)? = route {
                 var points = [from.coordinate, to.coordinate]
                 map.addOverlay(MKGeodesicPolyline(coordinates: &points, count: 2))
+                c.startPackets(on: map, from: from.coordinate, to: to.coordinate)
+            } else {
+                c.stopPackets(on: map)
             }
         }
 
@@ -70,28 +74,70 @@ struct GlobeMap: UIViewRepresentable {
         var target: CLLocationCoordinate2D?
         var connected = false
         var routeKey: String?
-        private weak var routeRenderer: MKPolylineRenderer?
         private var displayLink: CADisplayLink?
-        /// One dash plus one gap; the dash phase cycles through it.
-        private let dashPeriod: CGFloat = 26
-        private var phase: CGFloat = 0
+        private var packets: [Packet] = []
+        private var route: (CLLocationCoordinate2D, CLLocationCoordinate2D)?
+        private var started = CACurrentMediaTime()
+
+        /// Comets on the route: a bright head and a fading tail, spaced evenly.
+        private static let comets = 3
+        private static let tail = 4
+        /// Seconds for a packet to travel from the phone to the server.
+        private static let trip: CFTimeInterval = 2.2
 
         deinit { displayLink?.invalidate() }
 
-        /// Moves the dashes from the phone towards the server, like traffic going out.
-        @objc private func step() {
-            guard let renderer = routeRenderer else {
-                displayLink?.invalidate()
-                displayLink = nil
-                return
+        func startPackets(on map: MKMapView, from: CLLocationCoordinate2D, to: CLLocationCoordinate2D) {
+            stopPackets(on: map)
+            route = (from, to)
+            started = CACurrentMediaTime()
+            for _ in 0..<Self.comets {
+                for t in 0...Self.tail {
+                    packets.append(Packet(coordinate: from, rank: t))
+                }
             }
-            // A smaller phase shifts the dash pattern forward along the line.
-            phase = (phase - 1.2).truncatingRemainder(dividingBy: dashPeriod)
-            renderer.lineDashPhase = phase < 0 ? phase + dashPeriod : phase
-            renderer.setNeedsDisplay()
+            map.addAnnotations(packets)
+            let link = CADisplayLink(target: self, selector: #selector(step))
+            link.preferredFramesPerSecond = 30
+            link.add(to: .main, forMode: .common)
+            displayLink = link
+        }
+
+        func stopPackets(on map: MKMapView) {
+            displayLink?.invalidate()
+            displayLink = nil
+            map.removeAnnotations(packets)
+            packets = []
+            route = nil
+        }
+
+        /// Moves each comet a little further from the phone towards the server.
+        @objc private func step() {
+            guard case let (from, to)? = route else { return }
+            let progress = ((CACurrentMediaTime() - started) / Self.trip).truncatingRemainder(dividingBy: 1)
+            for (i, packet) in packets.enumerated() {
+                let comet = i / (Self.tail + 1)
+                let f = progress + Double(comet) / Double(Self.comets) - Double(packet.rank) * 0.025
+                packet.coordinate = Self.greatCircle(from, to, f - floor(f))
+            }
+        }
+
+        /// The point a fraction `f` of the way along the great circle, the path the route line follows.
+        private static func greatCircle(_ a: CLLocationCoordinate2D, _ b: CLLocationCoordinate2D, _ f: Double) -> CLLocationCoordinate2D {
+            func vec(_ c: CLLocationCoordinate2D) -> (Double, Double, Double) {
+                let la = c.latitude * .pi / 180, lo = c.longitude * .pi / 180
+                return (cos(la) * cos(lo), cos(la) * sin(lo), sin(la))
+            }
+            let va = vec(a), vb = vec(b)
+            let omega = acos(max(-1, min(1, va.0 * vb.0 + va.1 * vb.1 + va.2 * vb.2)))
+            guard omega > 1e-6 else { return a }
+            let ka = sin((1 - f) * omega) / sin(omega), kb = sin(f * omega) / sin(omega)
+            let x = ka * va.0 + kb * vb.0, y = ka * va.1 + kb * vb.1, z = ka * va.2 + kb * vb.2
+            return CLLocationCoordinate2D(latitude: atan2(z, (x * x + y * y).squareRoot()) * 180 / .pi, longitude: atan2(y, x) * 180 / .pi)
         }
 
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+            if let packet = annotation as? Packet { return PacketView(packet: packet) }
             guard let pin = annotation as? Pin else { return nil }
             let view = MKMarkerAnnotationView(annotation: pin, reuseIdentifier: nil)
             view.glyphText = pin.location.flag
@@ -105,20 +151,47 @@ struct GlobeMap: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
+            // A faint solid track; the packets moving along it carry the motion.
             let renderer = MKPolylineRenderer(overlay: overlay)
-            renderer.strokeColor = UIColor(Brand.cyan)
-            renderer.lineWidth = 4
+            renderer.strokeColor = UIColor(Brand.cyan).withAlphaComponent(0.45)
+            renderer.lineWidth = 3
             renderer.lineCap = .round
-            renderer.lineDashPattern = [14, 12]
-            routeRenderer = renderer
-            if displayLink == nil {
-                let link = CADisplayLink(target: self, selector: #selector(step))
-                link.preferredFramesPerSecond = 30
-                link.add(to: .main, forMode: .common)
-                displayLink = link
-            }
             return renderer
         }
+    }
+
+    /// One dot of a comet; rank 0 is the head, higher ranks trail behind and fade.
+    final class Packet: NSObject, MKAnnotation {
+        @objc dynamic var coordinate: CLLocationCoordinate2D
+        let rank: Int
+
+        init(coordinate: CLLocationCoordinate2D, rank: Int) {
+            self.coordinate = coordinate
+            self.rank = rank
+        }
+    }
+
+    final class PacketView: MKAnnotationView {
+        init(packet: Packet) {
+            super.init(annotation: packet, reuseIdentifier: nil)
+            let size: CGFloat = packet.rank == 0 ? 12 : CGFloat(9 - packet.rank * 1.5)
+            frame = CGRect(x: 0, y: 0, width: size, height: size)
+            backgroundColor = packet.rank == 0 ? .white : UIColor(Brand.cyan)
+            alpha = packet.rank == 0 ? 1 : 0.85 - CGFloat(packet.rank) * 0.17
+            layer.cornerRadius = size / 2
+            // The head glows in the accent colour.
+            layer.shadowColor = UIColor(Brand.cyan).cgColor
+            layer.shadowRadius = packet.rank == 0 ? 8 : 3
+            layer.shadowOpacity = 1
+            layer.shadowOffset = .zero
+            displayPriority = .required
+            collisionMode = .none
+            isUserInteractionEnabled = false
+            zPriority = .min
+        }
+
+        @available(*, unavailable)
+        required init?(coder: NSCoder) { fatalError() }
     }
 
     final class Pin: NSObject, MKAnnotation {

@@ -82,6 +82,8 @@ final class AppModel: ObservableObject {
         }
         // The status may have changed while the request was out; a stale answer would put the pin in the wrong place.
         guard connected == (vpn.status == .connected) else { return }
+        // If no service answers through the VPN, sites see the server's address anyway.
+        if connected, location == nil { location = selectedServerLocation }
         visibleLocation = location
         if !connected, let location { homeLocation = location }
     }

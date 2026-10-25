@@ -179,6 +179,10 @@ class ServerProfileTest {
         assertEquals("\uD83C\uDDF3\uD83C\uDDF1", l.flag)
         assertNull(GeoIP.parse("""{"success":false,"message":"Reserved range"}"""))
         assertEquals("\uD83C\uDF10", GeoIP.flag(""))
+        val ipapi = GeoIP.parse("""{"ip":"1.2.3.4","city":"Helsinki","country":"FI","country_name":"Finland","country_code":"FI","latitude":60.17,"longitude":24.94}""")!!
+        assertEquals("Helsinki, Finland", ipapi.place)
+        assertNull(GeoIP.parse("""{"error":true,"reason":"RateLimited"}"""))
+        assertNull(GeoIP.parse("<html>Just a moment...</html>"))
     }
 
     @Test

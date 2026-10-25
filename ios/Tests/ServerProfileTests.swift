@@ -145,6 +145,10 @@ final class ServerProfileTests: XCTestCase {
         XCTAssertEqual(l.flag, "🇳🇱")
         XCTAssertNil(GeoIP.parse(Data(#"{"success":false,"message":"Reserved range"}"#.utf8)))
         XCTAssertEqual(GeoIP.flag(""), "🌐")
+        let ipapi = try XCTUnwrap(GeoIP.parse(Data(#"{"ip":"1.2.3.4","city":"Helsinki","country":"FI","country_name":"Finland","country_code":"FI","latitude":60.17,"longitude":24.94}"#.utf8)))
+        XCTAssertEqual(ipapi.place, "Helsinki, Finland")
+        XCTAssertNil(GeoIP.parse(Data(#"{"error":true,"reason":"RateLimited"}"#.utf8)))
+        XCTAssertNil(GeoIP.parse(Data("<html>Just a moment...</html>".utf8)))
     }
 
     func testParsesLatestRelease() throws {

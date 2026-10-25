@@ -82,8 +82,9 @@ dependencies {
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
-    // The home screen map: MapLibre with free OpenFreeMap vector tiles, no API key.
-    implementation("org.maplibre.gl:android-sdk:13.6.1")
+    // The home screen globe: MapLibre with free OpenFreeMap vector tiles, no API key. The
+    // "-globe" build is the one that draws the globe projection; 13.x releases are flat only.
+    implementation("org.maplibre.gl:android-sdk:2026.10.19-globe")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")

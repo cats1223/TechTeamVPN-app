@@ -33,6 +33,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
@@ -49,6 +52,7 @@ import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
+import java.net.URL
 import kotlin.math.atan
 import kotlin.math.exp
 import kotlin.math.ln
@@ -62,7 +66,8 @@ private const val DARK_STYLE = "https://tiles.openfreemap.org/styles/dark"
 private const val LIGHT_STYLE = "https://tiles.openfreemap.org/styles/liberty"
 
 /**
- * A real map (MapLibre with OpenFreeMap tiles) that can be dragged, pinched and rotated. It
+ * A vector globe (MapLibre with OpenFreeMap tiles in the globe projection) that can be spun,
+ * pinched down to street level and rotated. It
  * flies to [centerLat], [centerLon] when the place changes; [line] joins two pins along the
  * route through the VPN. Labels are Compose views kept over their points, so flags render.
  */
@@ -120,7 +125,7 @@ fun WorldMap(
                 setAttributionMargins(220, 220, 0, 0)
                 setLogoMargins(32, 220, 0, 0)
             }
-            m.cameraPosition = CameraPosition.Builder().target(LatLng(centerLat, centerLon)).zoom(3.0).build()
+            m.cameraPosition = CameraPosition.Builder().target(LatLng(centerLat, centerLon)).zoom(1.6).build()
             m.addOnCameraMoveListener { cameraTick++ }
             map = m
         }
@@ -130,25 +135,34 @@ fun WorldMap(
     LaunchedEffect(map, dark) {
         val m = map ?: return@LaunchedEffect
         style = null
-        m.setStyle(Style.Builder().fromUri(if (dark) DARK_STYLE else LIGHT_STYLE)) { s ->
+        // The OpenFreeMap style with the globe projection added: a sphere when zoomed out, a flat
+        // street map when zoomed in. If the style cannot be fetched here, MapLibre loads it itself.
+        val url = if (dark) DARK_STYLE else LIGHT_STYLE
+        val json = withContext(Dispatchers.IO) {
+            runCatching { JSONObject(URL(url).readText()).put("projection", JSONObject().put("type", "globe")).toString() }.getOrNull()
+        }
+        val builder = if (json != null) Style.Builder().fromJson(json) else Style.Builder().fromUri(url)
+        m.setStyle(builder) { s ->
             s.addSource(GeoJsonSource(ROUTE_SOURCE))
             s.addSource(GeoJsonSource(PINS_SOURCE))
             s.addSource(GeoJsonSource(PACKETS_SOURCE))
             s.addSource(GeoJsonSource(HALO_SOURCE))
             s.addLayer(
+                // A faint solid track; the comets moving along it carry the motion.
                 LineLayer(ROUTE_LAYER, ROUTE_SOURCE).withProperties(
                     PropertyFactory.lineColor(accent),
                     PropertyFactory.lineWidth(3f),
-                    PropertyFactory.lineDasharray(arrayOf(2f, 1.5f)),
+                    PropertyFactory.lineOpacity(0.45f),
                 ),
             )
-            // Glowing dots that run along the route from the phone to the server, like traffic.
+            // Comets that run along the route from the phone to the server, like traffic: each is a
+            // white head with a fading tail; size and opacity come from the features.
             s.addLayer(
                 CircleLayer(PACKETS_LAYER, PACKETS_SOURCE).withProperties(
-                    PropertyFactory.circleRadius(5f),
-                    PropertyFactory.circleColor(accent),
-                    PropertyFactory.circleBlur(0.6f),
-                    PropertyFactory.circleOpacity(0.95f),
+                    PropertyFactory.circleRadius(Expression.get("r")),
+                    PropertyFactory.circleOpacity(Expression.get("o")),
+                    PropertyFactory.circleColor(Expression.toColor(Expression.get("c"))),
+                    PropertyFactory.circleBlur(0.4f),
                 ),
             )
             // A ring that keeps spreading out from the active pin.
@@ -201,9 +215,16 @@ fun WorldMap(
             val now = withFrameMillis { it }
             line?.let { (a, b) ->
                 val t = (now % PACKET_TRIP_MS) / PACKET_TRIP_MS.toFloat()
-                val dots = (0 until PACKET_COUNT).map { k ->
-                    val (lat, lon) = alongMercator(a, b, ((t + k.toFloat() / PACKET_COUNT) % 1f).toDouble())
-                    Feature.fromGeometry(Point.fromLngLat(lon, lat))
+                val dots = (0 until PACKET_COUNT).flatMap { k ->
+                    (0..PACKET_TAIL).map { rank ->
+                        val f = t + k.toFloat() / PACKET_COUNT - rank * 0.025f
+                        val (lat, lon) = alongMercator(a, b, (f - kotlin.math.floor(f)).toDouble())
+                        Feature.fromGeometry(Point.fromLngLat(lon, lat)).apply {
+                            addNumberProperty("r", if (rank == 0) 6f else 5f - rank)
+                            addNumberProperty("o", if (rank == 0) 1f else 0.85f - rank * 0.17f)
+                            addStringProperty("c", if (rank == 0) "#ffffff" else colorString(accent))
+                        }
+                    }
                 }
                 packets?.setGeoJson(FeatureCollection.fromFeatures(dots))
             }
@@ -216,7 +237,8 @@ fun WorldMap(
 
     // Fly to the place only when it changes, so the user's own panning is left alone.
     LaunchedEffect(map, centerLat, centerLon) {
-        map?.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(centerLat, centerLon), 3.5), 1400)
+        // Far enough out that the globe stays a sphere with both places on it.
+        map?.animateCamera(CameraUpdateFactory.newLatLngZoom(LatLng(centerLat, centerLon), 2.4), 1600)
     }
 
     BoxWithConstraints(modifier.background(Color.Black)) {
@@ -257,6 +279,7 @@ private const val PACKETS_LAYER = "packets-layer"
 private const val HALO_SOURCE = "halo"
 private const val HALO_LAYER = "halo-layer"
 private const val PACKET_COUNT = 3
+private const val PACKET_TAIL = 4
 private const val PACKET_TRIP_MS = 1800L
 private const val HALO_MS = 1600L
 

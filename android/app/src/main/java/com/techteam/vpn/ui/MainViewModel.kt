@@ -91,6 +91,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             if (location != null) break
         }
         if (connected != (vpn.value is VpnState.Connected)) return
+        // If no service answers through the VPN, sites see the server's address anyway.
+        if (connected && location == null) location = repo.state.value.selected?.address?.let { _serverLocations.value[it] }
         _visibleLocation.value = location
         if (!connected && location != null) _homeLocation.value = location
     }
