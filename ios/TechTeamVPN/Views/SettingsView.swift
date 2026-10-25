@@ -75,6 +75,7 @@ struct SettingsView: View {
     @AppStorage(AppSettings.autoFastestKey) private var autoFastest = false
     @AppStorage(AppSettings.autoReconnectKey) private var autoReconnect = true
     @AppStorage(TunnelActivity.enabledKey) private var liveActivity = true
+    @AppStorage(Feedback.soundKey) private var sounds = true
     @EnvironmentObject private var vpn: VPNManager
     @State private var versionTaps = 0
     @State private var lastTap = Date.distantPast
@@ -92,6 +93,9 @@ struct SettingsView: View {
                     }
                     .pickerStyle(.segmented)
                     .listRowBackground(Brand.surface)
+                    Toggle("Звуки подключения", isOn: $sounds)
+                        .tint(Brand.cyan)
+                        .listRowBackground(Brand.surface)
                 }
 
                 Section {

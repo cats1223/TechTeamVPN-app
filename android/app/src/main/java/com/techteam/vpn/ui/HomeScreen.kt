@@ -22,6 +22,7 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -381,8 +382,23 @@ private fun StatusCard(
             else -> Triple(stringResource(R.string.action_connect), Brand.Cyan, onToggle)
         }
         val buttonColor by animateColorAsState(color, tween(450), label = "button")
+        val view = LocalView.current
+        // Only real transitions: opening the app starts from whatever state the VPN is in.
+        var previous by remember { mutableStateOf(vpn) }
+        LaunchedEffect(vpn) {
+            val before = previous
+            previous = vpn
+            when {
+                vpn is VpnState.Connected && before is VpnState.Connecting -> Feedback.connected(view)
+                vpn is VpnState.Error && before !is VpnState.Error -> Feedback.failed(view)
+                vpn is VpnState.Disconnected && (before is VpnState.Connected || before is VpnState.Connecting) -> Feedback.disconnected(view)
+            }
+        }
         Button(
-            onClick = action,
+            onClick = {
+                Feedback.tap(view)
+                action()
+            },
             colors = ButtonDefaults.buttonColors(containerColor = buttonColor, contentColor = Color.White),
             shape = CircleShape,
             modifier = Modifier.fillMaxWidth().height(54.dp),

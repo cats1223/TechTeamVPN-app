@@ -11,6 +11,7 @@ struct HomeView: View {
     @State private var showServers = false
     @State private var showSettings = false
     @State private var showSpeedTest = false
+    @State private var previousStatus: NEVPNStatus = .invalid
     @State private var burst = false
 
     private var connected: Bool { vpn.status == .connected }
@@ -141,6 +142,7 @@ struct HomeView: View {
                 bigButton(String(localized: "Добавить ключ"), color: Brand.cyan) { showAdd = true }
             } else {
                 bigButton(buttonTitle, color: connected || busy ? Brand.red : Brand.cyan) {
+                    Feedback.tap()
                     Task { await model.toggle() }
                 }
             }
@@ -153,6 +155,16 @@ struct HomeView: View {
         )
         .animation(.spring(response: 0.5, dampingFraction: 0.7), value: vpn.status)
         .onChange(of: vpn.status) { status in
+            // Only real transitions: opening the app also moves the status from "unknown".
+            let previous = previousStatus
+            previousStatus = status
+            switch status {
+            case .connected where [.connecting, .reasserting].contains(previous):
+                Feedback.connected()
+            case .disconnected where [.connected, .disconnecting, .connecting, .reasserting].contains(previous):
+                if previous == .connecting, vpn.lastError != nil { Feedback.failed() } else { Feedback.disconnected() }
+            default: break
+            }
             guard status == .connected else { return }
             burst = false
             withAnimation(.easeOut(duration: 0.9)) { burst = true }

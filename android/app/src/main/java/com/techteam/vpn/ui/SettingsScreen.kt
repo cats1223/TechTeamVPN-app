@@ -114,6 +114,14 @@ fun SettingsScreen(
                 ThemeOption(stringResource(R.string.theme_light), selected = lightTheme, Modifier.weight(1f)) { onTheme(true) }
             }
         }
+        val appSettings = com.techteam.vpn.data.AppSettings.get(context)
+        val sounds by appSettings.sounds.collectAsState()
+        Card(Modifier.clickable { appSettings.setSounds(!sounds) }) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.sounds), color = Brand.Text, modifier = Modifier.weight(1f))
+                Switch(checked = sounds, onCheckedChange = appSettings::setSounds, colors = SwitchDefaults.colors(checkedTrackColor = Brand.Cyan))
+            }
+        }
 
         SectionTitle(stringResource(R.string.split_title))
         Card(Modifier.clickable { onRussiaDirect(!russiaDirect) }) {

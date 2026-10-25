@@ -24,6 +24,15 @@ class AppSettings private constructor(context: Context) {
     private val _russiaDirect = MutableStateFlow(prefs.getBoolean("russiaDirect", true))
     val russiaDirect: StateFlow<Boolean> = _russiaDirect.asStateFlow()
 
+    /** Chimes when the VPN connects and disconnects; on by default. */
+    private val _sounds = MutableStateFlow(prefs.getBoolean("sounds", true))
+    val sounds: StateFlow<Boolean> = _sounds.asStateFlow()
+
+    fun setSounds(enabled: Boolean) {
+        _sounds.value = enabled
+        prefs.edit().putBoolean("sounds", enabled).apply()
+    }
+
     /** Ad and tracker domains are blocked; off by default, since a few sites break without them. */
     private val _blockAds = MutableStateFlow(prefs.getBoolean("blockAds", false))
     val blockAds: StateFlow<Boolean> = _blockAds.asStateFlow()
