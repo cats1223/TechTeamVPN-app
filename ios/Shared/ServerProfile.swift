@@ -72,8 +72,10 @@ struct ServerProfile: Codable, Identifiable, Hashable {
             body = String(body[..<at]) + rest
         }
         body = body.replacingOccurrences(of: " ", with: "%20")
+        // URLComponents splits "user:pass" userinfo; Hysteria2 auth may be exactly that, so rejoin it.
         guard let comps = URLComponents(string: body),
-              let user = comps.percentEncodedUser.map(decode), !user.isEmpty,
+              let user = comps.percentEncodedUser.map({ decode($0) + (comps.percentEncodedPassword.map { ":" + decode($0) } ?? "") }),
+              !user.isEmpty,
               var host = comps.host, !host.isEmpty,
               let port = comps.port, (1...65535).contains(port)
         else { return nil }

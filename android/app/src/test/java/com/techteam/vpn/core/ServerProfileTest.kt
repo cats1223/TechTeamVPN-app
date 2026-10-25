@@ -124,7 +124,7 @@ class ServerProfileTest {
 
     @Test
     fun parsesSubscriptionBodies() {
-        val links = "$reality\nvless://id2@h2:443?type=ws#Two\ntrojan://ignored@h:1\n"
+        val links = "$reality\nvless://id2@h2:443?type=ws#Two\nvmess://ignored\n"
         assertEquals(2, Subscription.parseLinks(links).size)
         val b64 = Base64.getEncoder().encodeToString(links.toByteArray()).trimEnd('=')
         assertEquals(2, Subscription.parseLinks(b64).size)

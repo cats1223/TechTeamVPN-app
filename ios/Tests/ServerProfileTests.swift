@@ -94,7 +94,7 @@ final class ServerProfileTests: XCTestCase {
     }
 
     func testParsesSubscriptionBodies() {
-        let links = "\(reality)\nvless://id2@h2:443?type=ws#Two\ntrojan://ignored@h:1\n"
+        let links = "\(reality)\nvless://id2@h2:443?type=ws#Two\nvmess://ignored\n"
         XCTAssertEqual(Subscription.parseLinks(links).count, 2)
         let b64 = Data(links.utf8).base64EncodedString().trimmingCharacters(in: CharacterSet(charactersIn: "="))
         XCTAssertEqual(Subscription.parseLinks(b64).count, 2)
