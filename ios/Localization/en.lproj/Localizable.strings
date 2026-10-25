@@ -142,7 +142,7 @@
 "%lld мс" = "%lld ms";
 "Что нового в %@" = "What's new in %@";
 "Проблема на шаге «%@». Подробности — в «Журнале подключения» на главном экране." = "Problem at the “%@” step. Details are in the “Connection log”.";
-"Интернет работает · %lld мс" = "Internet works · %lld ms";
+"Интернет работает · %@ мс" = "Internet works · %@ ms";
 "Интернета нет: %@" = "No internet: %@";
 "Трафик: %@ из %@" = "Traffic: %@ of %@";
 "Использовано: %@" = "Used: %@";

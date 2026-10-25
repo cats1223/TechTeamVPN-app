@@ -44,7 +44,7 @@ struct HomeView: View {
         }
         .onChange(of: vpn.status) { status in
             if status == .connected {
-                Task { await model.checkInternet() }
+                // The internet card starts its live ping itself once it shows up.
                 model.traffic.start()
             } else {
                 model.resetInternetCheck()
@@ -240,7 +240,7 @@ struct HomeView: View {
 
     private var internetCheck: some View {
         Button {
-            Task { await model.checkInternet() }
+            model.startLivePing()
         } label: {
             HStack(spacing: 8) {
                 switch model.internetCheck {
@@ -252,7 +252,8 @@ struct HomeView: View {
                     Text("Проверяю интернет…")
                 case .ok(let ms):
                     Image(systemName: "checkmark.circle.fill").foregroundStyle(Brand.green)
-                    Text("Интернет работает · \(ms) мс")
+                    // A String, not an Int, so SwiftUI doesn't add a thousands separator ("1,051").
+                    Text("Интернет работает · \(String(ms)) мс").monospacedDigit()
                 case .failed(let reason):
                     Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Brand.amber)
                     Text("Интернета нет: \(reason)").multilineTextAlignment(.leading)
@@ -265,6 +266,8 @@ struct HomeView: View {
         }
         .buttonStyle(.plain)
         .disabled(model.internetCheck == .running)
+        .onAppear { model.startLivePing() }
+        .onDisappear { model.stopLivePing() }
     }
 
     private var menu: some View {

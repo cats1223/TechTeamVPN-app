@@ -267,12 +267,32 @@ final class AppModel: ObservableObject {
     }
 
     /// Requests a tiny page through the tunnel: tells "VPN is up" apart from "traffic actually flows".
-    func checkInternet() async {
+    private var livePing: Task<Void, Never>?
+
+    /// Checks the internet through the VPN every second while the card is on screen. One
+    /// session keeps the connection open, so after the first answer the time is the real delay.
+    func startLivePing() {
+        livePing?.cancel()
         internetCheck = .running
-        switch await Self.probeInternet() {
-        case .success(let ms): internetCheck = .ok(ms: ms)
-        case .failure(let reason): internetCheck = .failed(reason.message)
+        let session = Self.session()
+        livePing = Task { [weak self] in
+            while !Task.isCancelled {
+                let result = await Self.probeInternet(session: session)
+                guard !Task.isCancelled, let self else { break }
+                switch result {
+                case .success(let ms): self.internetCheck = .ok(ms: ms)
+                case .failure(let reason): self.internetCheck = .failed(reason.message)
+                }
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+            }
+            session.invalidateAndCancel()
         }
+    }
+
+    func stopLivePing() {
+        livePing?.cancel()
+        livePing = nil
+        internetCheck = .idle
     }
 
     /// Runs the checklist on the Servers tab step by step; nothing leaves the app.
@@ -345,7 +365,7 @@ final class AppModel: ObservableObject {
     }
 
     func resetInternetCheck() {
-        internetCheck = .idle
+        stopLivePing()
     }
 
     private func update(_ change: (inout ProfilesState) -> Void) {
@@ -364,10 +384,10 @@ final class AppModel: ObservableObject {
         return URLSession(configuration: config)
     }
 
-    private nonisolated static func probeInternet() async -> Result<Int, ProbeError> {
+    private nonisolated static func probeInternet(session: URLSession = session()) async -> Result<Int, ProbeError> {
         let start = Date()
         do {
-            let (_, response) = try await session().data(from: URL(string: "https://www.gstatic.com/generate_204")!)
+            let (_, response) = try await session.data(from: URL(string: "https://www.gstatic.com/generate_204")!)
             let code = (response as? HTTPURLResponse)?.statusCode ?? 0
             guard (200..<400).contains(code) else { return .failure(ProbeError(message: "HTTP \(code)")) }
             return .success(Int(Date().timeIntervalSince(start) * 1000))
