@@ -137,8 +137,12 @@ struct StatusWidgetView: View {
 struct VPNControlWidget: ControlWidget {
     var body: some ControlWidgetConfiguration {
         StaticControlConfiguration(kind: "TechTeamVPNControl", provider: Provider()) { isOn in
-            ControlWidgetToggle("TechTeamVPN", isOn: isOn, action: SetVPNIntent()) { on in
-                Label(on ? "Подключено" : "Не подключено", systemImage: on ? "checkmark.shield.fill" : "shield")
+            // The label gives the control its own icon, shown in Control Center's edit mode and
+            // before the value is known; the value label swaps it for the current state.
+            ControlWidgetToggle(isOn: isOn, action: SetVPNIntent()) {
+                Label("TechTeamVPN", systemImage: "checkmark.shield.fill")
+            } valueLabel: { on in
+                Label(on ? "Подключено" : "Не подключено", systemImage: on ? "checkmark.shield.fill" : "shield.slash")
             }
             .tint(.green)
         }
