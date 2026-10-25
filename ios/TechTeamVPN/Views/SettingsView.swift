@@ -9,6 +9,8 @@ enum AppSettings {
     /// Offer betas in the update check too, not only full releases.
     static let betaUpdatesKey = "betaUpdates"
 
+    /// Before connecting, ping the servers and take the fastest.
+    static let autoFastestKey = "autoFastest"
     /// The user's sites that always go past the VPN, and those that always go through it.
     static let directSitesKey = "directSites"
     static let proxySitesKey = "proxySites"
@@ -52,6 +54,7 @@ struct SettingsView: View {
     @AppStorage(AppSettings.devModeKey) private var devMode = false
     @AppStorage(AppSettings.russiaDirectKey) private var russiaDirect = true
     @AppStorage(AppSettings.betaUpdatesKey) private var betaUpdates = false
+    @AppStorage(AppSettings.autoFastestKey) private var autoFastest = false
     @State private var versionTaps = 0
     @State private var lastTap = Date.distantPast
     @State private var askPassword = false
@@ -83,6 +86,16 @@ struct SettingsView: View {
                     Text("Сайты в зонах .ru, .su, .рф и российские адреса открываются без VPN, с вашего обычного адреса. "
                         + "Российские приложения ходят на свои серверы тоже напрямую. Выбрать отдельные приложения "
                         + "на iPhone нельзя: Apple разрешает это только через MDM.")
+                }
+
+                Section {
+                    Toggle("Самый быстрый сервер", isOn: $autoFastest)
+                        .tint(Brand.cyan)
+                        .listRowBackground(Brand.surface)
+                } header: {
+                    Text("Серверы")
+                } footer: {
+                    Text("Перед подключением приложение проверит пинг всех серверов и выберет самый быстрый.")
                 }
 
                 Section {

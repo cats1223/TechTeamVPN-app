@@ -101,6 +101,8 @@ fun HomeScreen(
     homeLocation: GeoIP.Location?,
     visibleLocation: GeoIP.Location?,
     serverLocations: Map<String, GeoIP.Location>,
+    pings: Map<String, Long>,
+    onPing: () -> Unit,
     onToggle: () -> Unit,
     onAdd: () -> Unit,
     onSelect: (String) -> Unit,
@@ -109,6 +111,8 @@ fun HomeScreen(
 ) {
     val connected = vpn is VpnState.Connected
     val server = state.selected?.let { serverLocations[it.address] }
+    // Ping the servers for the chips; again whenever the list changes.
+    LaunchedEffect(state.profiles.map { it.profile.id }) { onPing() }
     var expanded by rememberSaveable { mutableStateOf(false) }
 
     val pins = buildList {
@@ -182,6 +186,19 @@ fun HomeScreen(
                                 stripFlag(p.name), color = if (selected) Brand.Cyan else Brand.Text,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                             )
+                            pings[p.id]?.let { ms ->
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    if (ms > 0) stringResource(R.string.ping_ms, ms) else "—",
+                                    fontSize = 12.sp,
+                                    color = when {
+                                        ms <= 0 -> Brand.Red
+                                        ms < 150 -> Brand.Green
+                                        ms < 400 -> Brand.Amber
+                                        else -> Brand.Red
+                                    },
+                                )
+                            }
                         }
                     }
                 }

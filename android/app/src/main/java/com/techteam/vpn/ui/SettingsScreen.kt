@@ -61,6 +61,8 @@ fun SettingsScreen(
     bypassApps: Set<String>,
     betaUpdates: Boolean,
     directSites: List<String>,
+    autoFastest: Boolean,
+    onAutoFastest: (Boolean) -> Unit,
     proxySites: List<String>,
     onTheme: (Boolean) -> Unit,
     onRussiaDirect: (Boolean) -> Unit,
@@ -117,6 +119,17 @@ fun SettingsScreen(
                     Text("Банки, Госуслуги и другие не увидят VPN", color = Brand.TextMuted, fontSize = 12.sp)
                 }
                 Text(if (bypassApps.isEmpty()) "Нет" else bypassApps.size.toString(), color = Brand.Cyan)
+            }
+        }
+
+        SectionTitle(stringResource(R.string.servers_title))
+        Card(Modifier.clickable { onAutoFastest(!autoFastest) }) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.auto_fastest), color = Brand.Text)
+                    Text(stringResource(R.string.auto_fastest_hint), color = Brand.TextMuted, fontSize = 12.sp)
+                }
+                Switch(checked = autoFastest, onCheckedChange = onAutoFastest, colors = SwitchDefaults.colors(checkedTrackColor = Brand.Cyan))
             }
         }
 

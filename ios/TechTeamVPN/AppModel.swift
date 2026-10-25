@@ -108,8 +108,9 @@ final class AppModel: ObservableObject {
     func toggle() async {
         if vpn.isActive {
             await vpn.disconnect()
-        } else if let profile = state.selected {
-            await vpn.connect(profile)
+        } else if state.selected != nil {
+            if UserDefaults.standard.bool(forKey: AppSettings.autoFastestKey) { await selectFastest() }
+            if let profile = state.selected { await vpn.connect(profile) }
         } else {
             message = "Сначала добавьте сервер"
         }
@@ -218,6 +219,15 @@ final class AppModel: ObservableObject {
             s.subscriptionURL = ""
             s.subscriptionInfo = nil
             if !s.profiles.contains(where: { $0.id == s.selectedId }) { s.selectedId = nil }
+        }
+    }
+
+    /// Pings every server and selects the one that answered fastest.
+    func selectFastest() async {
+        guard state.profiles.count > 1 else { return }
+        await pingAll()
+        if let best = pings.filter({ $0.value > 0 }).min(by: { $0.value < $1.value })?.key {
+            update { $0.selectedId = best }
         }
     }
 

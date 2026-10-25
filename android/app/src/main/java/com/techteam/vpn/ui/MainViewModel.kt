@@ -220,6 +220,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun removeSubscription() = repo.removeSubscription()
 
+    /** Pings every server and selects the one that answered fastest. */
+    suspend fun selectFastest() {
+        if (repo.state.value.profiles.size < 2) return
+        pingAll().join()
+        _pings.value.filterValues { it > 0 }.minByOrNull { it.value }?.key?.let(repo::select)
+    }
+
     fun pingAll() = viewModelScope.launch {
         val list = repo.state.value.profiles.map { it.profile }
         val results = withContext(Dispatchers.IO) {

@@ -39,6 +39,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
 import com.journeyapps.barcodescanner.ScanContract
 import kotlinx.coroutines.flow.MutableStateFlow
 import com.journeyapps.barcodescanner.ScanOptions
@@ -82,6 +84,7 @@ class MainActivity : ComponentActivity() {
             val bypassApps by settings.bypassApps.collectAsStateWithLifecycle()
             val betaUpdates by settings.betaUpdates.collectAsStateWithLifecycle()
             val directSites by settings.directSites.collectAsStateWithLifecycle()
+            val autoFastest by settings.autoFastest.collectAsStateWithLifecycle()
             val proxySites by settings.proxySites.collectAsStateWithLifecycle()
             TechTeamTheme(light = lightTheme) {
                 val profiles by vm.profiles.collectAsStateWithLifecycle()
@@ -112,6 +115,8 @@ class MainActivity : ComponentActivity() {
                         homeLocation = homeLocation,
                         visibleLocation = visibleLocation,
                         serverLocations = serverLocations,
+                        pings = pings,
+                        onPing = { vm.pingAll() },
                         onToggle = ::toggle,
                         onAdd = { showAdd = true },
                         onSelect = vm::select,
@@ -133,6 +138,8 @@ class MainActivity : ComponentActivity() {
                                 bypassApps = bypassApps,
                                 betaUpdates = betaUpdates,
                                 directSites = directSites,
+                                autoFastest = autoFastest,
+                                onAutoFastest = settings::setAutoFastest,
                                 proxySites = proxySites,
                                 onTheme = settings::setLightTheme,
                                 onRussiaDirect = {
@@ -319,8 +326,11 @@ class MainActivity : ComponentActivity() {
                     Toast.makeText(this, R.string.error_no_server, Toast.LENGTH_SHORT).show()
                     return
                 }
-                val consent = VpnService.prepare(this)
-                if (consent != null) vpnPermission.launch(consent) else vm.connect()
+                lifecycleScope.launch {
+                    if (AppSettings.get(this@MainActivity).autoFastest.value) vm.selectFastest()
+                    val consent = VpnService.prepare(this@MainActivity)
+                    if (consent != null) vpnPermission.launch(consent) else vm.connect()
+                }
             }
         }
     }

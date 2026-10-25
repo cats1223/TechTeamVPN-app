@@ -36,6 +36,15 @@ class AppSettings private constructor(context: Context) {
         prefs.edit().putBoolean("betaUpdates", enabled).apply()
     }
 
+    /** Before connecting, ping the servers and take the fastest. */
+    private val _autoFastest = MutableStateFlow(prefs.getBoolean("autoFastest", false))
+    val autoFastest: StateFlow<Boolean> = _autoFastest.asStateFlow()
+
+    fun setAutoFastest(enabled: Boolean) {
+        _autoFastest.value = enabled
+        prefs.edit().putBoolean("autoFastest", enabled).apply()
+    }
+
     /** The user's sites that always go past the VPN, and those that always go through it. */
     private val _directSites = MutableStateFlow(prefs.getStringSet("directSites", null).orEmpty().sorted())
     val directSites: StateFlow<List<String>> = _directSites.asStateFlow()

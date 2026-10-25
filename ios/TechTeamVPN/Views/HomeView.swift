@@ -54,6 +54,8 @@ struct HomeView: View {
         .onChange(of: model.state.selected?.address) { _ in
             Task { await model.locateSelectedServer() }
         }
+        // Ping the servers for the chips; again whenever the list changes.
+        .task(id: model.state.profiles.map(\.id)) { await model.pingAll() }
     }
 
     // MARK: - Panel
@@ -208,6 +210,11 @@ struct HomeView: View {
                             HStack(spacing: 8) {
                                 Text(flag(for: item.profile)).font(.title3)
                                 Text(item.profile.name.strippingLeadingFlag).lineLimit(1)
+                                if let ms = model.pings[item.id] {
+                                    Text(ms > 0 ? "\(ms) мс" : "—")
+                                        .font(.caption.monospacedDigit())
+                                        .foregroundStyle(ms <= 0 ? Brand.red : ms < 150 ? Brand.green : ms < 400 ? Brand.amber : Brand.red)
+                                }
                             }
                             .padding(.horizontal, 16)
                             .frame(height: 46)
