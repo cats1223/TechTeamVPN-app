@@ -151,6 +151,11 @@ final class VPNManager: ObservableObject {
         return manager
     }
 
+    /// Shows or ends the Live Activity to match the tunnel.
+    func refreshActivity() {
+        TunnelActivity.update(connected: status == .connected, since: connectedDate, serverName: ProfileStore.load().selected?.name)
+    }
+
     private func observe(_ manager: NETunnelProviderManager) {
         if let observer { NotificationCenter.default.removeObserver(observer) }
         observer = NotificationCenter.default.addObserver(
@@ -167,6 +172,7 @@ final class VPNManager: ObservableObject {
         }
         status = connection.status
         connectedDate = connection.status == .connected ? connection.connectedDate : nil
+        if [.connected, .disconnected, .invalid].contains(connection.status) { refreshActivity() }
         if connection.status == .disconnected {
             connection.fetchLastDisconnectError { [weak self] error in
                 guard let error else { return }

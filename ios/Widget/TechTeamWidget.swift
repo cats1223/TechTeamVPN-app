@@ -1,3 +1,4 @@
+import ActivityKit
 import AppIntents
 import SwiftUI
 import WidgetKit
@@ -6,6 +7,7 @@ import WidgetKit
 struct TechTeamWidgets: WidgetBundle {
     var body: some Widget {
         StatusWidget()
+        TunnelActivityWidget()
     }
 }
 
@@ -38,7 +40,7 @@ struct StatusWidget: Widget {
         }
         .configurationDisplayName("TechTeamVPN")
         .description("Включайте и выключайте VPN прямо с экрана «Домой».")
-        .supportedFamilies([.systemSmall, .systemMedium])
+        .supportedFamilies([.systemSmall, .systemMedium, .accessoryCircular, .accessoryRectangular, .accessoryInline])
     }
 }
 
@@ -51,7 +53,13 @@ struct StatusWidgetView: View {
 
     var body: some View {
         Group {
-            if family == .systemMedium { medium } else { small }
+            switch family {
+            case .systemMedium: medium
+            case .accessoryCircular: circular
+            case .accessoryRectangular: rectangular
+            case .accessoryInline: inline
+            default: small
+            }
         }
         .containerBackground(for: .widget) {
             LinearGradient(
@@ -98,6 +106,35 @@ struct StatusWidgetView: View {
             .toggleStyle(SliderToggleStyle(onColor: accent))
     }
 
+    // MARK: Lock screen
+
+    /// A round shield that turns the VPN on or off; the lock screen tints it itself.
+    private var circular: some View {
+        Toggle(isOn: entry.connected, intent: SetVPNIntent(value: !entry.connected)) { Text(status) }
+            .toggleStyle(LockShieldToggleStyle())
+    }
+
+    private var rectangular: some View {
+        HStack(spacing: 8) {
+            Image(systemName: entry.connected ? "checkmark.shield.fill" : "shield.slash")
+                .font(.title2)
+            VStack(alignment: .leading, spacing: 1) {
+                Text("TechTeamVPN").font(.headline)
+                Text(status).font(.caption)
+            }
+            Spacer(minLength: 0)
+        }
+        .widgetAccentable()
+    }
+
+    private var inline: some View {
+        Label {
+            Text(status)
+        } icon: {
+            Image(systemName: entry.connected ? "checkmark.shield.fill" : "shield.slash")
+        }
+    }
+
     private var statusLine: some View {
         HStack(spacing: 6) {
             Circle().fill(accent).frame(width: 8, height: 8)
@@ -132,5 +169,80 @@ struct SliderToggleStyle: ToggleStyle {
         }
         .frame(width: 56, height: 32)
         .accessibilityLabel(configuration.label)
+    }
+}
+
+/// The lock screen button: a filled shield when connected, an outline when not.
+struct LockShieldToggleStyle: ToggleStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        ZStack {
+            AccessoryWidgetBackground()
+            Image(systemName: configuration.isOn ? "checkmark.shield.fill" : "shield.slash")
+                .font(.system(size: 24, weight: .semibold))
+        }
+        .widgetAccentable()
+        .accessibilityLabel(configuration.label)
+    }
+}
+
+// MARK: - Live Activity
+
+/// Dynamic Island and the lock screen while the VPN is up: shield, server and a running timer.
+struct TunnelActivityWidget: Widget {
+    private static let green = Color(red: 0.17, green: 0.85, blue: 0.55)
+
+    var body: some WidgetConfiguration {
+        ActivityConfiguration(for: TunnelActivityAttributes.self) { context in
+            HStack(spacing: 12) {
+                shield(size: 44)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("TechTeamVPN · Подключено").font(.subheadline.weight(.semibold))
+                    Text(context.attributes.serverName).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                }
+                Spacer(minLength: 8)
+                timer(context.state.since).font(.title3.weight(.semibold))
+            }
+            .padding(16)
+            .activityBackgroundTint(.black.opacity(0.75))
+            .activitySystemActionForegroundColor(Self.green)
+        } dynamicIsland: { context in
+            DynamicIsland {
+                DynamicIslandExpandedRegion(.leading) {
+                    shield(size: 40).padding(.leading, 4)
+                }
+                DynamicIslandExpandedRegion(.trailing) {
+                    timer(context.state.since).font(.title3.weight(.semibold)).padding(.trailing, 4)
+                }
+                DynamicIslandExpandedRegion(.center) {
+                    Text("Подключено").font(.headline)
+                }
+                DynamicIslandExpandedRegion(.bottom) {
+                    Text(context.attributes.serverName).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                }
+            } compactLeading: {
+                Image(systemName: "checkmark.shield.fill").foregroundStyle(Self.green)
+            } compactTrailing: {
+                timer(context.state.since).frame(maxWidth: 52)
+            } minimal: {
+                Image(systemName: "checkmark.shield.fill").foregroundStyle(Self.green)
+            }
+            .keylineTint(Self.green)
+        }
+    }
+
+    private func shield(size: CGFloat) -> some View {
+        Image(systemName: "checkmark.shield.fill")
+            .font(.system(size: size * 0.5, weight: .semibold))
+            .foregroundStyle(Self.green)
+            .frame(width: size, height: size)
+            .background(Self.green.opacity(0.2), in: Circle())
+    }
+
+    /// Counts up by itself, so the activity needs no updates.
+    private func timer(_ since: Date) -> some View {
+        Text(timerInterval: since...Date.distantFuture, countsDown: false)
+            .monospacedDigit()
+            .multilineTextAlignment(.trailing)
+            .foregroundStyle(Self.green)
     }
 }

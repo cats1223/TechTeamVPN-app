@@ -74,6 +74,8 @@ struct SettingsView: View {
     @AppStorage(AppSettings.betaUpdatesKey) private var betaUpdates = false
     @AppStorage(AppSettings.autoFastestKey) private var autoFastest = false
     @AppStorage(AppSettings.autoReconnectKey) private var autoReconnect = true
+    @AppStorage(TunnelActivity.enabledKey) private var liveActivity = true
+    @EnvironmentObject private var vpn: VPNManager
     @State private var versionTaps = 0
     @State private var lastTap = Date.distantPast
     @State private var askPassword = false
@@ -138,6 +140,10 @@ struct SettingsView: View {
                     Toggle("Самый быстрый сервер", isOn: $autoFastest)
                         .tint(Brand.cyan)
                         .listRowBackground(Brand.surface)
+                    Toggle("Dynamic Island", isOn: $liveActivity)
+                        .tint(Brand.cyan)
+                        .onChange(of: liveActivity) { _ in vpn.refreshActivity() }
+                        .listRowBackground(Brand.surface)
                     Toggle("Автопереподключение", isOn: $autoReconnect)
                         .tint(Brand.cyan)
                         .onChange(of: autoReconnect) { _ in
@@ -147,7 +153,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Подключение")
                 } footer: {
-                    Text("Самый быстрый: перед подключением приложение проверит пинг всех серверов. Автопереподключение: если VPN оборвался, iOS поднимет его сама — но тогда системная кнопка VPN в настройках и шторке не сможет его выключить; выключайте в приложении, виджетом или Siri.")
+                    Text("Самый быстрый: перед подключением приложение проверит пинг всех серверов. Dynamic Island: таймер и сервер в «островке» и на экране блокировки, пока VPN включён. Автопереподключение: если VPN оборвался, iOS поднимет его сама — но тогда системная кнопка VPN в настройках и шторке не сможет его выключить; выключайте в приложении, виджетом или Siri.")
                 }
 
                 Section {

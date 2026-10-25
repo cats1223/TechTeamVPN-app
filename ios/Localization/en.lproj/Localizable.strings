@@ -179,4 +179,5 @@
 "Начать" = "Get started";
 "Автопереподключение" = "Auto-reconnect";
 "Подключение" = "Connection";
-"Самый быстрый: перед подключением приложение проверит пинг всех серверов. Автопереподключение: если VPN оборвался, iOS поднимет его сама — но тогда системная кнопка VPN в настройках и шторке не сможет его выключить; выключайте в приложении, виджетом или Siri." = "Fastest: before connecting, the app pings all servers. Auto-reconnect: if the VPN drops, iOS brings it back up — but then the system VPN switch in Settings and Control Center can't turn it off; turn it off in the app, with the widget or Siri.";
+"Самый быстрый: перед подключением приложение проверит пинг всех серверов. Dynamic Island: таймер и сервер в «островке» и на экране блокировки, пока VPN включён. Автопереподключение: если VPN оборвался, iOS поднимет его сама — но тогда системная кнопка VPN в настройках и шторке не сможет его выключить; выключайте в приложении, виджетом или Siri." = "Fastest: before connecting, the app pings all servers. Dynamic Island: a timer and the server in the island and on the lock screen while the VPN is on. Auto-reconnect: if the VPN drops, iOS brings it back up — but then the system VPN switch in Settings and Control Center can't turn it off; turn it off in the app, with the widget or Siri.";
+"TechTeamVPN · Подключено" = "TechTeamVPN · Connected";
