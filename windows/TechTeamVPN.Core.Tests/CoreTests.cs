@@ -154,10 +154,13 @@ public class CoreTests
         Assert.True(Updates.IsNewer("1.2.0", "1.2.0-beta.1"));
         Assert.True(Updates.IsNewer("1.2.0-beta.10", "1.2.0-beta.9"));
         Assert.False(Updates.IsNewer("1.2.0", "1.2.0"));
-        var list = """[{"tag_name":"v1.2.0-beta.9","html_url":"x"},{"tag_name":"v1.2.2","html_url":"p","assets":[{"name":"TechTeamVPN-v1.2.2-windows.zip","browser_download_url":"z"}]}]""";
+        // Phone releases (v1.2.2) are not Windows updates; betas only when asked for.
+        var list = """[{"tag_name":"v1.2.2","html_url":"x"},{"tag_name":"windows-v1.0.0","html_url":"p","assets":[{"name":"TechTeamVPN-windows-v1.0.0.zip","browser_download_url":"z"}]},{"tag_name":"windows-v1.1.0-beta.1","html_url":"b"}]""";
         var newest = Updates.ParseNewest(list)!;
-        Assert.Equal("1.2.2", newest.Version);
+        Assert.Equal("1.0.0", newest.Version);
         Assert.Equal("z", newest.DownloadUrl);
+        Assert.Equal("1.1.0-beta.1", Updates.ParseNewest(list, includeBeta: true)!.Version);
+        Assert.Null(Updates.ParseNewest("""[{"tag_name":"v1.2.2","html_url":"x"}]"""));
     }
 
     [Fact]

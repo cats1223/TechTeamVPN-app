@@ -2,30 +2,31 @@ using System.Text.Json;
 
 namespace TechTeamVPN.Core;
 
-/// <summary>Checks GitHub for a newer release of the app.</summary>
+/// <summary>
+/// Checks GitHub for a newer Windows release. The Windows app ships under its own tags
+/// (windows-v1.0.0), next to the phone apps' v1.2.0 releases, so only those tags count.
+/// </summary>
 public static class Updates
 {
-    public const string LatestUrl = "https://api.github.com/repos/cats1223/TechTeamVPN-app/releases/latest";
     public const string AllUrl = "https://api.github.com/repos/cats1223/TechTeamVPN-app/releases?per_page=100";
+    public const string TagPrefix = "windows-v";
 
     /// <summary><see cref="DownloadUrl"/> is the Windows zip when the release has one, otherwise the release page.</summary>
     public sealed record Release(string Version, string PageUrl, string DownloadUrl);
 
-    public static Release? Parse(string json)
-    {
-        using var doc = JsonDocument.Parse(json);
-        return Parse(doc.RootElement);
-    }
-
-    /// <summary>The newest published release in a list, by version: GitHub may sort tags as text.</summary>
-    public static Release? ParseNewest(string json)
+    /// <summary>
+    /// The newest published Windows release in a list, by version (GitHub may sort tags as text);
+    /// betas only when <paramref name="includeBeta"/>.
+    /// </summary>
+    public static Release? ParseNewest(string json, bool includeBeta = false)
     {
         using var doc = JsonDocument.Parse(json);
         Release? best = null;
         foreach (var o in doc.RootElement.EnumerateArray())
         {
             if (o.TryGetProperty("draft", out var d) && d.ValueKind == JsonValueKind.True) continue;
-            if (Parse(o) is { } r && (best is null || IsNewer(r.Version, best.Version))) best = r;
+            if (Parse(o) is not { } r || (!includeBeta && IsBeta(r.Version))) continue;
+            if (best is null || IsNewer(r.Version, best.Version)) best = r;
         }
         return best;
     }
@@ -33,14 +34,16 @@ public static class Updates
     private static Release? Parse(JsonElement o)
     {
         if (!o.TryGetProperty("tag_name", out var tag) || !o.TryGetProperty("html_url", out var page)) return null;
+        var name = tag.GetString() ?? "";
+        if (!name.StartsWith(TagPrefix)) return null;
         var zip = o.TryGetProperty("assets", out var assets)
             ? assets.EnumerateArray()
-                .Where(a => a.GetProperty("name").GetString()?.EndsWith("-windows.zip") == true)
+                .Where(a => a.GetProperty("name").GetString()?.EndsWith(".zip") == true)
                 .Select(a => a.GetProperty("browser_download_url").GetString())
                 .FirstOrDefault()
             : null;
         var pageUrl = page.GetString() ?? "";
-        return new Release(tag.GetString()!.TrimStart('v'), pageUrl, zip ?? pageUrl);
+        return new Release(name[TagPrefix.Length..], pageUrl, zip ?? pageUrl);
     }
 
     /// <summary>

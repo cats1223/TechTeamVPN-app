@@ -24,7 +24,9 @@
   MapLibre, что на Android; без WebView2 открывается в браузере в демо-режиме — так проверяется дизайн). Логика —
   `windows/TechTeamVPN.Core` (порт android/.../core, тесты `TechTeamVPN.Core.Tests`, идут на Linux). Режимы: системный
   прокси (без прав) и TUN через встроенный в Xray Wintun (`autoSystemRoutingTable`, нужны права администратора —
-  приложение перезапускается elevated). CI кладёт в zip xray.exe, wintun.dll, geodata и MapLibre (Web/vendor).
+  приложение перезапускается elevated). Собирается отдельно: `.github/workflows/windows.yml`, версия — свой тег
+  `windows-vX.Y.Z` (раздел `## windows-vX.Y.Z` в CHANGELOG), релиз с make_latest: false, чтобы телефоны не приняли его
+  за своё обновление; Windows ищет обновления только среди тегов windows-v*. В zip — xray.exe, wintun.dll, geodata, MapLibre.
 
 ## Память между сжатиями контекста
 

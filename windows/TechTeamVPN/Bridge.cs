@@ -332,12 +332,12 @@ public sealed class Bridge
     {
         try
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, state.Settings.BetaUpdates ? Updates.AllUrl : Updates.LatestUrl);
+            using var request = new HttpRequestMessage(HttpMethod.Get, Updates.AllUrl);
             request.Headers.TryAddWithoutValidation("User-Agent", "TechTeamVPN");
             request.Headers.TryAddWithoutValidation("Accept", "application/vnd.github+json");
             using var response = await direct.SendAsync(request);
             var json = await response.Content.ReadAsStringAsync();
-            var release = state.Settings.BetaUpdates ? Updates.ParseNewest(json) : Updates.Parse(json);
+            var release = Updates.ParseNewest(json, state.Settings.BetaUpdates);
             if (release is not null && Updates.IsNewer(release.Version, Version))
                 Post(new { type = "update", version = release.Version, url = release.DownloadUrl });
             else if (manual) Toast("У вас последняя версия");
