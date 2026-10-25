@@ -187,4 +187,6 @@
     <string name="icon_gold">Золото</string>
     <string name="icon_white">Белая</string>
     <string name="icon_changed">Иконка сменится через несколько секунд</string>
+    <string name="hacker_on">Режим хакера включён. Ты в Матрице.</string>
+    <string name="hacker_off">Режим хакера выключен</string>
 </resources>

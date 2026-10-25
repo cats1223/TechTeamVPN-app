@@ -24,6 +24,15 @@ class AppSettings private constructor(context: Context) {
     private val _russiaDirect = MutableStateFlow(prefs.getBoolean("russiaDirect", true))
     val russiaDirect: StateFlow<Boolean> = _russiaDirect.asStateFlow()
 
+    /** The easter egg: Matrix rain over the globe. */
+    private val _hackerMode = MutableStateFlow(prefs.getBoolean("hackerMode", false))
+    val hackerMode: StateFlow<Boolean> = _hackerMode.asStateFlow()
+
+    fun setHackerMode(enabled: Boolean) {
+        _hackerMode.value = enabled
+        prefs.edit().putBoolean("hackerMode", enabled).apply()
+    }
+
     /** The accent color, "RRGGBB"; empty for the brand cyan. */
     private val _accent = MutableStateFlow(prefs.getString("accent", "").orEmpty())
     val accent: StateFlow<String> = _accent.asStateFlow()

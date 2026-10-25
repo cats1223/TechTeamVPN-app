@@ -185,4 +185,6 @@
     <string name="icon_gold">Gold</string>
     <string name="icon_white">White</string>
     <string name="icon_changed">The icon changes in a few seconds</string>
+    <string name="hacker_on">Hacker mode on. You\'re in the Matrix.</string>
+    <string name="hacker_off">Hacker mode off</string>
 </resources>

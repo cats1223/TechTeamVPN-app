@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -79,8 +80,10 @@ fun WorldMap(
     line: Pair<MapPin, MapPin>?,
     dark: Boolean,
     modifier: Modifier = Modifier,
+    onTap: () -> Unit = {},
 ) {
     val context = LocalContext.current
+    val tap by rememberUpdatedState(onTap)
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     var map by remember { mutableStateOf<MapLibreMap?>(null) }
     var style by remember { mutableStateOf<Style?>(null) }
@@ -127,6 +130,10 @@ fun WorldMap(
             }
             m.cameraPosition = CameraPosition.Builder().target(LatLng(centerLat, centerLon)).zoom(1.6).build()
             m.addOnCameraMoveListener { cameraTick++ }
+            m.addOnMapClickListener {
+                tap()
+                false
+            }
             map = m
         }
     }

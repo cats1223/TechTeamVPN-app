@@ -12,6 +12,9 @@ struct HomeView: View {
     @State private var showSettings = false
     @State private var showSpeedTest = false
     @State private var previousStatus: NEVPNStatus = .invalid
+    @AppStorage("hackerMode") private var hackerMode = false
+    @State private var globeTaps = 0
+    @State private var lastGlobeTap = Date.distantPast
     @State private var burst = false
 
     private var connected: Bool { vpn.status == .connected }
@@ -26,6 +29,11 @@ struct HomeView: View {
                 connected: connected
             )
             .ignoresSafeArea()
+            .simultaneousGesture(TapGesture().onEnded { tapGlobe() })
+
+            if hackerMode {
+                MatrixRain().ignoresSafeArea().transition(.opacity)
+            }
 
             VStack(spacing: 0) {
                 StatusPill(status: vpn.status, error: vpn.lastError)
@@ -316,6 +324,18 @@ struct HomeView: View {
     }
 
     // MARK: - Helpers
+
+    /// Ten quick taps on the globe toggle the hacker mode easter egg.
+    private func tapGlobe() {
+        let now = Date()
+        globeTaps = now.timeIntervalSince(lastGlobeTap) < 0.8 ? globeTaps + 1 : 1
+        lastGlobeTap = now
+        guard globeTaps >= 10 else { return }
+        globeTaps = 0
+        withAnimation(.easeInOut(duration: 0.6)) { hackerMode.toggle() }
+        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        model.message = hackerMode ? String(localized: "Режим хакера включён. Ты в Матрице.") : String(localized: "Режим хакера выключен")
+    }
 
     private func flag(for profile: ServerProfile) -> String {
         profile.name.leadingFlag ?? model.serverLocations[profile.address]?.flag ?? "🌐"

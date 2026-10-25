@@ -35,6 +35,7 @@ import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.VerifiedUser
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -127,6 +128,11 @@ fun HomeScreen(
     }
     val focus = if (connected) server ?: homeLocation else homeLocation ?: server
 
+    val context = LocalContext.current
+    val settings = com.techteam.vpn.data.AppSettings.get(context)
+    val hackerMode by settings.hackerMode.collectAsState()
+    var globeTaps by remember { mutableIntStateOf(0) }
+    var lastGlobeTap by remember { mutableLongStateOf(0L) }
     Box(Modifier.fillMaxSize()) {
         WorldMap(
             centerLat = focus?.latitude ?: 55.75,
@@ -135,7 +141,23 @@ fun HomeScreen(
             line = if (connected && pins.size == 2) pins[0] to pins[1] else null,
             dark = !LocalLightTheme.current,
             modifier = Modifier.fillMaxSize(),
+            onTap = {
+                // Ten quick taps on the globe toggle the hacker mode easter egg.
+                val now = System.currentTimeMillis()
+                globeTaps = if (now - lastGlobeTap < 800) globeTaps + 1 else 1
+                lastGlobeTap = now
+                if (globeTaps >= 10) {
+                    globeTaps = 0
+                    settings.setHackerMode(!hackerMode)
+                    android.widget.Toast.makeText(
+                        context, context.getString(if (!hackerMode) R.string.hacker_on else R.string.hacker_off), android.widget.Toast.LENGTH_SHORT,
+                    ).show()
+                }
+            },
         )
+        AnimatedVisibility(hackerMode, enter = fadeIn(), exit = fadeOut()) {
+            MatrixRain(Modifier.fillMaxSize())
+        }
 
         StatusPill(vpn, Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 8.dp))
 
