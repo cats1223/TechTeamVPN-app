@@ -174,7 +174,7 @@ struct GlobeMap: UIViewRepresentable {
     final class PacketView: MKAnnotationView {
         init(packet: Packet) {
             super.init(annotation: packet, reuseIdentifier: nil)
-            let size: CGFloat = packet.rank == 0 ? 12 : CGFloat(9 - packet.rank * 1.5)
+            let size: CGFloat = packet.rank == 0 ? 12 : 9 - CGFloat(packet.rank) * 1.5
             frame = CGRect(x: 0, y: 0, width: size, height: size)
             backgroundColor = packet.rank == 0 ? .white : UIColor(Brand.cyan)
             alpha = packet.rank == 0 ? 1 : 0.85 - CGFloat(packet.rank) * 0.17
