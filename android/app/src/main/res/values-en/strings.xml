@@ -159,4 +159,20 @@
     <string name="onboarding_3_text">Banks, Gosuslugi and other Russian sites open without the VPN, from your usual address. This and more is in settings.</string>
     <string name="onboarding_next">Next</string>
     <string name="onboarding_start">Get started</string>
+    <string name="speed_title">Speed test</string>
+    <string name="speed_idle">Tap \"Start\"</string>
+    <string name="speed_ping_phase">Measuring ping…</string>
+    <string name="speed_down_phase">Download…</string>
+    <string name="speed_up_phase">Upload…</string>
+    <string name="speed_done">Done</string>
+    <string name="speed_failed">The speed test server doesn\'t respond</string>
+    <string name="speed_ping">Ping</string>
+    <string name="speed_down">Download</string>
+    <string name="speed_up">Upload</string>
+    <string name="speed_ms">ms</string>
+    <string name="speed_mbps">Mbit/s</string>
+    <string name="speed_start">Start</string>
+    <string name="speed_again">Again</string>
+    <string name="speed_via_vpn">Measured through the VPN.</string>
+    <string name="speed_direct">The VPN is off, measured directly.</string>
 </resources>

@@ -10,6 +10,7 @@ struct HomeView: View {
     @State private var showAdd = false
     @State private var showServers = false
     @State private var showSettings = false
+    @State private var showSpeedTest = false
     @State private var burst = false
 
     private var connected: Bool { vpn.status == .connected }
@@ -37,6 +38,7 @@ struct HomeView: View {
         .sheet(isPresented: $showAdd) { AddView().messageAlert() }
         .sheet(isPresented: $showServers) { ServersView().messageAlert().presentationDragIndicator(.visible) }
         .sheet(isPresented: $showSettings) { SettingsView().messageAlert().presentationDragIndicator(.visible) }
+        .sheet(isPresented: $showSpeedTest) { SpeedTestView() }
         .task {
             if connected { model.traffic.start() }
             await model.refreshLocation(connected: connected)
@@ -275,6 +277,8 @@ struct HomeView: View {
             menuRow(String(localized: "Все серверы"), icon: "server.rack") { showServers = true }
             Divider().opacity(0.4)
             menuRow(String(localized: "Добавить ключ"), icon: "plus.circle") { showAdd = true }
+            Divider().opacity(0.4)
+            menuRow(String(localized: "Тест скорости"), icon: "speedometer") { showSpeedTest = true }
             Divider().opacity(0.4)
             menuRow(String(localized: "Настройки"), icon: "gearshape") { showSettings = true }
         }

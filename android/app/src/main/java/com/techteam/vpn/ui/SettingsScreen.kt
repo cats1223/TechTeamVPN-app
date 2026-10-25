@@ -28,6 +28,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -51,6 +52,8 @@ import com.techteam.vpn.BuildConfig
 import com.techteam.vpn.R
 import com.techteam.vpn.core.ServerProfile
 import com.techteam.vpn.core.TrafficHistory
+import com.techteam.vpn.vpn.VpnState
+import com.techteam.vpn.vpn.VpnStatus
 import com.techteam.vpn.vpn.TechTeamVpnService
 import java.io.File
 
@@ -92,6 +95,7 @@ fun SettingsScreen(
     var showDns by remember { mutableStateOf(false) }
     var showKillSwitch by remember { mutableStateOf(false) }
     var showStats by remember { mutableStateOf(false) }
+    var showSpeed by remember { mutableStateOf(false) }
     var editSites by remember { mutableStateOf<Boolean?>(null) } // true: direct list, false: VPN list
 
     Column(
@@ -192,6 +196,7 @@ fun SettingsScreen(
                 Text(formatBytes(traffic.total(1).let { it.first + it.second }), color = Brand.Cyan)
             }
         }
+        Card(Modifier.clickable { showSpeed = true }) { Text(stringResource(R.string.speed_title), color = Brand.Text) }
         Card(Modifier.clickable { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(SUPPORT_URL))) } }) {
             Text(stringResource(R.string.support), color = Brand.Cyan)
         }
@@ -254,6 +259,10 @@ fun SettingsScreen(
     if (showLog) LogDialog(onDismiss = { showLog = false })
     if (showKillSwitch) KillSwitchDialog(onDismiss = { showKillSwitch = false })
     if (showStats) StatsDialog(traffic, onDismiss = { showStats = false })
+    if (showSpeed) {
+        val vpnState by VpnStatus.state.collectAsState()
+        SpeedTestDialog(connected = vpnState is VpnState.Connected, onDismiss = { showSpeed = false })
+    }
     if (showDns) {
         DnsDialog(
             choice = dns, custom = customDns, onDismiss = { showDns = false },

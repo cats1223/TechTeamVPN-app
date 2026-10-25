@@ -161,4 +161,20 @@
     <string name="onboarding_3_text">Банки, Госуслуги и другие российские сайты открываются без VPN, с вашего обычного адреса. Это и другое — в настройках.</string>
     <string name="onboarding_next">Далее</string>
     <string name="onboarding_start">Начать</string>
+    <string name="speed_title">Тест скорости</string>
+    <string name="speed_idle">Нажмите «Начать»</string>
+    <string name="speed_ping_phase">Измеряю пинг…</string>
+    <string name="speed_down_phase">Загрузка…</string>
+    <string name="speed_up_phase">Отдача…</string>
+    <string name="speed_done">Готово</string>
+    <string name="speed_failed">Сервер теста скорости не отвечает</string>
+    <string name="speed_ping">Пинг</string>
+    <string name="speed_down">Загрузка</string>
+    <string name="speed_up">Отдача</string>
+    <string name="speed_ms">мс</string>
+    <string name="speed_mbps">Мбит/с</string>
+    <string name="speed_start">Начать</string>
+    <string name="speed_again">Ещё раз</string>
+    <string name="speed_via_vpn">Замер идёт через VPN.</string>
+    <string name="speed_direct">VPN выключен — замер идёт напрямую.</string>
 </resources>
