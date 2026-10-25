@@ -168,7 +168,6 @@ struct SliderToggleStyle: ToggleStyle {
                 .padding(3)
         }
         .frame(width: 56, height: 32)
-        .accessibilityLabel(configuration.label)
     }
 }
 
@@ -181,7 +180,6 @@ struct LockShieldToggleStyle: ToggleStyle {
                 .font(.system(size: 24, weight: .semibold))
         }
         .widgetAccentable()
-        .accessibilityLabel(configuration.label)
     }
 }
 

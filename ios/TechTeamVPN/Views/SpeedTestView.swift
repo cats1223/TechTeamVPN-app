@@ -9,7 +9,7 @@ struct SpeedTestView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 28) {
-                Gauge(value: test.current, active: test.running)
+                SpeedGauge(value: test.current, active: test.running)
                     .frame(width: 260, height: 260)
                     .padding(.top, 12)
 
@@ -78,7 +78,7 @@ struct SpeedTestView: View {
 
 /// A 270° speedometer. The scale is stretched at the low end (0, 5, 10, 25, 50, 100, 250, 500),
 /// where most connections are, and the needle moves on a spring.
-private struct Gauge: View {
+private struct SpeedGauge: View {
     var value: Double
     var active: Bool
 

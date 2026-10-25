@@ -5,6 +5,7 @@ import Foundation
 /// The Live Activity shown while the VPN is up: Dynamic Island and the lock screen. The app
 /// starts and ends it; the widget extension draws it. The timer counts by itself, so the
 /// activity needs no updates while it runs.
+@available(iOS 16.1, *)
 struct TunnelActivityAttributes: ActivityAttributes {
     struct ContentState: Codable, Hashable {
         var since: Date
@@ -14,8 +15,6 @@ struct TunnelActivityAttributes: ActivityAttributes {
 }
 
 #if !WIDGET
-import WidgetKit
-
 /// Starts the Live Activity when the VPN connects and ends it when it goes down.
 @MainActor
 enum TunnelActivity {
