@@ -25,7 +25,7 @@ data class ProfilesState(
 }
 
 /** Keeps servers and the subscription in SharedPreferences; the VPN service reads the selection from here. */
-class ProfileRepository private constructor(context: Context) {
+class ProfileRepository private constructor(private val context: Context) {
     private val prefs = context.getSharedPreferences("profiles", Context.MODE_PRIVATE)
     private val _state = MutableStateFlow(load())
     val state: StateFlow<ProfilesState> = _state.asStateFlow()
@@ -63,6 +63,7 @@ class ProfileRepository private constructor(context: Context) {
             val selected = previous?.id?.takeIf { id -> all.any { it.profile.id == id } } ?: all.firstOrNull()?.profile?.id
             s.copy(profiles = all, selectedId = selected, subscriptionInfo = result.info)
         }
+        ExpiryReminders.schedule(context, result.info.expire)
     }
 
     fun removeSubscription() = update { s ->

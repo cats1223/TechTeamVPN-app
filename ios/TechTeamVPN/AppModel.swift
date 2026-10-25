@@ -229,6 +229,7 @@ final class AppModel: ObservableObject {
                 if !s.profiles.contains(where: { $0.id == s.selectedId }) { s.selectedId = s.profiles.first?.id }
                 s.subscriptionInfo = result.info
             }
+            ExpiryReminders.schedule(expire: result.info.expire)
             if !silent { message = "Подписка обновлена" }
         } catch {
             if !silent { message = "Ошибка подписки: \(error.localizedDescription)" }
