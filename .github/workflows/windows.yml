@@ -1,8 +1,11 @@
 name: Windows
 
 # The Windows app (windows/) builds and ships on its own, with its own versions and tags
-# (windows-v1.0.0), separately from the phone apps' releases.
+# (windows-v1.0.0), separately from the phone apps' releases. Pushing a windows-v* tag builds and
+# publishes it; a manual run works once this file is on the default branch.
 on:
+  push:
+    tags: ["windows-v*"]
   workflow_dispatch:
     inputs:
       version:
@@ -11,8 +14,8 @@ on:
         default: ""
 
 env:
-  APP_VERSION: ${{ inputs.version || '1.0.0' }}
-  TAG: ${{ inputs.version && format('windows-v{0}', inputs.version) || '' }}
+  # The release tag: pushed, or made from the version of a manual run; empty for a plain build.
+  TAG: ${{ startsWith(github.ref, 'refs/tags/windows-v') && github.ref_name || (inputs.version && format('windows-v{0}', inputs.version) || '') }}
 
 jobs:
   windows:
@@ -30,8 +33,11 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"
-      - name: Zip name
-        run: echo "ZIP_NAME=TechTeamVPN-${TAG:-windows-dev}.zip" >> "$GITHUB_ENV"
+      - name: Version and zip name
+        run: |
+          V="${TAG#windows-v}"
+          echo "APP_VERSION=${V:-1.0.0}" >> "$GITHUB_ENV"
+          echo "ZIP_NAME=TechTeamVPN-${TAG:-windows-dev}.zip" >> "$GITHUB_ENV"
       - name: Unit tests
         run: dotnet test windows/TechTeamVPN.Core.Tests
       - name: MapLibre for the globe
@@ -64,7 +70,7 @@ jobs:
           path: ${{ env.ZIP_NAME }}
 
   release:
-    if: inputs.version != ''
+    if: startsWith(github.ref, 'refs/tags/windows-v') || inputs.version != ''
     needs: [windows]
     runs-on: ubuntu-latest
     permissions:
@@ -93,8 +99,8 @@ jobs:
         with:
           tag_name: ${{ env.TAG }}
           target_commitish: ${{ github.sha }}
-          name: TechTeamVPN для Windows ${{ inputs.version }}
-          prerelease: ${{ contains(inputs.version, '-') }}
+          name: TechTeamVPN для Windows ${{ env.TAG }}
+          prerelease: ${{ contains(env.TAG, '-beta') }}
           make_latest: false
           files: TechTeamVPN-${{ env.TAG }}.zip
           body_path: notes.md
