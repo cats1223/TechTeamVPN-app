@@ -38,6 +38,8 @@ class TechTeamVpnService : VpnService() {
     private var watchdog: Job? = null
     private var trafficJob: Job? = null
     private var lastBytes: Pair<Long, Long>? = null
+    /** Xray's access log while ad blocking is on; read and emptied with each traffic save. */
+    private var accessLog: java.io.File? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -105,10 +107,11 @@ class TechTeamVpnService : VpnService() {
         val russiaDirect = settings.russiaDirect.value
         val blockAds = settings.blockAds.value
         val dns = XrayConfig.upstreamDns(settings.dns.value, settings.customDns.value)
+        accessLog = if (blockAds) java.io.File(cacheDir, "access.log").apply { writeText("") } else null
         val assetDir = if (russiaDirect || blockAds) installGeoData() else null
         val config = XrayConfig.build(
             profile, fd.fd, logPath, russiaDirect, assetDir,
-            directSites = settings.directSites.value, proxySites = settings.proxySites.value, blockAds = blockAds, dns = dns,
+            directSites = settings.directSites.value, proxySites = settings.proxySites.value, blockAds = blockAds, dns = dns, accessLogPath = accessLog?.path,
         )
         XrayCore.start(config, "${XrayConfig.DNS_SERVERS.first()}:53") { protect(it) }
         countTraffic()
@@ -130,10 +133,16 @@ class TechTeamVpnService : VpnService() {
     }
 
     private fun saveTraffic() {
-        val now = appBytes() ?: return
+        val now = appBytes()
         val last = lastBytes
-        lastBytes = now
-        if (last != null) AppSettings.get(this).addTraffic(now.first - last.first, now.second - last.second)
+        if (now != null) lastBytes = now
+        // Xray appends to the file, so emptying it after reading loses nothing that matters.
+        val blocked = accessLog?.let { file ->
+            runCatching { file.readText().also { file.writeText("") } }.getOrNull()?.let(XrayConfig::countBlocked)
+        } ?: 0
+        val down = if (now != null && last != null) now.first - last.first else 0
+        val up = if (now != null && last != null) now.second - last.second else 0
+        AppSettings.get(this).addTraffic(down, up, blocked)
     }
 
     private fun appBytes(): Pair<Long, Long>? {

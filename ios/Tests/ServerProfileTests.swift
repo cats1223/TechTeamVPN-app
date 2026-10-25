@@ -119,6 +119,18 @@ final class ServerProfileTests: XCTestCase {
         XCTAssertEqual(back.total(7, until: today, calendar: calendar).up, 80)
         XCTAssertEqual(back.daily(3, until: today, calendar: calendar).map(\.total), [0, 330, 550])
         XCTAssertNil(back.days["2026-08-25"])
+        h.addBlocked(3, at: today, calendar: calendar)
+        h.addBlocked(2, at: ago(1), calendar: calendar)
+        let again = try XCTUnwrap(TrafficHistory(data: h.data))
+        XCTAssertEqual(again.blocked(1, until: today, calendar: calendar), 3)
+        XCTAssertEqual(again.blocked(7, until: today, calendar: calendar), 5)
+        // Histories saved before the counter have no ads.
+        let old = try XCTUnwrap(TrafficHistory(data: Data(#"{"days":{"2026-10-25":[1,2]}}"#.utf8)))
+        XCTAssertEqual(old.blocked(1, until: today, calendar: calendar), 0)
+        let log = "x accepted tcp:ads.example:443 [tun-in -> block]\ny [tun-in -> direct]\nz [tun-in -> block]\n"
+        XCTAssertEqual(XrayConfig.countBlocked(log), 2)
+        let json = try XrayConfig.build(try XCTUnwrap(ServerProfile.parse(reality)), tunFd: 42, accessLogPath: "/a.log")
+        XCTAssertTrue(json.contains(#""access":"\/a.log""#) || json.contains(#""access":"/a.log""#))
     }
 
     func testBuildsTransports() throws {

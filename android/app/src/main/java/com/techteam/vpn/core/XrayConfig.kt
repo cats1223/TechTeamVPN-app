@@ -60,6 +60,8 @@ object XrayConfig {
      * @param proxySites the user's sites that always go through the VPN, even Russian ones.
      * @param blockAds drop connections to ad and tracker domains.
      * @param dns upstream resolvers, reached through the proxy; see [upstreamDns].
+     * @param accessLogPath file for Xray's access log, one line per connection; blocked ones end
+     *                      in "-> block]", which is how blocked ads are counted ([countBlocked]).
      */
     fun build(
         profile: ServerProfile,
@@ -71,12 +73,15 @@ object XrayConfig {
         proxySites: List<String> = emptyList(),
         blockAds: Boolean = false,
         dns: List<String> = UPSTREAM_DNS,
+        accessLogPath: String? = null,
     ): String {
         val root = JSONObject()
         root.put(
             "log",
-            if (logPath == null) JSONObject().put("loglevel", "warning")
-            else JSONObject().put("loglevel", "info").put("access", "none").put("error", logPath),
+            (
+                if (logPath == null) JSONObject().put("loglevel", "warning")
+                else JSONObject().put("loglevel", "info").put("access", "none").put("error", logPath)
+                ).apply { if (accessLogPath != null) put("access", accessLogPath) },
         )
         val env = JSONObject()
         if (tunFd != null) env.put("xray.tun.fd", tunFd.toString())
@@ -141,6 +146,9 @@ object XrayConfig {
         root.put("routing", JSONObject().put("domainStrategy", "AsIs").put("rules", rules))
         return root.toString()
     }
+
+    /** Connections Xray sent to the blackhole in a piece of its access log. */
+    fun countBlocked(accessLog: String): Int = Regex("""-> block]""").findAll(accessLog).count()
 
     /**
      * Xray domain rules for what a user typed: "https://www.Site.com/page", "*.site.com" and

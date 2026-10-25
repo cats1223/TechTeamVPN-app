@@ -154,6 +154,19 @@ fun StatsDialog(history: TrafficHistory, onDismiss: () -> Unit) {
                 StatTile(stringResource(R.string.stats_week), history.total(7), Modifier.weight(1f))
                 StatTile(stringResource(R.string.stats_month), history.total(30), Modifier.weight(1f))
             }
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Brand.Surface).padding(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(history.blocked(1).toString(), color = Brand.Green, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.ads_blocked_today), color = Brand.TextMuted, fontSize = 12.sp)
+                }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(stringResource(R.string.ads_blocked_days, 7, history.blocked(7)), color = Brand.TextMuted, fontSize = 12.sp)
+                    Text(stringResource(R.string.ads_blocked_days, 30, history.blocked(30)), color = Brand.TextMuted, fontSize = 12.sp)
+                }
+            }
             Text(stringResource(R.string.stats_last_week), color = Brand.TextMuted, fontSize = 13.sp)
             val days = history.daily(7)
             val peak = maxOf(days.maxOf { it.total }, 1L)

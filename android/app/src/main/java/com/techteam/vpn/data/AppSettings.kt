@@ -98,8 +98,12 @@ class AppSettings private constructor(context: Context) {
     }
 
     @Synchronized
-    fun addTraffic(down: Long, up: Long) {
-        val history = TrafficHistory.decode(prefs.getString("traffic", null)).apply { add(down, up) }
+    fun addTraffic(down: Long, up: Long, blocked: Int = 0) {
+        if (down <= 0 && up <= 0 && blocked <= 0) return
+        val history = TrafficHistory.decode(prefs.getString("traffic", null)).apply {
+            add(down, up)
+            addBlocked(blocked)
+        }
         prefs.edit().putString("traffic", history.encode()).apply()
         _traffic.value = history
     }

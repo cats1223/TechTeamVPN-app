@@ -195,3 +195,9 @@
 "Готово" = "Done";
 "Замер идёт через VPN." = "Measured through the VPN.";
 "VPN выключен — замер идёт напрямую." = "The VPN is off, measured directly.";
+"Заблокировано рекламы сегодня: %@" = "Ads blocked today: %@";
+"реклам и трекеров заблокировано сегодня" = "ads and trackers blocked today";
+"7 дней: %@" = "7 days: %@";
+"30 дней: %@" = "30 days: %@";
+"Блокировка рекламы" = "Ad blocking";
+"Считается, пока включена «Блокировать рекламу»." = "Counted while “Block ads” is on.";

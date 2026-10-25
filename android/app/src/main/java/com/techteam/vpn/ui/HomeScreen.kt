@@ -33,6 +33,8 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.VerifiedUser
 import androidx.compose.material.icons.rounded.WarningAmber
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -354,13 +356,21 @@ private fun StatusCard(
                 Text(subtitle, color = Brand.TextMuted, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         }
+        val settings = com.techteam.vpn.data.AppSettings.get(LocalContext.current)
+        val blockAds by settings.blockAds.collectAsState()
+        val history by settings.traffic.collectAsState()
         AnimatedVisibility(connected, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
-            // Download and upload speed right now, and what the session has used.
+            // Download and upload speed right now, ads blocked today, and what the session has used.
             Row(Modifier.padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("↓ " + stringResource(R.string.rate, formatBytes(traffic.down)), color = Brand.Text, fontSize = 13.sp)
                 Spacer(Modifier.width(14.dp))
                 Text("↑ " + stringResource(R.string.rate, formatBytes(traffic.up)), color = Brand.Text, fontSize = 13.sp)
                 Spacer(Modifier.weight(1f))
+                val blocked = history.blocked(1)
+                if (blockAds && blocked > 0) {
+                    Text("✋ $blocked", color = Brand.Green, fontSize = 13.sp)
+                    Spacer(Modifier.width(12.dp))
+                }
                 Text(formatBytes(traffic.session), color = Brand.TextMuted, fontSize = 13.sp)
             }
         }

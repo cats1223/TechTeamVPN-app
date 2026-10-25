@@ -55,9 +55,12 @@ enum XrayConfig {
     /// - Parameter proxySites: the user's sites that always go through the VPN, even Russian ones.
     /// - Parameter blockAds: drop connections to ad and tracker domains.
     /// - Parameter dns: upstream resolvers, reached through the proxy; see `upstreamDNS(choice:custom:)`.
+    /// - Parameter accessLogPath: file for Xray's access log, one line per connection; blocked ones
+    ///   end in "-> block]", which is how blocked ads are counted (`countBlocked`).
     static func build(
         _ profile: ServerProfile, tunFd: Int32?, logPath: String? = nil, russiaDirect: Bool = false, assetDir: String? = nil,
-        directSites: [String] = [], proxySites: [String] = [], blockAds: Bool = false, dns: [String] = upstreamDNS
+        directSites: [String] = [], proxySites: [String] = [], blockAds: Bool = false, dns: [String] = upstreamDNS,
+        accessLogPath: String? = nil
     ) throws -> String {
         var dnsServers: [Any] = dns
         var rules: [[String: Any]] = [
@@ -74,8 +77,10 @@ enum XrayConfig {
             rules.append(["domain": russianDomains, "outboundTag": "direct"])
             rules.append(["ip": ["geoip:ru"], "outboundTag": "direct"])
         }
+        var log: [String: String] = logPath.map { ["loglevel": "info", "access": "none", "error": $0] } ?? ["loglevel": "warning"]
+        if let accessLogPath { log["access"] = accessLogPath }
         var root: [String: Any] = [
-            "log": logPath.map { ["loglevel": "info", "access": "none", "error": $0] } ?? ["loglevel": "warning"],
+            "log": log,
             "dns": ["servers": dnsServers, "queryStrategy": "UseIPv4"],
             "inbounds": [[
                 "tag": "tun-in",
@@ -97,6 +102,11 @@ enum XrayConfig {
         if !env.isEmpty { root["env"] = env }
         let data = try JSONSerialization.data(withJSONObject: root, options: [.sortedKeys])
         return String(decoding: data, as: UTF8.self)
+    }
+
+    /// Connections Xray sent to the blackhole in a piece of its access log.
+    static func countBlocked(_ accessLog: String) -> Int {
+        accessLog.components(separatedBy: "-> block]").count - 1
     }
 
     /// Xray domain rules for what a user typed: "https://www.Site.com/page", "*.site.com" and

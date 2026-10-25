@@ -19,6 +19,28 @@ struct StatsView: View {
             }
 
             Section {
+                HStack {
+                    Image(systemName: "hand.raised.fill").font(.title2).foregroundStyle(Brand.green)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(String(history.blocked(1)))").font(.title.bold()).monospacedDigit()
+                        Text("реклам и трекеров заблокировано сегодня").font(.caption).foregroundStyle(Brand.muted)
+                    }
+                    Spacer()
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("7 дней: \(String(history.blocked(7)))").font(.caption)
+                        Text("30 дней: \(String(history.blocked(30)))").font(.caption)
+                    }
+                    .foregroundStyle(Brand.muted)
+                }
+                .padding(.vertical, 6)
+            } header: {
+                Text("Блокировка рекламы")
+            } footer: {
+                Text("Считается, пока включена «Блокировать рекламу».")
+            }
+            .listRowBackground(Brand.surface)
+
+            Section {
                 chart.padding(.vertical, 8)
             } header: {
                 Text("Последние 7 дней")

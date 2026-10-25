@@ -13,6 +13,8 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     private var memoryTask: Task<Void, Never>?
     private var trafficTask: Task<Void, Never>?
     private var lastCounters: (rx: UInt32, tx: UInt32)?
+    /// Xray's access log while ad blocking is on; read and emptied with each traffic save.
+    private var accessLogURL: URL?
     private static let historyKey = "trafficHistory"
 
     private static func writableLogURL() -> URL {
@@ -59,6 +61,9 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
                 || (options == nil && providerConfig?["verbose"] as? Bool == true)
             let russiaDirect = providerConfig?["russiaDirect"] as? Bool ?? true
             let blockAds = providerConfig?["blockAds"] as? Bool ?? false
+            let access = blockAds ? FileManager.default.temporaryDirectory.appendingPathComponent("access.log") : nil
+            if let access { FileManager.default.createFile(atPath: access.path, contents: Data()) }
+            accessLogURL = access
             let dns = XrayConfig.upstreamDNS(
                 choice: providerConfig?["dns"] as? String ?? "", custom: providerConfig?["customDNS"] as? String ?? ""
             )
@@ -69,7 +74,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
                 profile, tunFd: fd, logPath: verbose ? logURL.path : nil, russiaDirect: russiaDirect, assetDir: assetDir,
                 directSites: providerConfig?["directSites"] as? [String] ?? [],
                 proxySites: providerConfig?["proxySites"] as? [String] ?? [],
-                blockAds: blockAds, dns: dns
+                blockAds: blockAds, dns: dns, accessLogPath: access?.path
             )
             try XrayCore.run(config)
             appendLog("TechTeamVPN: Xray started, memory \(Self.memoryMB()) MB")
@@ -106,13 +111,20 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     }
 
     private func saveTraffic() {
-        guard let now = TunnelCounters.read() else { return }
-        defer { lastCounters = now }
-        guard let last = lastCounters else { return }
         let defaults = UserDefaults.standard
         var history = defaults.data(forKey: Self.historyKey).flatMap(TrafficHistory.init(data:)) ?? TrafficHistory()
-        // The counters are 32-bit and wrap around at 4 GB; unsigned subtraction handles that.
-        history.add(down: Int64(now.rx &- last.rx), up: Int64(now.tx &- last.tx))
+        if let now = TunnelCounters.read() {
+            // The counters are 32-bit and wrap around at 4 GB; unsigned subtraction handles that.
+            if let last = lastCounters { history.add(down: Int64(now.rx &- last.rx), up: Int64(now.tx &- last.tx)) }
+            lastCounters = now
+        }
+        // Xray appends to the file, so emptying it after reading loses nothing that matters.
+        if let url = accessLogURL, let handle = try? FileHandle(forUpdating: url) {
+            let data = handle.readDataToEndOfFile()
+            try? handle.truncate(atOffset: 0)
+            try? handle.close()
+            history.addBlocked(XrayConfig.countBlocked(String(decoding: data, as: UTF8.self)))
+        }
         defaults.set(history.data, forKey: Self.historyKey)
     }
 

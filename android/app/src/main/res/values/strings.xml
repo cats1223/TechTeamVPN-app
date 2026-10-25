@@ -177,4 +177,6 @@
     <string name="speed_again">Ещё раз</string>
     <string name="speed_via_vpn">Замер идёт через VPN.</string>
     <string name="speed_direct">VPN выключен — замер идёт напрямую.</string>
+    <string name="ads_blocked_today">реклам и трекеров заблокировано сегодня (пока включена блокировка)</string>
+    <string name="ads_blocked_days">%1$d дней: %2$d</string>
 </resources>

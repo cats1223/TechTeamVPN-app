@@ -134,6 +134,18 @@ class ServerProfileTest {
         assertEquals(800L to 80L, back.total(7, today))
         assertEquals(listOf(0L, 330L, 550L), back.daily(3, today).map { it.total })
         assertEquals(false, h.encode().contains("2026-08-25"))
+        h.addBlocked(3, today)
+        h.addBlocked(2, today.minusDays(1))
+        val again = TrafficHistory.decode(h.encode())
+        assertEquals(3L, again.blocked(1, today))
+        assertEquals(5L, again.blocked(7, today))
+        assertEquals(550L, again.daily(1, today).single().total)
+        // Histories saved before the counter have three fields.
+        assertEquals(0L, TrafficHistory.decode("2026-10-25:1:2").blocked(1, today))
+        val log = "x accepted tcp:ads.example:443 [tun-in -> block]\ny accepted tcp:a.ru:443 [tun-in -> direct]\nz [tun-in -> block]\n"
+        assertEquals(2, XrayConfig.countBlocked(log))
+        val config = JSONObject(XrayConfig.build(ServerProfile.parse(reality)!!, 42, accessLogPath = "/a.log"))
+        assertEquals("/a.log", config.getJSONObject("log").getString("access"))
     }
 
     @Test

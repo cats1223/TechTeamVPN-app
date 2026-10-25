@@ -321,18 +321,34 @@ struct HomeView: View {
 /// Download and upload speed right now, and what the session has used.
 private struct TrafficLine: View {
     @ObservedObject var meter: TrafficMeter
+    @EnvironmentObject private var vpn: VPNManager
+    @AppStorage(AppSettings.blockAdsKey) private var blockAds = false
+    /// Ads blocked today, asked from the tunnel every 10 s.
+    @State private var blocked: Int64 = 0
 
     var body: some View {
         HStack(spacing: 14) {
             Label(formatRate(meter.down), systemImage: "arrow.down")
             Label(formatRate(meter.up), systemImage: "arrow.up")
             Spacer(minLength: 0)
+            if blockAds, blocked > 0 {
+                Label("\(String(blocked))", systemImage: "hand.raised.fill")
+                    .foregroundStyle(Brand.green)
+                    .accessibilityLabel(Text("Заблокировано рекламы сегодня: \(String(blocked))"))
+            }
             Text(formatBytes(Int64(meter.sessionDown + meter.sessionUp)))
                 .foregroundStyle(.secondary)
         }
         .font(.footnote.monospacedDigit())
         .animation(.default, value: meter.down)
+        .animation(.spring(), value: blocked)
         .padding(.horizontal, 4)
+        .task {
+            while !Task.isCancelled {
+                if blockAds { blocked = await vpn.fetchStats().blocked(1) }
+                try? await Task.sleep(nanoseconds: 10_000_000_000)
+            }
+        }
     }
 }
 
