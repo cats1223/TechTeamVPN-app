@@ -93,24 +93,12 @@ struct StatusWidgetView: View {
         }
     }
 
-    /// A drawn switch: the system Toggle in a small widget loses its knob and looks like a grey
-    /// pill. Tapping it runs the same intent as the toggle would.
+    /// The system Toggle, which runs the intent with the new value, drawn as a slider: the
+    /// default switch in a small widget loses its knob and looks like a grey pill, and the same
+    /// intent on a plain Button does nothing.
     private var slider: some View {
-        Button(intent: SetVPNIntent(value: !entry.connected)) {
-            ZStack(alignment: entry.connected ? .trailing : .leading) {
-                Capsule()
-                    .fill(entry.connected ? accent : Color.white.opacity(0.22))
-                    .overlay(Capsule().strokeBorder(.white.opacity(0.15), lineWidth: 1))
-                Circle()
-                    .fill(.white)
-                    .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
-                    .padding(3)
-            }
-            .frame(width: 56, height: 32)
-            .invalidatableContent()
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(Text(status))
+        Toggle(isOn: entry.connected, intent: SetVPNIntent(value: !entry.connected)) { Text(status) }
+            .toggleStyle(SliderToggleStyle(onColor: accent))
     }
 
     private var statusLine: some View {
@@ -128,5 +116,24 @@ struct StatusWidgetView: View {
             .frame(width: size, height: size)
             .background(accent.opacity(0.18), in: Circle())
             .widgetAccentable()
+    }
+}
+
+/// A switch track with a white knob; the widget's Toggle handles the tap.
+struct SliderToggleStyle: ToggleStyle {
+    var onColor: Color
+
+    func makeBody(configuration: Configuration) -> some View {
+        ZStack(alignment: configuration.isOn ? .trailing : .leading) {
+            Capsule()
+                .fill(configuration.isOn ? onColor : Color.white.opacity(0.22))
+                .overlay(Capsule().strokeBorder(.white.opacity(0.15), lineWidth: 1))
+            Circle()
+                .fill(.white)
+                .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
+                .padding(3)
+        }
+        .frame(width: 56, height: 32)
+        .accessibilityLabel(configuration.label)
     }
 }
