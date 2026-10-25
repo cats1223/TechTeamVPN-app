@@ -42,7 +42,7 @@ object Subscription {
                     updatedAt = System.currentTimeMillis() / 1000,
                 )
             val profiles = parseLinks(body)
-            if (profiles.isEmpty()) throw IllegalStateException("В подписке нет серверов VLESS, Trojan или Hysteria2")
+            if (profiles.isEmpty()) throw IllegalStateException("В подписке нет серверов VLESS или Trojan")
             return SubscriptionResult(profiles, info)
         } finally {
             conn.disconnect()

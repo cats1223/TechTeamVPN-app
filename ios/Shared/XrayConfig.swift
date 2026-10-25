@@ -72,13 +72,6 @@ enum XrayConfig {
                 "settings": ["address": p.address, "port": p.port, "password": p.password],
                 "streamSettings": streamSettings(p),
             ]
-        case ServerProfile.hysteria2:
-            return [
-                "tag": "proxy",
-                "protocol": "hysteria",
-                "settings": ["version": 2, "address": p.address, "port": p.port],
-                "streamSettings": hysteriaStream(p),
-            ]
         default:
             var settings: [String: Any] = [
                 "address": p.address,
@@ -94,25 +87,6 @@ enum XrayConfig {
                 "streamSettings": streamSettings(p),
             ]
         }
-    }
-
-    /// Hysteria2 runs over QUIC with TLS; Salamander obfuscation is a UDP mask in Xray.
-    private static func hysteriaStream(_ p: ServerProfile) -> [String: Any] {
-        var tls: [String: Any] = [
-            "serverName": p.sni.isEmpty ? p.address : p.sni,
-            "alpn": p.alpn.isEmpty ? ["h3"] : p.alpn,
-        ]
-        tls.putIfNotEmpty("pinnedPeerCertSha256", p.pinnedPeerCertSha256)
-        var s: [String: Any] = [
-            "network": "hysteria",
-            "security": "tls",
-            "tlsSettings": tls,
-            "hysteriaSettings": ["version": 2, "auth": p.password],
-        ]
-        if !p.obfsPassword.isEmpty {
-            s["finalmask"] = ["udp": [["type": "salamander", "settings": ["password": p.obfsPassword]]]]
-        }
-        return s
     }
 
     private static func streamSettings(_ p: ServerProfile) -> [String: Any] {
@@ -183,8 +157,7 @@ extension ServerProfile {
         let enc = self.protocol == ServerProfile.vless ? encryption.split(separator: ".").first.map(String.init) ?? encryption : ""
         for (key, value) in [("enc", enc), ("sni", sni), ("fp", fingerprint), ("flow", flow), ("mode", mode), ("spx", spiderX),
                              ("path", path), ("host", host), ("sid", shortId.isEmpty ? "" : "set"),
-                             ("pbk", publicKey.isEmpty ? "" : "set"), ("extra", extra.isEmpty ? "" : "set"),
-                             ("obfs", obfsPassword.isEmpty ? "" : "salamander")]
+                             ("pbk", publicKey.isEmpty ? "" : "set"), ("extra", extra.isEmpty ? "" : "set")]
         where !value.isEmpty {
             parts.append("\(key)=\(value)")
         }

@@ -21,7 +21,7 @@ enum SubscriptionError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .http(let code): return "HTTP \(code)"
-        case .empty: return "В подписке нет серверов VLESS, Trojan или Hysteria2"
+        case .empty: return "В подписке нет серверов VLESS или Trojan"
         }
     }
 }

@@ -200,7 +200,7 @@ class ServerProfileTest {
     }
 
     @Test
-    fun parsesTrojanAndHysteria2() {
+    fun parsesTrojan() {
         val trojan = ServerProfile.parse("trojan://p%40ss@t.example:443?type=ws&path=%2Ft&sni=cdn.example#Trojan")!!
         assertEquals(ServerProfile.TROJAN, trojan.protocol)
         assertEquals("p@ss", trojan.password)
@@ -210,20 +210,8 @@ class ServerProfileTest {
         assertEquals("trojan", tOut.getString("protocol"))
         assertEquals("p@ss", tOut.getJSONObject("settings").getString("password"))
 
-        val hy = ServerProfile.parse("hy2://user:1234-5678@h.example:443,20000-30000/?sni=real.example&obfs=salamander&obfs-password=secret#HY")!!
-        assertEquals(ServerProfile.HYSTERIA2, hy.protocol)
-        assertEquals("user:1234-5678", hy.password)
-        assertEquals(443, hy.port)
-        assertEquals("secret", hy.obfsPassword)
-        val hOut = XrayConfig.outbound(hy)
-        assertEquals("hysteria", hOut.getString("protocol"))
-        val stream = hOut.getJSONObject("streamSettings")
-        assertEquals("hysteria", stream.getString("network"))
-        assertEquals("user:1234-5678", stream.getJSONObject("hysteriaSettings").getString("auth"))
-        assertEquals("real.example", stream.getJSONObject("tlsSettings").getString("serverName"))
-        assertTrue(stream.has("finalmask"))
-
-        assertTrue(ServerProfile.isShareLink("HYSTERIA2://a@b:1"))
+        assertTrue(ServerProfile.isShareLink("TROJAN://a@b:1"))
+        assertNull(ServerProfile.parse("hy2://auth@h.example:443#HY"))
         assertNull(ServerProfile.parse("vmess://abc"))
     }
 }

@@ -38,7 +38,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.techteam.vpn.R
 
-/** Accepts a vless://, trojan:// or hysteria2:// key, several keys, or a subscription URL. */
+/** Accepts a vless:// or trojan:// key, several keys, or a subscription URL. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddSheet(busy: Boolean, onDismiss: () -> Unit, onSubmit: (String) -> Unit, onScan: () -> Unit) {
@@ -55,7 +55,7 @@ fun AddSheet(busy: Boolean, onDismiss: () -> Unit, onSubmit: (String) -> Unit, o
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it },
-                placeholder = { Text("vless:// trojan:// hy2://  или  https://…") },
+                placeholder = { Text("vless://  trojan://  или  https://…") },
                 minLines = 3,
                 maxLines = 6,
                 modifier = Modifier.fillMaxWidth(),

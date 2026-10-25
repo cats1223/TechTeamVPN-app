@@ -3,23 +3,19 @@ import Foundation
 /// A server parsed from a share link. Supported:
 /// - vless://<uuid>@<host>:<port>?type=tcp&security=reality&pbk=...&sid=...&sni=...&fp=chrome&flow=xtls-rprx-vision#Name
 /// - trojan://<password>@<host>:<port>?security=tls&sni=...&type=ws&path=...#Name (TLS unless told otherwise)
-/// - hysteria2://<auth>@<host>:<port>?sni=...&obfs=salamander&obfs-password=...&pinSHA256=...#Name (also hy2://)
 struct ServerProfile: Codable, Identifiable, Hashable {
     static let vless = "vless"
     static let trojan = "trojan"
-    static let hysteria2 = "hysteria2"
 
     var id = UUID().uuidString
     var name: String
     var address: String
     var port: Int
-    /// "vless", "trojan" or "hysteria2".
+    /// "vless" or "trojan".
     var `protocol` = ServerProfile.vless
     var uuid = ""
-    /// Trojan password or Hysteria2 auth.
+    /// Trojan password.
     var password = ""
-    /// Hysteria2 Salamander obfuscation password; empty means no obfuscation.
-    var obfsPassword = ""
     var encryption = "none"
     var flow = ""
     var network = "tcp"
@@ -44,7 +40,7 @@ struct ServerProfile: Codable, Identifiable, Hashable {
     /// The original link, kept so the profile can be shared or re-parsed.
     var link = ""
 
-    private static let schemes = ["vless": vless, "trojan": trojan, "hysteria2": hysteria2, "hy2": hysteria2]
+    private static let schemes = ["vless": vless, "trojan": trojan]
 
     /// Whether `text` starts like a server link this app can read.
     static func isShareLink(_ text: String) -> Bool {
@@ -65,14 +61,8 @@ struct ServerProfile: Codable, Identifiable, Hashable {
             body = String(text[..<hash])
             fragment = String(text[text.index(after: hash)...])
         }
-        // Hysteria2 port hopping ("443,20000-30000") is not a valid URL port; connect to the first one.
-        if proto == hysteria2 {
-            let at = body.range(of: "@", options: .backwards)?.upperBound ?? body.startIndex
-            let rest = String(body[at...]).replacingOccurrences(of: #"(:\d+)[,-][\d,-]*"#, with: "$1", options: .regularExpression)
-            body = String(body[..<at]) + rest
-        }
         body = body.replacingOccurrences(of: " ", with: "%20")
-        // URLComponents splits "user:pass" userinfo; Hysteria2 auth may be exactly that, so rejoin it.
+        // URLComponents splits "user:pass" userinfo; a Trojan password may hold a colon, so rejoin it.
         guard let comps = URLComponents(string: body),
               let user = comps.percentEncodedUser.map({ decode($0) + (comps.percentEncodedPassword.map { ":" + decode($0) } ?? "") }),
               !user.isEmpty,
@@ -94,14 +84,6 @@ struct ServerProfile: Codable, Identifiable, Hashable {
         p.link = text
 
         switch proto {
-        case hysteria2:
-            p.password = user
-            p.obfsPassword = q["obfs"]?.lowercased() == "salamander" ? q["obfs-password"] ?? "" : ""
-            p.network = "hysteria"
-            p.security = "tls"
-            p.sni = q["sni"] ?? ""
-            p.alpn = list(q["alpn"])
-            p.pinnedPeerCertSha256 = q["pinSHA256"] ?? q["pcs"] ?? ""
         case trojan:
             p.password = user
             p.applyStream(q, defaultSecurity: "tls")

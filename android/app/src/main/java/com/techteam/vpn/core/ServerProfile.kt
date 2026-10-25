@@ -8,20 +8,17 @@ import java.util.UUID
  * A server parsed from a share link. Supported:
  * - vless://<uuid>@<host>:<port>?type=tcp&security=reality&pbk=...&sid=...&sni=...&fp=chrome&flow=xtls-rprx-vision#Name
  * - trojan://<password>@<host>:<port>?security=tls&sni=...&type=ws&path=...#Name (TLS unless told otherwise)
- * - hysteria2://<auth>@<host>:<port>?sni=...&obfs=salamander&obfs-password=...&pinSHA256=...#Name (also hy2://)
  */
 data class ServerProfile(
     val id: String = UUID.randomUUID().toString(),
     val name: String,
     val address: String,
     val port: Int,
-    /** "vless", "trojan" or "hysteria2". */
+    /** "vless" or "trojan". */
     val protocol: String = VLESS,
     val uuid: String = "",
-    /** Trojan password or Hysteria2 auth. */
+    /** Trojan password. */
     val password: String = "",
-    /** Hysteria2 Salamander obfuscation password; empty means no obfuscation. */
-    val obfsPassword: String = "",
     val encryption: String = "none",
     val flow: String = "",
     val network: String = "tcp",
@@ -56,7 +53,6 @@ data class ServerProfile(
                 "enc" to enc, "sni" to sni, "fp" to fingerprint, "flow" to flow, "mode" to mode, "spx" to spiderX,
                 "path" to path, "host" to host, "sid" to if (shortId.isEmpty()) "" else "set",
                 "pbk" to if (publicKey.isEmpty()) "" else "set", "extra" to if (extra.isEmpty()) "" else "set",
-                "obfs" to if (obfsPassword.isEmpty()) "" else "salamander",
             ).filter { it.second.isNotEmpty() }.forEach { parts += "${it.first}=${it.second}" }
             return parts.joinToString(" ")
         }
@@ -64,11 +60,8 @@ data class ServerProfile(
     companion object {
         const val VLESS = "vless"
         const val TROJAN = "trojan"
-        const val HYSTERIA2 = "hysteria2"
 
-        private val SCHEMES = mapOf(
-            "vless" to VLESS, "trojan" to TROJAN, "hysteria2" to HYSTERIA2, "hy2" to HYSTERIA2,
-        )
+        private val SCHEMES = mapOf("vless" to VLESS, "trojan" to TROJAN)
 
         /** Whether [text] starts like a server link this app can read. */
         fun isShareLink(text: String): Boolean = SCHEMES.keys.any { text.startsWith("$it://", ignoreCase = true) }
@@ -80,13 +73,8 @@ data class ServerProfile(
             val protocol = SCHEMES[scheme] ?: return null
             // Names often hold raw spaces and emoji that java.net.URI rejects, so cut the fragment off first.
             val hash = text.indexOf('#')
-            var body = if (hash >= 0) text.substring(0, hash) else text
+            val body = if (hash >= 0) text.substring(0, hash) else text
             val fragment = if (hash >= 0) text.substring(hash + 1) else null
-            // Hysteria2 port hopping ("443,20000-30000") is not a valid URI port; connect to the first one.
-            if (protocol == HYSTERIA2) {
-                val at = body.lastIndexOf('@') + 1
-                body = body.substring(0, at) + body.substring(at).replace(Regex("""(:\d+)[,-][\d,-]*"""), "$1")
-            }
             val uri = try {
                 URI(body.replace(" ", "%20"))
             } catch (_: Exception) {
@@ -100,15 +88,6 @@ data class ServerProfile(
             val base = ServerProfile(name = name, address = host, port = port, protocol = protocol, link = text)
 
             return when (protocol) {
-                HYSTERIA2 -> base.copy(
-                    password = user,
-                    obfsPassword = if (q["obfs"].equals("salamander", true)) q["obfs-password"].orEmpty() else "",
-                    network = "hysteria",
-                    security = "tls",
-                    sni = q["sni"].orEmpty(),
-                    alpn = list(q["alpn"]),
-                    pinnedPeerCertSha256 = q["pinSHA256"] ?: q["pcs"].orEmpty(),
-                )
                 TROJAN -> withStream(base.copy(password = user), q, defaultSecurity = "tls")
                 else -> withStream(base.copy(uuid = user, encryption = q["encryption"]?.takeIf { it.isNotBlank() } ?: "none"), q, "none")
             }

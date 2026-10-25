@@ -31,6 +31,27 @@ struct ProfilesState: Codable, Hashable {
     }
 }
 
+extension ProfilesState {
+    private enum CodingKeys: String, CodingKey { case profiles, selectedId, subscriptionURL, subscriptionInfo }
+
+    /// A saved server whose link this version no longer reads (such as Hysteria2) is dropped
+    /// instead of failing the whole list.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        profiles = try c.decode([Failable<StoredProfile>].self, forKey: .profiles).compactMap(\.value)
+        selectedId = try c.decodeIfPresent(String.self, forKey: .selectedId)
+        subscriptionURL = try c.decodeIfPresent(String.self, forKey: .subscriptionURL) ?? ""
+        subscriptionInfo = try c.decodeIfPresent(SubscriptionInfo.self, forKey: .subscriptionInfo)
+    }
+}
+
+private struct Failable<T: Decodable>: Decodable {
+    let value: T?
+    init(from decoder: Decoder) throws {
+        value = try? T(from: decoder)
+    }
+}
+
 /// Persists servers in the shared App Group so the packet tunnel can read the selection on its own
 /// (for example when iOS restarts it through on-demand rules).
 enum ProfileStore {

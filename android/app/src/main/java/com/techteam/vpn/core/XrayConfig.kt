@@ -106,11 +106,6 @@ object XrayConfig {
             .put("protocol", "trojan")
             .put("settings", JSONObject().put("address", p.address).put("port", p.port).put("password", p.password))
             .put("streamSettings", streamSettings(p))
-        ServerProfile.HYSTERIA2 -> JSONObject()
-            .put("tag", "proxy")
-            .put("protocol", "hysteria")
-            .put("settings", JSONObject().put("version", 2).put("address", p.address).put("port", p.port))
-            .put("streamSettings", hysteriaStream(p))
         else -> {
             val settings = JSONObject()
                 .put("address", p.address)
@@ -124,24 +119,6 @@ object XrayConfig {
                 .put("settings", settings)
                 .put("streamSettings", streamSettings(p))
         }
-    }
-
-    /** Hysteria2 runs over QUIC with TLS; Salamander obfuscation is a UDP mask in Xray. */
-    private fun hysteriaStream(p: ServerProfile): JSONObject {
-        val tls = JSONObject()
-            .put("serverName", p.sni.ifEmpty { p.address })
-            .put("alpn", JSONArray(p.alpn.ifEmpty { listOf("h3") }))
-            .putIfNotEmpty("pinnedPeerCertSha256", p.pinnedPeerCertSha256)
-        val s = JSONObject()
-            .put("network", "hysteria")
-            .put("security", "tls")
-            .put("tlsSettings", tls)
-            .put("hysteriaSettings", JSONObject().put("version", 2).put("auth", p.password))
-        if (p.obfsPassword.isNotEmpty()) {
-            val mask = JSONObject().put("type", "salamander").put("settings", JSONObject().put("password", p.obfsPassword))
-            s.put("finalmask", JSONObject().put("udp", JSONArray().put(mask)))
-        }
-        return s
     }
 
     private fun streamSettings(p: ServerProfile): JSONObject {

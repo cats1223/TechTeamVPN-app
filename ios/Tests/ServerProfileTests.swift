@@ -155,7 +155,7 @@ final class ServerProfileTests: XCTestCase {
         XCTAssertNil(Updates.parse(Data("{}".utf8)))
     }
 
-    func testParsesTrojanAndHysteria2() throws {
+    func testParsesTrojan() throws {
         let trojan = try XCTUnwrap(ServerProfile.parse("trojan://p%40ss@t.example:443?type=ws&path=%2Ft&sni=cdn.example#Trojan"))
         XCTAssertEqual(trojan.protocol, ServerProfile.trojan)
         XCTAssertEqual(trojan.password, "p@ss")
@@ -165,22 +165,8 @@ final class ServerProfileTests: XCTestCase {
         XCTAssertEqual(tOut["protocol"] as? String, "trojan")
         XCTAssertEqual((tOut["settings"] as? [String: Any])?["password"] as? String, "p@ss")
 
-        let hy = try XCTUnwrap(ServerProfile.parse(
-            "hy2://user:1234-5678@h.example:443,20000-30000/?sni=real.example&obfs=salamander&obfs-password=secret#HY"
-        ))
-        XCTAssertEqual(hy.protocol, ServerProfile.hysteria2)
-        XCTAssertEqual(hy.password, "user:1234-5678")
-        XCTAssertEqual(hy.port, 443)
-        XCTAssertEqual(hy.obfsPassword, "secret")
-        let hOut = XrayConfig.outbound(hy)
-        XCTAssertEqual(hOut["protocol"] as? String, "hysteria")
-        let stream = try XCTUnwrap(hOut["streamSettings"] as? [String: Any])
-        XCTAssertEqual(stream["network"] as? String, "hysteria")
-        XCTAssertEqual((stream["hysteriaSettings"] as? [String: Any])?["auth"] as? String, "user:1234-5678")
-        XCTAssertEqual((stream["tlsSettings"] as? [String: Any])?["serverName"] as? String, "real.example")
-        XCTAssertNotNil(stream["finalmask"])
-
-        XCTAssertTrue(ServerProfile.isShareLink("HYSTERIA2://a@b:1"))
+        XCTAssertTrue(ServerProfile.isShareLink("TROJAN://a@b:1"))
+        XCTAssertNil(ServerProfile.parse("hy2://auth@h.example:443#HY"))
         XCTAssertNil(ServerProfile.parse("vmess://abc"))
     }
 
@@ -192,5 +178,12 @@ final class ServerProfileTests: XCTestCase {
         XCTAssertEqual(p.protocol, ServerProfile.vless)
         let again = try JSONDecoder().decode(ServerProfile.self, from: JSONEncoder().encode(p))
         XCTAssertEqual(again, p)
+    }
+
+    func testDropsSavedServersThisVersionCannotRead() throws {
+        let json = #"{"profiles":[{"profile":{"id":"a","link":"hy2://x@h:1#H"},"fromSubscription":false},{"profile":{"id":"b","link":"vless://u@h:1#V"},"fromSubscription":true}],"selectedId":"b","subscriptionURL":"https://s"}"#
+        let state = try JSONDecoder().decode(ProfilesState.self, from: Data(json.utf8))
+        XCTAssertEqual(state.profiles.map(\.id), ["b"])
+        XCTAssertEqual(state.subscriptionURL, "https://s")
     }
 }

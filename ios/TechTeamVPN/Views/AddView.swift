@@ -1,7 +1,7 @@
 import AVFoundation
 import SwiftUI
 
-/// Accepts a vless://, trojan:// or hysteria2:// key, several keys, or a subscription URL.
+/// Accepts a vless:// or trojan:// key, several keys, or a subscription URL.
 struct AddView: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismiss) private var dismiss
@@ -11,7 +11,7 @@ struct AddView: View {
     var body: some View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 14) {
-                Text("Вставьте ключ vless://, trojan:// или hysteria2://, несколько ключей или ссылку на подписку. Можно отсканировать QR-код.")
+                Text("Вставьте ключ vless:// или trojan://, несколько ключей или ссылку на подписку. Можно отсканировать QR-код.")
                     .font(.footnote)
                     .foregroundStyle(Brand.muted)
 
