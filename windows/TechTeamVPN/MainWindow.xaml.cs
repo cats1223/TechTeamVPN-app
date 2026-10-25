@@ -22,6 +22,8 @@ public partial class MainWindow : Window
     public MainWindow(bool startMinimized, bool connectNow)
     {
         InitializeComponent();
+        // Set here rather than in XAML: a value that fails to convert there stops the whole window.
+        Web.DefaultBackgroundColor = System.Drawing.Color.Black;
         this.connectNow = connectNow;
         bridge = new Bridge(json => Dispatcher.InvokeAsync(() => Web.CoreWebView2?.PostWebMessageAsString(json)),
             () => Dispatcher.Invoke(() => Clipboard.ContainsText() ? Clipboard.GetText() : ""));
@@ -34,10 +36,9 @@ public partial class MainWindow : Window
         menu.Items.Add(toggleItem);
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Выход", null, (_, _) => Quit());
-        var iconStream = Application.GetResourceStream(new Uri("pack://application:,,,/icon.ico"))?.Stream;
         tray = new Forms.NotifyIcon
         {
-            Icon = iconStream is null ? System.Drawing.SystemIcons.Application : new System.Drawing.Icon(iconStream),
+            Icon = AppIcon(),
             Text = "TechTeamVPN",
             Visible = true,
             ContextMenuStrip = menu,
@@ -140,6 +141,19 @@ public partial class MainWindow : Window
         tray.Visible = false;
         tray.Dispose();
         Application.Current.Shutdown();
+    }
+
+    /// <summary>The exe's own icon (ApplicationIcon); the window takes it from the exe as well.</summary>
+    private static System.Drawing.Icon AppIcon()
+    {
+        try
+        {
+            return System.Drawing.Icon.ExtractAssociatedIcon(Environment.ProcessPath!) ?? System.Drawing.SystemIcons.Application;
+        }
+        catch (Exception)
+        {
+            return System.Drawing.SystemIcons.Application;
+        }
     }
 
     [DllImport("dwmapi.dll")]

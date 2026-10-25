@@ -28,6 +28,5 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="Web\**" CopyToOutputDirectory="PreserveNewest" />
-    <Resource Include="icon.ico" />
   </ItemGroup>
 </Project>
