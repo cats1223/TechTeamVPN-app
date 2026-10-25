@@ -218,6 +218,9 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
+                val whatsNew by vm.whatsNew.collectAsStateWithLifecycle()
+                whatsNew?.let { notes -> WhatsNewDialog(notes, onClose = vm::dismissWhatsNew) }
+
                 val update by vm.update.collectAsStateWithLifecycle()
                 val updateProgress by vm.updateProgress.collectAsStateWithLifecycle()
                 update?.let { release ->

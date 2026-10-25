@@ -204,6 +204,13 @@ class ServerProfileTest {
     }
 
     @Test
+    fun readsChangelogSection() {
+        val text = "# Changes\n\n## v1.2.0\n\n- One\n- Two\n\n## v1.1.0\n\n- Old\n"
+        assertEquals("- One\n- Two", Changelog.section(text, "1.2.0"))
+        assertNull(Changelog.section(text, "9.9"))
+    }
+
+    @Test
     fun userSiteRules() {
         assertEquals(listOf("domain:site.com", "domain:вк.рф"), XrayConfig.siteRules(listOf("https://www.Site.com/page?x", "*.site.com", "вк.рф", "nonsense", " ")))
         val config = JSONObject(XrayConfig.build(ServerProfile.parse(reality)!!, 1, directSites = listOf("bank.com"), proxySites = listOf("yandex.ru")))

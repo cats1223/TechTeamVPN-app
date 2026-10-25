@@ -38,15 +38,39 @@ final class AppModel: ObservableObject {
         if !state.subscriptionURL.isEmpty {
             Task { await refreshSubscription(silent: true) }
         }
+        Task {
+            // After the launch animation: first what changed in this version, then any update.
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            whatsNew = Self.pendingWhatsNew(hasServers: !state.profiles.isEmpty)
+            if whatsNew == nil { await checkForUpdate(manual: false) }
+        }
+    }
+
+    /// What changed in this version, shown once after an update; nil on a fresh install or when
+    /// the changelog has nothing for it.
+    @Published var whatsNew: String?
+
+    private static func pendingWhatsNew(hasServers: Bool) -> String? {
+        let defaults = UserDefaults.standard
+        let version = AppSettings.shortVersion
+        let seen = defaults.string(forKey: "whatsNewSeen")
+        defaults.set(version, forKey: "whatsNewSeen")
+        // A fresh install has nothing to compare with; someone who already has servers is updating.
+        guard seen != version, seen != nil || hasServers,
+              let url = Bundle.main.url(forResource: "CHANGELOG", withExtension: "md"),
+              let text = try? String(contentsOf: url, encoding: .utf8) else { return nil }
+        return Changelog.section(text, version: version)
+    }
+
+    func dismissWhatsNew() {
+        whatsNew = nil
         Task { await checkForUpdate(manual: false) }
     }
 
-    /// The automatic check runs at most every 12 hours and stays quiet about a version the user
-    /// already put off; the button in settings always asks GitHub and reports the result.
+    /// Runs on every launch and offers a newer version; the button in settings also reports
+    /// when there is nothing new.
     func checkForUpdate(manual: Bool) async {
         let defaults = UserDefaults.standard
-        let now = Date().timeIntervalSince1970
-        if !manual, now - defaults.double(forKey: "updateCheckedAt") < 12 * 3600 { return }
         let release: Updates.Release
         do {
             release = try await Updates.fetchLatest(includeBeta: defaults.bool(forKey: AppSettings.betaUpdatesKey))
@@ -54,19 +78,16 @@ final class AppModel: ObservableObject {
             if manual { message = "Не удалось проверить обновления: \(error.localizedDescription)" }
             return
         }
-        defaults.set(now, forKey: "updateCheckedAt")
         if !Updates.isNewer(release.version, than: AppSettings.shortVersion) {
             // On a beta with betas off, "latest" would be misleading: only releases were checked.
             let betaOff = Updates.isBeta(AppSettings.shortVersion) && !defaults.bool(forKey: AppSettings.betaUpdatesKey)
             if manual { message = betaOff ? "Новых релизов нет. Чтобы получать беты, включите «Получать бета-версии»" : "У вас последняя версия" }
-        } else if manual || defaults.string(forKey: "updateDismissed") != release.version {
+        } else {
             update = release
         }
     }
 
-    /// "Later": the automatic check does not offer this version again.
     func dismissUpdate() {
-        if let update { UserDefaults.standard.set(update.version, forKey: "updateDismissed") }
         update = nil
     }
 

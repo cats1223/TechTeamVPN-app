@@ -7,6 +7,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.techteam.vpn.BuildConfig
 import com.techteam.vpn.R
+import com.techteam.vpn.core.Changelog
 import com.techteam.vpn.core.DeepLink
 import com.techteam.vpn.core.GeoIP
 import com.techteam.vpn.core.Updates
@@ -73,7 +74,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     init {
         // Pick up server list changes made in the panel since the last launch.
         if (repo.state.value.subscriptionUrl.isNotEmpty()) refreshSubscription(silent = true)
-        checkForUpdate(manual = false)
+        viewModelScope.launch {
+            // After the launch animation: first what changed in this version, then any update.
+            kotlinx.coroutines.delay(2500)
+            _whatsNew.value = pendingWhatsNew()
+            if (_whatsNew.value == null) checkForUpdate(manual = false)
+        }
         viewModelScope.launch {
             // Look the address up again whenever the VPN settles: the real one when off, the server's when on.
             VpnStatus.state.collect { state ->
@@ -137,9 +143,32 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
      * The automatic check runs at most every 12 hours and stays quiet about a version the user
      * already put off; the button in settings always asks GitHub and reports the result.
      */
+    private val _whatsNew = MutableStateFlow<String?>(null)
+    /** What changed in this version, shown once after an update; null hides it. */
+    val whatsNew: StateFlow<String?> = _whatsNew.asStateFlow()
+
+    private fun pendingWhatsNew(): String? {
+        val version = BuildConfig.VERSION_NAME
+        val seen = prefs.getString("whatsNewSeen", null)
+        prefs.edit().putString("whatsNewSeen", version).apply()
+        // A fresh install has nothing to compare with; someone who already has servers is updating.
+        if (seen == version || (seen == null && repo.state.value.profiles.isEmpty())) return null
+        val text = runCatching {
+            getApplication<Application>().assets.open("CHANGELOG.md").bufferedReader().use { it.readText() }
+        }.getOrNull() ?: return null
+        return Changelog.section(text, version)
+    }
+
+    fun dismissWhatsNew() {
+        _whatsNew.value = null
+        checkForUpdate(manual = false)
+    }
+
+    /**
+     * Runs on every launch and offers a newer version; asked from settings it downloads and
+     * installs straight away, or says there is nothing new.
+     */
     fun checkForUpdate(manual: Boolean) = viewModelScope.launch {
-        val now = System.currentTimeMillis()
-        if (!manual && now - prefs.getLong("updateCheckedAt", 0) < 12 * 3600_000L) return@launch
         val release = try {
             val beta = AppSettings.get(getApplication()).betaUpdates.value
             withContext(Dispatchers.IO) { Updates.fetchLatest(includeBeta = beta) }
@@ -147,7 +176,6 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             if (manual) toast(str(R.string.update_error, e.message ?: ""))
             return@launch
         }
-        prefs.edit().putLong("updateCheckedAt", now).apply()
         when {
             !Updates.isNewer(release.version, BuildConfig.VERSION_NAME) -> if (manual) {
                 // On a beta with betas off, "latest" would be misleading: only releases were checked.
@@ -159,7 +187,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
                 _update.value = release
                 installUpdate(release)
             }
-            prefs.getString("updateDismissed", null) != release.version -> _update.value = release
+            else -> _update.value = release
         }
     }
 
@@ -195,9 +223,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
-    /** "Later": the automatic check does not offer this version again. */
     fun dismissUpdate() {
-        _update.value?.let { prefs.edit().putString("updateDismissed", it.version).apply() }
         _update.value = null
     }
 

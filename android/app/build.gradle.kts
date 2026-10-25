@@ -62,11 +62,19 @@ android {
     sourceSets {
         // Russian IP ranges and sites for split tunneling, built by scripts/update-geodata.py.
         getByName("main").assets.srcDir(rootProject.file("../geodata"))
+        // CHANGELOG.md for the "what's new" screen; copied in by copyChangelog below.
+        getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/changelog"))
     }
     packaging {
         jniLibs.useLegacyPackaging = true
     }
 }
+
+val copyChangelog by tasks.registering(Copy::class) {
+    from(rootProject.file("../CHANGELOG.md"))
+    into(layout.buildDirectory.dir("generated/changelog"))
+}
+tasks.named("preBuild") { dependsOn(copyChangelog) }
 
 dependencies {
     // LibXray.aar is produced by scripts/build-libxray.sh (see README).

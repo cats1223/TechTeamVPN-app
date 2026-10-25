@@ -49,6 +49,8 @@
     <string name="auto_fastest_hint">Перед подключением проверить пинг всех серверов и выбрать самый быстрый</string>
     <string name="ping_ms">%1$d мс</string>
     <string name="rate">%1$s/с</string>
+    <string name="whats_new_title">Что нового в %1$s</string>
+    <string name="whats_new_ok">Отлично</string>
     <string name="sites_direct">Всегда напрямую</string>
     <string name="sites_proxy">Всегда через VPN</string>
     <string name="sites_direct_hint">Эти сайты открываются без VPN, с вашего обычного адреса. Поддомены тоже.</string>

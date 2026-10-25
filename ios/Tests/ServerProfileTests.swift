@@ -159,6 +159,12 @@ final class ServerProfileTests: XCTestCase {
         XCTAssertNil(Updates.parse(Data("{}".utf8)))
     }
 
+    func testReadsChangelogSection() {
+        let text = "# Changes\n\n## v1.2.0\n\n- One\n- Two\n\n## v1.1.0\n\n- Old\n"
+        XCTAssertEqual(Changelog.section(text, version: "1.2.0"), "- One\n- Two")
+        XCTAssertNil(Changelog.section(text, version: "9.9"))
+    }
+
     func testUserSiteRules() throws {
         XCTAssertEqual(XrayConfig.siteRules(["https://www.Site.com/page?x", "*.site.com", "вк.рф", "nonsense", " "]), ["domain:site.com", "domain:вк.рф"])
         let p = try XCTUnwrap(ServerProfile.parse(reality))

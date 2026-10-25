@@ -26,6 +26,9 @@ targets:
     sources:
       - TechTeamVPN
       - Shared
+      # Shown as "what's new" after an update.
+      - path: ../CHANGELOG.md
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID)

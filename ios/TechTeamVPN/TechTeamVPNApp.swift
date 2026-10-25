@@ -44,6 +44,10 @@ struct RootView: View {
         } message: {
             Text("В буфере обмена есть ссылка. Добавить её как подписку?")
         }
+        .sheet(isPresented: Binding(get: { model.whatsNew != nil }, set: { if !$0 { model.dismissWhatsNew() } })) {
+            WhatsNewView(notes: model.whatsNew ?? "") { model.dismissWhatsNew() }
+                .presentationDetents([.medium, .large])
+        }
         .alert(
             "Доступно обновление",
             isPresented: Binding(get: { model.update != nil }, set: { if !$0 { model.update = nil } }),
