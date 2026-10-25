@@ -1,10 +1,12 @@
 name: Windows
 
 # The Windows app (windows/) builds and ships on its own, with its own versions and tags
-# (windows-v1.0.0), separately from the phone apps' releases. Pushing a windows-v* tag builds and
-# publishes it; a manual run works once this file is on the default branch.
+# (windows-v1.0.0), separately from the phone apps' releases. A push to the windows-release branch
+# builds and publishes the version in windows/VERSION; so does a windows-v* tag, and a manual run
+# once this file is on the default branch.
 on:
   push:
+    branches: ["windows-release"]
     tags: ["windows-v*"]
   workflow_dispatch:
     inputs:
@@ -14,13 +16,17 @@ on:
         default: ""
 
 env:
-  # The release tag: pushed, or made from the version of a manual run; empty for a plain build.
+  # The release tag: pushed, or made from the version of a manual run; the release branch takes
+  # windows/VERSION below. Empty for a plain build.
   TAG: ${{ startsWith(github.ref, 'refs/tags/windows-v') && github.ref_name || (inputs.version && format('windows-v{0}', inputs.version) || '') }}
 
 jobs:
   windows:
     # WPF + WebView2 app, with xray.exe, wintun.dll for the tunnel mode and the trimmed geodata.
     runs-on: windows-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
     defaults:
       run:
         shell: bash
@@ -34,8 +40,13 @@ jobs:
         with:
           dotnet-version: "8.0.x"
       - name: Version and zip name
+        id: version
         run: |
+          if [ "$GITHUB_REF" = "refs/heads/windows-release" ]; then TAG="windows-v$(tr -d ' \r\n' < windows/VERSION)"; fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
           V="${TAG#windows-v}"
+          echo "version=$V" >> "$GITHUB_OUTPUT"
           echo "APP_VERSION=${V:-1.0.0}" >> "$GITHUB_ENV"
           echo "ZIP_NAME=TechTeamVPN-${TAG:-windows-dev}.zip" >> "$GITHUB_ENV"
       - name: Unit tests
@@ -70,9 +81,11 @@ jobs:
           path: ${{ env.ZIP_NAME }}
 
   release:
-    if: startsWith(github.ref, 'refs/tags/windows-v') || inputs.version != ''
+    if: needs.windows.outputs.tag != ''
     needs: [windows]
     runs-on: ubuntu-latest
+    env:
+      TAG: ${{ needs.windows.outputs.tag }}
     permissions:
       contents: write
     steps:
@@ -99,7 +112,7 @@ jobs:
         with:
           tag_name: ${{ env.TAG }}
           target_commitish: ${{ github.sha }}
-          name: TechTeamVPN для Windows ${{ env.TAG }}
+          name: TechTeamVPN для Windows ${{ needs.windows.outputs.version }}
           prerelease: ${{ contains(env.TAG, '-beta') }}
           make_latest: false
           files: TechTeamVPN-${{ env.TAG }}.zip
