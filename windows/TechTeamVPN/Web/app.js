@@ -15,6 +15,7 @@ const send = (cmd, data = {}) => {
 
 let state = { profiles: [], selectedId: null, status: "disconnected", settings: {}, subscription: null, since: 0 };
 let pings = {}, locations = { home: null, visible: null, servers: {} };
+let hotspot = { on: false };
 let traffic = { down: 0, up: 0, session: 0, blocked: 0 };
 
 function onMessage(msg) {
@@ -31,6 +32,11 @@ function onMessage(msg) {
     case "traffic": traffic = msg; renderTraffic(); break;
     case "toast": toast(msg.text); break;
     case "clipboard": $("addText").value = msg.text || ""; break;
+    case "hotspot":
+      hotspot = msg;
+      if (msg.error) toast(msg.error);
+      if (!$("sheet-settings").hidden) renderSettings();
+      break;
     case "update":
       if (confirm(`Вышла версия ${msg.version}, у вас ${state.version}. Скачать?`)) send("openUrl", { url: msg.url });
       break;
@@ -213,6 +219,20 @@ function renderSettings() {
     ? (state.isAdmin ? "Весь трафик компьютера идёт через VPN, включая игры и программы без поддержки прокси." : "Для этого режима нужны права администратора — приложение перезапустится с ними при подключении.")
     : "Браузеры и большинство программ идут через VPN без прав администратора. Игры и программы, которые не смотрят на системный прокси, — мимо."}</p>`);
   if (s.mode === "tun") html.push(toggle("killSwitch", "Блокировать утечки", "DNS — только через VPN, IPv6 выключен, чтобы ничего не ушло мимо"));
+
+  html.push(`<div class="section">Раздача Wi-Fi — для PS5, телевизора, гостей</div>`);
+  if (s.mode !== "tun") {
+    html.push(`<p class="hint">Компьютер раздаёт Wi-Fi, и всё, что к нему подключено, идёт через VPN — YouTube, Discord с голосом, PSN. Для этого включите режим «Весь трафик (TUN)» выше.</p>`);
+  } else if (hotspot.on) {
+    html.push(`<div class="card"><div class="title">Раздача включена</div>
+      <div>Сеть: <b>${esc(hotspot.ssid)}</b></div><div>Пароль: <b>${esc(hotspot.password)}</b></div>
+      <div class="muted">На PS5: Настройки → Сеть → Настроить интернет-соединение → эта сеть.</div></div>`,
+      `<button class="secondary" data-cmd="hotspotStop">Выключить раздачу</button>`);
+  } else {
+    html.push(`<p class="hint">Компьютер раздаёт Wi-Fi через VPN: всё, что к нему подключено, идёт через туннель, включая голос в Discord. Нужен Wi-Fi-адаптер на компьютере.</p>`,
+      `<button class="big" data-cmd="hotspotStart" ${state.status === "connected" ? "" : "disabled"}>${state.status === "connected" ? "Включить раздачу" : "Сначала подключитесь"}</button>`,
+      `<p class="hint">Если Windows не включит раздачу сама, откроются её настройки: в «Совместное использование подключения» выберите <b>TechTeamVPN</b> и включите хот-спот.</p>`);
+  }
 
   html.push(`<div class="section">Раздельное туннелирование</div>`, toggle("russiaDirect", "Российские сайты напрямую", "Зоны .ru, .su, .рф и российские адреса — без VPN"));
   html.push(`<div class="section">Защита</div>`, toggle("blockAds", "Блокировать рекламу", "Рекламные и следящие домены не загружаются. Если сайт сломался — добавьте его в «Свои сайты»"));

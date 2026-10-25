@@ -23,6 +23,8 @@ public sealed class Settings
     public bool Autostart { get; set; }
     public bool ConnectOnStart { get; set; }
     public bool BetaUpdates { get; set; }
+    /// <summary>Share the VPN over the Windows Mobile Hotspot; turned on again after each reconnect.</summary>
+    public bool Hotspot { get; set; }
     public List<string> DirectSites { get; set; } = new();
     public List<string> ProxySites { get; set; } = new();
 }
