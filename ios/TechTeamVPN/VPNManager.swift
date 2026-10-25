@@ -15,6 +15,7 @@ final class VPNManager: ObservableObject {
     static let shared = VPNManager()
 
     private init() {
+        TunnelActivity.endAll()
         Task { await load() }
     }
 
