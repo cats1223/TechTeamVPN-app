@@ -83,7 +83,7 @@ struct GlobeMap: UIViewRepresentable {
         private static let comets = 3
         private static let tail = 4
         /// Seconds for a packet to travel from the phone to the server.
-        private static let trip: CFTimeInterval = 2.2
+        private static let trip: CFTimeInterval = 4.5
 
         deinit { displayLink?.invalidate() }
 

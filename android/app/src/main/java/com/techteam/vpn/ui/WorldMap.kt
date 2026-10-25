@@ -280,7 +280,7 @@ private const val HALO_SOURCE = "halo"
 private const val HALO_LAYER = "halo-layer"
 private const val PACKET_COUNT = 3
 private const val PACKET_TAIL = 4
-private const val PACKET_TRIP_MS = 1800L
+private const val PACKET_TRIP_MS = 4500L
 private const val HALO_MS = 1600L
 
 /**
