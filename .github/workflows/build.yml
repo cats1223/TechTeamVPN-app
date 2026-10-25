@@ -29,8 +29,11 @@ jobs:
       - name: Signing key
         run: |
           if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
-            mkdir -p ~/.android
-            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > ~/.android/debug.keystore
+            KEYSTORE="$RUNNER_TEMP/techteamvpn.keystore"
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$KEYSTORE"
+            # Fails here if the secret is not the expected keystore; the fingerprint is public.
+            keytool -list -keystore "$KEYSTORE" -storepass android -alias androiddebugkey | grep -i "SHA-256"
+            echo "ANDROID_KEYSTORE_PATH=$KEYSTORE" >> "$GITHUB_ENV"
           else
             echo "::warning::ANDROID_KEYSTORE_BASE64 is not set: this APK will not install over earlier ones"
           fi

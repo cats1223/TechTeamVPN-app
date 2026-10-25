@@ -18,6 +18,19 @@ android {
         versionName = System.getenv("APP_VERSION")?.takeIf { it.isNotBlank() } ?: "1.1.0"
     }
 
+    signingConfigs {
+        // CI passes the project's fixed key (debug format), so every APK installs over the
+        // previous one; locally Gradle's own debug key is used.
+        getByName("debug") {
+            System.getenv("ANDROID_KEYSTORE_PATH")?.let(::file)?.takeIf { it.exists() }?.let {
+                storeFile = it
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
+            }
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = true
