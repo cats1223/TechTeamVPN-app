@@ -57,10 +57,12 @@ fun SettingsScreen(
     selected: ServerProfile?,
     russiaDirect: Boolean,
     bypassApps: Set<String>,
+    betaUpdates: Boolean,
     onTheme: (Boolean) -> Unit,
     onRussiaDirect: (Boolean) -> Unit,
     onBypassApps: (Set<String>) -> Unit,
     onCheckUpdate: () -> Unit,
+    onBetaUpdates: (Boolean) -> Unit,
     onUnlock: (String) -> Boolean,
     onDisableDevMode: () -> Unit,
 ) {
@@ -130,6 +132,18 @@ fun SettingsScreen(
             }
         }
         Card(Modifier.clickable(onClick = onCheckUpdate)) { Text("Проверить обновления", color = Brand.Cyan) }
+        Card(Modifier.clickable { onBetaUpdates(!betaUpdates) }) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Получать бета-версии", color = Brand.Text)
+                    Text("Предлагать обновиться и на бету, а не только на релиз", color = Brand.TextMuted, fontSize = 12.sp)
+                }
+                Switch(
+                    checked = betaUpdates, onCheckedChange = onBetaUpdates,
+                    colors = SwitchDefaults.colors(checkedTrackColor = Brand.Cyan),
+                )
+            }
+        }
 
         if (devMode) {
             SectionTitle("Разработчик")

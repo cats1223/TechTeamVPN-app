@@ -6,6 +6,8 @@ enum AppSettings {
     static let devModeKey = "devMode"
     /// Russian sites and IP ranges go past the VPN; on by default.
     static let russiaDirectKey = "russiaDirect"
+    /// Offer betas in the update check too, not only full releases.
+    static let betaUpdatesKey = "betaUpdates"
 
     static var russiaDirect: Bool {
         UserDefaults.standard.object(forKey: russiaDirectKey) as? Bool ?? true
@@ -41,6 +43,7 @@ struct SettingsView: View {
     @AppStorage(AppSettings.themeKey) private var theme = AppSettings.Theme.dark.rawValue
     @AppStorage(AppSettings.devModeKey) private var devMode = false
     @AppStorage(AppSettings.russiaDirectKey) private var russiaDirect = true
+    @AppStorage(AppSettings.betaUpdatesKey) private var betaUpdates = false
     @State private var versionTaps = 0
     @State private var lastTap = Date.distantPast
     @State private var askPassword = false
@@ -84,6 +87,9 @@ struct SettingsView: View {
                     .onTapGesture(perform: tapVersion)
                     .listRowBackground(Brand.surface)
                     Button("Проверить обновления") { Task { await model.checkForUpdate(manual: true) } }
+                        .listRowBackground(Brand.surface)
+                    Toggle("Получать бета-версии", isOn: $betaUpdates)
+                        .tint(Brand.cyan)
                         .listRowBackground(Brand.surface)
                 }
 

@@ -48,7 +48,7 @@ final class AppModel: ObservableObject {
         if !manual, now - defaults.double(forKey: "updateCheckedAt") < 12 * 3600 { return }
         let release: Updates.Release
         do {
-            release = try await Updates.fetchLatest()
+            release = try await Updates.fetchLatest(includeBeta: defaults.bool(forKey: AppSettings.betaUpdatesKey))
         } catch {
             if manual { message = "Не удалось проверить обновления: \(error.localizedDescription)" }
             return

@@ -164,6 +164,11 @@ class ServerProfileTest {
         // The latest-release endpoint never returns betas; a beta tester is offered the release.
         assertTrue(Updates.isNewer("1.2.0", "1.2.0-beta.1"))
         assertFalse(Updates.isNewer("1.1.0", "1.2.0-beta.1"))
+        assertTrue(Updates.isNewer("1.2.0-beta.6", "1.2.0-beta.5"))
+        assertFalse(Updates.isNewer("1.2.0-beta.5", "1.2.0-beta.6"))
+        assertFalse(Updates.isNewer("1.2.0-beta.6", "1.2.0"))
+        val list = """[{"draft":true,"tag_name":"v9","html_url":"x"},{"tag_name":"v1.2.0-beta.6","html_url":"https://x/b6","prerelease":true}]"""
+        assertEquals("1.2.0-beta.6", Updates.parseNewest(list)!!.version)
     }
 
     @Test

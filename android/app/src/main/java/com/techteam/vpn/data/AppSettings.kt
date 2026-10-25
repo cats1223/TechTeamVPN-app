@@ -27,6 +27,15 @@ class AppSettings private constructor(context: Context) {
     private val _bypassApps = MutableStateFlow(prefs.getStringSet("bypassApps", null).orEmpty().toSet())
     val bypassApps: StateFlow<Set<String>> = _bypassApps.asStateFlow()
 
+    /** Offer betas in the update check too, not only full releases. */
+    private val _betaUpdates = MutableStateFlow(prefs.getBoolean("betaUpdates", false))
+    val betaUpdates: StateFlow<Boolean> = _betaUpdates.asStateFlow()
+
+    fun setBetaUpdates(enabled: Boolean) {
+        _betaUpdates.value = enabled
+        prefs.edit().putBoolean("betaUpdates", enabled).apply()
+    }
+
     fun setRussiaDirect(enabled: Boolean) {
         _russiaDirect.value = enabled
         prefs.edit().putBoolean("russiaDirect", enabled).apply()

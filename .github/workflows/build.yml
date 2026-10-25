@@ -1,11 +1,10 @@
 name: Build
 
+# Builds only when asked: a manual run (with a version it also publishes the release) or a v* tag.
+# Pushes do not build, so a release does not wait behind test builds.
 on:
   push:
-    branches: [main, "feature/**"]
-    # A v* tag also publishes a GitHub release with the .apk and .ipa (see the release job).
     tags: ["v*"]
-  pull_request:
   workflow_dispatch:
     inputs:
       version:
@@ -102,7 +101,9 @@ jobs:
         with:
           name: TechTeamVPN-ios-signed
           path: ios/build/TechTeamVPN.ipa
+      # The shared logic is unit-tested on Android too; the simulator run is skipped for releases to save time.
       - name: Unit tests
+        if: env.RELEASE_TAG == ''
         working-directory: ios
         run: |
           # Simulator names change with each Xcode, so take the first available iPhone.

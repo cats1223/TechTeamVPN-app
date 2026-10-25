@@ -130,6 +130,11 @@ final class ServerProfileTests: XCTestCase {
         // The latest-release endpoint never returns betas; a beta tester is offered the release.
         XCTAssertTrue(Updates.isNewer("1.2.0", than: "1.2.0-beta.1"))
         XCTAssertFalse(Updates.isNewer("1.1.0", than: "1.2.0-beta.1"))
+        XCTAssertTrue(Updates.isNewer("1.2.0-beta.6", than: "1.2.0-beta.5"))
+        XCTAssertFalse(Updates.isNewer("1.2.0-beta.5", than: "1.2.0-beta.6"))
+        XCTAssertFalse(Updates.isNewer("1.2.0-beta.6", than: "1.2.0"))
+        let list = #"[{"draft":true,"tag_name":"v9","html_url":"x"},{"tag_name":"v1.2.0-beta.6","html_url":"https://x/b6","prerelease":true}]"#
+        XCTAssertEqual(Updates.parseNewest(Data(list.utf8))?.version, "1.2.0-beta.6")
     }
 
     func testParsesGeoIP() throws {

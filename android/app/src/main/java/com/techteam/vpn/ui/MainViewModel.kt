@@ -10,6 +10,7 @@ import com.techteam.vpn.R
 import com.techteam.vpn.core.DeepLink
 import com.techteam.vpn.core.GeoIP
 import com.techteam.vpn.core.Updates
+import com.techteam.vpn.data.AppSettings
 import com.techteam.vpn.data.AppUpdater
 import com.techteam.vpn.data.ProfileRepository
 import com.techteam.vpn.data.ProfilesState
@@ -111,7 +112,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val now = System.currentTimeMillis()
         if (!manual && now - prefs.getLong("updateCheckedAt", 0) < 12 * 3600_000L) return@launch
         val release = try {
-            withContext(Dispatchers.IO) { Updates.fetchLatest() }
+            val beta = AppSettings.get(getApplication()).betaUpdates.value
+            withContext(Dispatchers.IO) { Updates.fetchLatest(includeBeta = beta) }
         } catch (e: Exception) {
             if (manual) toast(str(R.string.update_error, e.message ?: ""))
             return@launch
