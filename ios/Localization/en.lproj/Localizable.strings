@@ -177,3 +177,6 @@
 "Банки, Госуслуги и другие российские сайты открываются без VPN, с вашего обычного адреса. Это и другое — в настройках." = "Banks, Gosuslugi and other Russian sites open without the VPN, from your usual address. This and more is in settings.";
 "Далее" = "Next";
 "Начать" = "Get started";
+"Автопереподключение" = "Auto-reconnect";
+"Подключение" = "Connection";
+"Самый быстрый: перед подключением приложение проверит пинг всех серверов. Автопереподключение: если VPN оборвался, iOS поднимет его сама — но тогда системная кнопка VPN в настройках и шторке не сможет его выключить; выключайте в приложении, виджетом или Siri." = "Fastest: before connecting, the app pings all servers. Auto-reconnect: if the VPN drops, iOS brings it back up — but then the system VPN switch in Settings and Control Center can't turn it off; turn it off in the app, with the widget or Siri.";

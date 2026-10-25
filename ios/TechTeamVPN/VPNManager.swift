@@ -142,7 +142,7 @@ final class VPNManager: ObservableObject {
         manager.isEnabled = true
         // If the tunnel drops with an error (or the extension is killed), iOS starts it again.
         manager.onDemandRules = [NEOnDemandRuleConnect()]
-        manager.isOnDemandEnabled = reconnectOnFailure
+        manager.isOnDemandEnabled = reconnectOnFailure && AppSettings.autoReconnect
         // The first save shows the system "Add VPN configuration" prompt.
         try await manager.saveToPreferences()
         try await manager.loadFromPreferences()

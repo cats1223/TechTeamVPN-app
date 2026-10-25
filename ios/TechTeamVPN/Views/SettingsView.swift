@@ -17,6 +17,13 @@ enum AppSettings {
     /// Offer betas in the update check too, not only full releases.
     static let betaUpdatesKey = "betaUpdates"
 
+    /// iOS brings the tunnel back up after a drop (on-demand). On by default; it also means the
+    /// system VPN switch cannot turn the VPN off, since iOS reconnects at once.
+    static let autoReconnectKey = "autoReconnect"
+    static var autoReconnect: Bool {
+        UserDefaults.standard.object(forKey: autoReconnectKey) as? Bool ?? true
+    }
+
     /// Before connecting, ping the servers and take the fastest.
     static let autoFastestKey = "autoFastest"
     /// The user's sites that always go past the VPN, and those that always go through it.
@@ -66,6 +73,7 @@ struct SettingsView: View {
     @AppStorage(AppSettings.dnsKey) private var dns = ""
     @AppStorage(AppSettings.betaUpdatesKey) private var betaUpdates = false
     @AppStorage(AppSettings.autoFastestKey) private var autoFastest = false
+    @AppStorage(AppSettings.autoReconnectKey) private var autoReconnect = true
     @State private var versionTaps = 0
     @State private var lastTap = Date.distantPast
     @State private var askPassword = false
@@ -130,10 +138,16 @@ struct SettingsView: View {
                     Toggle("Самый быстрый сервер", isOn: $autoFastest)
                         .tint(Brand.cyan)
                         .listRowBackground(Brand.surface)
+                    Toggle("Автопереподключение", isOn: $autoReconnect)
+                        .tint(Brand.cyan)
+                        .onChange(of: autoReconnect) { _ in
+                            Task { await model.applyTunnelSettings() }
+                        }
+                        .listRowBackground(Brand.surface)
                 } header: {
-                    Text("Серверы")
+                    Text("Подключение")
                 } footer: {
-                    Text("Перед подключением приложение проверит пинг всех серверов и выберет самый быстрый.")
+                    Text("Самый быстрый: перед подключением приложение проверит пинг всех серверов. Автопереподключение: если VPN оборвался, iOS поднимет его сама — но тогда системная кнопка VPN в настройках и шторке не сможет его выключить; выключайте в приложении, виджетом или Siri.")
                 }
 
                 Section {
