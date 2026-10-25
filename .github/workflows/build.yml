@@ -20,8 +20,20 @@ env:
 jobs:
   android:
     runs-on: ubuntu-latest
+    env:
+      # One fixed signing key, so a new APK installs over the old one (and the in-app update
+      # works). Without it Gradle signs with a fresh debug key on every run.
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
     steps:
       - uses: actions/checkout@v4
+      - name: Signing key
+        run: |
+          if [ -n "$ANDROID_KEYSTORE_BASE64" ]; then
+            mkdir -p ~/.android
+            echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > ~/.android/debug.keystore
+          else
+            echo "::warning::ANDROID_KEYSTORE_BASE64 is not set: this APK will not install over earlier ones"
+          fi
       - uses: actions/setup-go@v5
         with:
           go-version: "1.25"
@@ -106,6 +118,10 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: CHANGELOG.md
+          sparse-checkout-cone-mode: false
       - uses: actions/download-artifact@v4
         with:
           name: TechTeamVPN-android
@@ -131,6 +147,20 @@ jobs:
             echo "TITLE=TechTeamVPN ${TAG}" >> "$GITHUB_ENV"
             echo "NOTE=" >> "$GITHUB_ENV"
           fi
+      # The "## <tag>" section of CHANGELOG.md, then how to install.
+      - name: Release notes
+        run: |
+          {
+            [ -n "$NOTE" ] && printf '%s\n\n' "$NOTE"
+            echo "### Что нового"
+            awk -v tag="## ${TAG}" '$0 == tag {on=1; next} /^## / {on=0} on' CHANGELOG.md | sed '/./,$!d'
+            echo
+            echo "### Установка"
+            echo "- **Android:** \`TechTeamVPN-${TAG}.apk\` — установите файл на телефон (Android 8+)."
+            echo "- **iOS:** \`TechTeamVPN-${TAG}-unsigned.ipa\` — неподписанный, подпишите своим сертификатом (нужны Network Extensions → Packet Tunnel)."
+          } > notes.md
+          if ! grep -qx "## ${TAG}" CHANGELOG.md; then echo "::warning::CHANGELOG.md has no section for ${TAG}"; fi
+          cat notes.md
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.TAG }}
@@ -140,12 +170,4 @@ jobs:
           files: |
             TechTeamVPN-${{ env.TAG }}.apk
             TechTeamVPN-${{ env.TAG }}-unsigned.ipa
-          body: |
-            ${{ env.NOTE }}
-
-            TechTeamVPN ${{ env.TAG }} — клиент VLESS + REALITY + XHTTP на ядре Xray.
-
-            - **Android:** `TechTeamVPN-${{ env.TAG }}.apk` — установите файл на телефон (Android 8+).
-            - **iOS:** `TechTeamVPN-${{ env.TAG }}-unsigned.ipa` — неподписанный, подпишите своим сертификатом (нужны Network Extensions → Packet Tunnel).
-
-            Ключ добавляется ссылкой подписки, ключом `vless://` или QR-кодом.
+          body_path: notes.md

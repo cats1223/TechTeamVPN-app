@@ -1,6 +1,8 @@
 package com.techteam.vpn.ui
 
 import android.app.Application
+import android.content.Intent
+import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.techteam.vpn.BuildConfig
@@ -8,6 +10,7 @@ import com.techteam.vpn.R
 import com.techteam.vpn.core.DeepLink
 import com.techteam.vpn.core.GeoIP
 import com.techteam.vpn.core.Updates
+import com.techteam.vpn.data.AppUpdater
 import com.techteam.vpn.data.ProfileRepository
 import com.techteam.vpn.data.ProfilesState
 import com.techteam.vpn.vpn.TechTeamVpnService
@@ -116,7 +119,44 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         prefs.edit().putLong("updateCheckedAt", now).apply()
         when {
             !Updates.isNewer(release.version, BuildConfig.VERSION_NAME) -> if (manual) toast(str(R.string.update_none))
-            manual || prefs.getString("updateDismissed", null) != release.version -> _update.value = release
+            // Asked from settings: download and install straight away.
+            manual -> {
+                _update.value = release
+                installUpdate(release)
+            }
+            prefs.getString("updateDismissed", null) != release.version -> _update.value = release
+        }
+    }
+
+    private val _updateProgress = MutableStateFlow<Float?>(null)
+    /** Download progress of the update from 0 to 1; null when nothing is downloading. */
+    val updateProgress: StateFlow<Float?> = _updateProgress.asStateFlow()
+
+    /**
+     * Downloads the release APK and opens the system installer, which asks the user to confirm.
+     * The first time, Android needs permission to install apps from TechTeamVPN.
+     */
+    fun installUpdate(release: Updates.Release) = viewModelScope.launch {
+        val app = getApplication<Application>()
+        if (_updateProgress.value != null) return@launch
+        if (!release.downloadUrl.endsWith(".apk")) {
+            app.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(release.downloadUrl)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            return@launch
+        }
+        if (!AppUpdater.canInstall(app)) {
+            toast(str(R.string.update_allow))
+            AppUpdater.openInstallPermission(app)
+            return@launch
+        }
+        _updateProgress.value = 0f
+        try {
+            val apk = withContext(Dispatchers.IO) { AppUpdater.download(app, release.downloadUrl) { _updateProgress.value = it } }
+            _update.value = null
+            AppUpdater.install(app, apk)
+        } catch (e: Exception) {
+            toast(str(R.string.update_error, e.message ?: ""))
+        } finally {
+            _updateProgress.value = null
         }
     }
 
