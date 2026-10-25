@@ -248,7 +248,7 @@ struct HomeView: View {
 
     // MARK: - Helpers
 
-    private func flag(for profile: VlessProfile) -> String {
+    private func flag(for profile: ServerProfile) -> String {
         profile.name.leadingFlag ?? model.serverLocations[profile.address]?.flag ?? "🌐"
     }
 

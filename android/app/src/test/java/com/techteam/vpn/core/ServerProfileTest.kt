@@ -9,7 +9,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Base64
 
-class VlessProfileTest {
+class ServerProfileTest {
     private val reality =
         "vless://0f6e1a3c-7c6e-4a59-9f2a-3d1a7c2b9e01@nl1.techteam.example:443" +
             "?encryption=none&flow=xtls-rprx-vision&security=reality&sni=www.microsoft.com&fp=chrome" +
@@ -18,7 +18,7 @@ class VlessProfileTest {
 
     @Test
     fun parsesRealityLink() {
-        val p = VlessProfile.parse(reality)!!
+        val p = ServerProfile.parse(reality)!!
         assertEquals("0f6e1a3c-7c6e-4a59-9f2a-3d1a7c2b9e01", p.uuid)
         assertEquals("nl1.techteam.example", p.address)
         assertEquals(443, p.port)
@@ -34,7 +34,7 @@ class VlessProfileTest {
 
     @Test
     fun parsesIpv6AndDefaults() {
-        val p = VlessProfile.parse("vless://abc@[2001:db8::1]:8443?type=raw")!!
+        val p = ServerProfile.parse("vless://abc@[2001:db8::1]:8443?type=raw")!!
         assertEquals("2001:db8::1", p.address)
         assertEquals("tcp", p.network)
         assertEquals("none", p.security)
@@ -44,21 +44,21 @@ class VlessProfileTest {
 
     @Test
     fun keepsPlusInValues() {
-        val p = VlessProfile.parse("vless://abc@h:1?security=reality&pbk=a+b/c&sid=1")!!
+        val p = ServerProfile.parse("vless://abc@h:1?security=reality&pbk=a+b/c&sid=1")!!
         assertEquals("a+b/c", p.publicKey)
     }
 
     @Test
     fun rejectsInvalidLinks() {
-        assertNull(VlessProfile.parse("vmess://abc"))
-        assertNull(VlessProfile.parse("vless://@host:443"))
-        assertNull(VlessProfile.parse("vless://id@host"))
-        assertNull(VlessProfile.parse("not a link"))
+        assertNull(ServerProfile.parse("vmess://abc"))
+        assertNull(ServerProfile.parse("vless://@host:443"))
+        assertNull(ServerProfile.parse("vless://id@host"))
+        assertNull(ServerProfile.parse("not a link"))
     }
 
     @Test
     fun buildsRealityOutbound() {
-        val p = VlessProfile.parse(reality)!!
+        val p = ServerProfile.parse(reality)!!
         val config = JSONObject(XrayConfig.build(p, 42))
         assertEquals("42", config.getJSONObject("env").getString("xray.tun.fd"))
         assertEquals("tun", config.getJSONArray("inbounds").getJSONObject(0).getString("protocol"))
@@ -81,7 +81,7 @@ class VlessProfileTest {
 
     @Test
     fun russiaDirectRoutesRussianSitesPastTheProxy() {
-        val p = VlessProfile.parse(reality)!!
+        val p = ServerProfile.parse(reality)!!
         val plain = JSONObject(XrayConfig.build(p, 42))
         assertFalse(plain.getJSONObject("env").has("xray.location.asset"))
         assertEquals(2, plain.getJSONObject("routing").getJSONArray("rules").length())
@@ -98,19 +98,19 @@ class VlessProfileTest {
 
     @Test
     fun buildsTransports() {
-        val ws = XrayConfig.outbound(VlessProfile.parse("vless://id@h:443?type=ws&security=tls&path=%2Fws&host=cdn.example&alpn=h2,http/1.1")!!)
+        val ws = XrayConfig.outbound(ServerProfile.parse("vless://id@h:443?type=ws&security=tls&path=%2Fws&host=cdn.example&alpn=h2,http/1.1")!!)
             .getJSONObject("streamSettings")
         assertEquals("/ws", ws.getJSONObject("wsSettings").getString("path"))
         assertEquals("cdn.example", ws.getJSONObject("tlsSettings").getString("serverName"))
         assertEquals(2, ws.getJSONObject("tlsSettings").getJSONArray("alpn").length())
 
-        val grpc = XrayConfig.outbound(VlessProfile.parse("vless://id@h:443?type=grpc&serviceName=svc&mode=multi&security=tls")!!)
+        val grpc = XrayConfig.outbound(ServerProfile.parse("vless://id@h:443?type=grpc&serviceName=svc&mode=multi&security=tls")!!)
             .getJSONObject("streamSettings").getJSONObject("grpcSettings")
         assertEquals("svc", grpc.getString("serviceName"))
         assertTrue(grpc.getBoolean("multiMode"))
 
         val xhttp = XrayConfig.outbound(
-            VlessProfile.parse("vless://id@h:443?type=xhttp&path=%2Fx&mode=auto&extra=%7B%22xPaddingBytes%22%3A%22100-1000%22%7D")!!,
+            ServerProfile.parse("vless://id@h:443?type=xhttp&path=%2Fx&mode=auto&extra=%7B%22xPaddingBytes%22%3A%22100-1000%22%7D")!!,
         ).getJSONObject("streamSettings").getJSONObject("xhttpSettings")
         assertEquals("/x", xhttp.getString("path"))
         assertEquals("100-1000", xhttp.getString("xPaddingBytes"))
@@ -118,7 +118,7 @@ class VlessProfileTest {
 
     @Test
     fun validationConfigHasNoTunFd() {
-        val config = JSONObject(XrayConfig.build(VlessProfile.parse(reality)!!, null))
+        val config = JSONObject(XrayConfig.build(ServerProfile.parse(reality)!!, null))
         assertFalse(config.has("env"))
     }
 
@@ -208,5 +208,33 @@ class VlessProfileTest {
         val path = GlobeMath.greatCircle(55.75 to 37.62, 60.17 to 24.94)
         assertEquals(55.75, path.first().first, 1e-6)
         assertEquals(24.94, path.last().second, 1e-6)
+    }
+
+    @Test
+    fun parsesTrojanAndHysteria2() {
+        val trojan = ServerProfile.parse("trojan://p%40ss@t.example:443?type=ws&path=%2Ft&sni=cdn.example#Trojan")!!
+        assertEquals(ServerProfile.TROJAN, trojan.protocol)
+        assertEquals("p@ss", trojan.password)
+        assertEquals("tls", trojan.security)
+        assertEquals("ws", trojan.network)
+        val tOut = XrayConfig.outbound(trojan)
+        assertEquals("trojan", tOut.getString("protocol"))
+        assertEquals("p@ss", tOut.getJSONObject("settings").getString("password"))
+
+        val hy = ServerProfile.parse("hy2://user:1234-5678@h.example:443,20000-30000/?sni=real.example&obfs=salamander&obfs-password=secret#HY")!!
+        assertEquals(ServerProfile.HYSTERIA2, hy.protocol)
+        assertEquals("user:1234-5678", hy.password)
+        assertEquals(443, hy.port)
+        assertEquals("secret", hy.obfsPassword)
+        val hOut = XrayConfig.outbound(hy)
+        assertEquals("hysteria", hOut.getString("protocol"))
+        val stream = hOut.getJSONObject("streamSettings")
+        assertEquals("hysteria", stream.getString("network"))
+        assertEquals("user:1234-5678", stream.getJSONObject("hysteriaSettings").getString("auth"))
+        assertEquals("real.example", stream.getJSONObject("tlsSettings").getString("serverName"))
+        assertTrue(stream.has("finalmask"))
+
+        assertTrue(ServerProfile.isShareLink("HYSTERIA2://a@b:1"))
+        assertNull(ServerProfile.parse("vmess://abc"))
     }
 }

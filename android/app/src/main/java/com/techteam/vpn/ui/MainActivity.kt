@@ -45,6 +45,7 @@ import com.journeyapps.barcodescanner.ScanOptions
 import com.techteam.vpn.BuildConfig
 import com.techteam.vpn.R
 import com.techteam.vpn.core.DeepLink
+import com.techteam.vpn.core.ServerProfile
 import com.techteam.vpn.data.AppSettings
 import com.techteam.vpn.data.ProfileRepository
 import com.techteam.vpn.vpn.VpnState
@@ -284,7 +285,7 @@ class MainActivity : ComponentActivity() {
         }
         if (!force) {
             val prefs = getSharedPreferences("settings", MODE_PRIVATE)
-            val looksLikeLink = clip.startsWith("http", ignoreCase = true) || clip.startsWith("vless://", ignoreCase = true)
+            val looksLikeLink = clip.startsWith("http", ignoreCase = true) || ServerProfile.isShareLink(clip)
             if (!looksLikeLink || prefs.getString("clipboardOffered", null) == clip) return
             prefs.edit().putString("clipboardOffered", clip).apply()
         }

@@ -15,7 +15,7 @@ data class SubscriptionInfo(
     val updatedAt: Long = 0,
 )
 
-data class SubscriptionResult(val profiles: List<VlessProfile>, val info: SubscriptionInfo)
+data class SubscriptionResult(val profiles: List<ServerProfile>, val info: SubscriptionInfo)
 
 object Subscription {
     const val USER_AGENT = "TechTeamVPN/1.0"
@@ -42,7 +42,7 @@ object Subscription {
                     updatedAt = System.currentTimeMillis() / 1000,
                 )
             val profiles = parseLinks(body)
-            if (profiles.isEmpty()) throw IllegalStateException("В подписке нет серверов VLESS")
+            if (profiles.isEmpty()) throw IllegalStateException("В подписке нет серверов VLESS, Trojan или Hysteria2")
             return SubscriptionResult(profiles, info)
         } finally {
             conn.disconnect()
@@ -50,10 +50,10 @@ object Subscription {
     }
 
     /** Accepts plain text or base64 with one share link per line. */
-    fun parseLinks(body: String): List<VlessProfile> {
+    fun parseLinks(body: String): List<ServerProfile> {
         val text = body.trim()
         val plain = if (text.contains("://")) text else decodeBase64(text) ?: text
-        return plain.lineSequence().mapNotNull { VlessProfile.parse(it) }.toList()
+        return plain.lineSequence().mapNotNull { ServerProfile.parse(it) }.toList()
     }
 
     fun parseUserInfo(header: String?): SubscriptionInfo {

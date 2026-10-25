@@ -34,6 +34,9 @@
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>vless</string>
+				<string>trojan</string>
+				<string>hysteria2</string>
+				<string>hy2</string>
 			</array>
 		</dict>
 		<dict>

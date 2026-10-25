@@ -123,7 +123,7 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// Accepts a vless:// key, several keys, or a subscription URL.
+    /// Accepts a vless://, trojan:// or hysteria2:// key, several keys, or a subscription URL.
     func addInput(_ text: String) async {
         if DeepLink.wantsClipboard(text) {
             // Opened by the bot's "copy the link, then open" page: offer what was copied.

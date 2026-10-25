@@ -3,7 +3,7 @@ package com.techteam.vpn.data
 import android.content.Context
 import com.techteam.vpn.core.Subscription
 import com.techteam.vpn.core.SubscriptionInfo
-import com.techteam.vpn.core.VlessProfile
+import com.techteam.vpn.core.ServerProfile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,7 +12,7 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 
-data class StoredProfile(val profile: VlessProfile, val fromSubscription: Boolean)
+data class StoredProfile(val profile: ServerProfile, val fromSubscription: Boolean)
 
 data class ProfilesState(
     val profiles: List<StoredProfile> = emptyList(),
@@ -20,7 +20,7 @@ data class ProfilesState(
     val subscriptionUrl: String = "",
     val subscriptionInfo: SubscriptionInfo? = null,
 ) {
-    val selected: VlessProfile?
+    val selected: ServerProfile?
         get() = (profiles.firstOrNull { it.profile.id == selectedId } ?: profiles.firstOrNull())?.profile
 }
 
@@ -30,7 +30,7 @@ class ProfileRepository private constructor(context: Context) {
     private val _state = MutableStateFlow(load())
     val state: StateFlow<ProfilesState> = _state.asStateFlow()
 
-    /** Adds every vless:// link found in [text]; returns how many were added. */
+    /** Adds every server link found in [text]; returns how many were added. */
     fun addLinks(text: String): Int {
         val parsed = Subscription.parseLinks(text)
         if (parsed.isEmpty()) return 0
@@ -126,7 +126,7 @@ class ProfileRepository private constructor(context: Context) {
         val arr = runCatching { JSONArray(prefs.getString("profiles", "[]")) }.getOrDefault(JSONArray())
         val profiles = (0 until arr.length()).mapNotNull { i ->
             val o = arr.getJSONObject(i)
-            VlessProfile.parse(o.getString("link"))?.copy(id = o.getString("id"))
+            ServerProfile.parse(o.getString("link"))?.copy(id = o.getString("id"))
                 ?.let { StoredProfile(it, o.optBoolean("sub")) }
         }
         val info = prefs.getString("subInfo", null)?.let {

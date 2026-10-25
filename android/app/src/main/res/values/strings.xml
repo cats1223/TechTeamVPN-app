@@ -23,7 +23,7 @@
     <string name="expires_in_days">Осталось дней: %1$d</string>
 
     <string name="add_key">Добавить ключ</string>
-    <string name="add_hint">Вставьте ключ vless://, несколько ключей или ссылку на подписку. Можно отсканировать QR-код.</string>
+    <string name="add_hint">Вставьте ключ vless://, trojan:// или hysteria2://, несколько ключей или ссылку на подписку. Можно отсканировать QR-код.</string>
     <string name="paste">Вставить</string>
     <string name="scan_qr">QR-код</string>
     <string name="scan_prompt">Наведите камеру на QR-код с ключом</string>

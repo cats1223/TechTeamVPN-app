@@ -32,7 +32,7 @@ object XrayConfig {
      * @param assetDir directory with geoip.dat and geosite.dat, needed for [russiaDirect].
      */
     fun build(
-        profile: VlessProfile,
+        profile: ServerProfile,
         tunFd: Int?,
         logPath: String? = null,
         russiaDirect: Boolean = false,
@@ -100,22 +100,51 @@ object XrayConfig {
         return root.toString()
     }
 
-    fun outbound(p: VlessProfile): JSONObject {
-        val settings = JSONObject()
-            .put("address", p.address)
-            .put("port", p.port)
-            .put("id", p.uuid)
-            .put("encryption", p.encryption)
-        if (p.flow.isNotEmpty()) settings.put("flow", p.flow)
-
-        return JSONObject()
+    fun outbound(p: ServerProfile): JSONObject = when (p.protocol) {
+        ServerProfile.TROJAN -> JSONObject()
             .put("tag", "proxy")
-            .put("protocol", "vless")
-            .put("settings", settings)
+            .put("protocol", "trojan")
+            .put("settings", JSONObject().put("address", p.address).put("port", p.port).put("password", p.password))
             .put("streamSettings", streamSettings(p))
+        ServerProfile.HYSTERIA2 -> JSONObject()
+            .put("tag", "proxy")
+            .put("protocol", "hysteria")
+            .put("settings", JSONObject().put("version", 2).put("address", p.address).put("port", p.port))
+            .put("streamSettings", hysteriaStream(p))
+        else -> {
+            val settings = JSONObject()
+                .put("address", p.address)
+                .put("port", p.port)
+                .put("id", p.uuid)
+                .put("encryption", p.encryption)
+            if (p.flow.isNotEmpty()) settings.put("flow", p.flow)
+            JSONObject()
+                .put("tag", "proxy")
+                .put("protocol", "vless")
+                .put("settings", settings)
+                .put("streamSettings", streamSettings(p))
+        }
     }
 
-    private fun streamSettings(p: VlessProfile): JSONObject {
+    /** Hysteria2 runs over QUIC with TLS; Salamander obfuscation is a UDP mask in Xray. */
+    private fun hysteriaStream(p: ServerProfile): JSONObject {
+        val tls = JSONObject()
+            .put("serverName", p.sni.ifEmpty { p.address })
+            .put("alpn", JSONArray(p.alpn.ifEmpty { listOf("h3") }))
+            .putIfNotEmpty("pinnedPeerCertSha256", p.pinnedPeerCertSha256)
+        val s = JSONObject()
+            .put("network", "hysteria")
+            .put("security", "tls")
+            .put("tlsSettings", tls)
+            .put("hysteriaSettings", JSONObject().put("version", 2).put("auth", p.password))
+        if (p.obfsPassword.isNotEmpty()) {
+            val mask = JSONObject().put("type", "salamander").put("settings", JSONObject().put("password", p.obfsPassword))
+            s.put("finalmask", JSONObject().put("udp", JSONArray().put(mask)))
+        }
+        return s
+    }
+
+    private fun streamSettings(p: ServerProfile): JSONObject {
         val s = JSONObject().put("network", p.network).put("security", p.security)
         val serverName = p.sni.ifEmpty { p.host }
 

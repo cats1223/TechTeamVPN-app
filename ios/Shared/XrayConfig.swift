@@ -26,7 +26,7 @@ enum XrayConfig {
     /// - Parameter russiaDirect: send Russian sites and IP ranges past the VPN.
     /// - Parameter assetDir: directory with geoip.dat and geosite.dat, needed for `russiaDirect`.
     static func build(
-        _ profile: VlessProfile, tunFd: Int32?, logPath: String? = nil, russiaDirect: Bool = false, assetDir: String? = nil
+        _ profile: ServerProfile, tunFd: Int32?, logPath: String? = nil, russiaDirect: Bool = false, assetDir: String? = nil
     ) throws -> String {
         var dnsServers: [Any] = upstreamDNS
         var rules: [[String: Any]] = [
@@ -63,23 +63,59 @@ enum XrayConfig {
         return String(decoding: data, as: UTF8.self)
     }
 
-    static func outbound(_ p: VlessProfile) -> [String: Any] {
-        var settings: [String: Any] = [
-            "address": p.address,
-            "port": p.port,
-            "id": p.uuid,
-            "encryption": p.encryption,
-        ]
-        if !p.flow.isEmpty { settings["flow"] = p.flow }
-        return [
-            "tag": "proxy",
-            "protocol": "vless",
-            "settings": settings,
-            "streamSettings": streamSettings(p),
-        ]
+    static func outbound(_ p: ServerProfile) -> [String: Any] {
+        switch p.protocol {
+        case ServerProfile.trojan:
+            return [
+                "tag": "proxy",
+                "protocol": "trojan",
+                "settings": ["address": p.address, "port": p.port, "password": p.password],
+                "streamSettings": streamSettings(p),
+            ]
+        case ServerProfile.hysteria2:
+            return [
+                "tag": "proxy",
+                "protocol": "hysteria",
+                "settings": ["version": 2, "address": p.address, "port": p.port],
+                "streamSettings": hysteriaStream(p),
+            ]
+        default:
+            var settings: [String: Any] = [
+                "address": p.address,
+                "port": p.port,
+                "id": p.uuid,
+                "encryption": p.encryption,
+            ]
+            if !p.flow.isEmpty { settings["flow"] = p.flow }
+            return [
+                "tag": "proxy",
+                "protocol": "vless",
+                "settings": settings,
+                "streamSettings": streamSettings(p),
+            ]
+        }
     }
 
-    private static func streamSettings(_ p: VlessProfile) -> [String: Any] {
+    /// Hysteria2 runs over QUIC with TLS; Salamander obfuscation is a UDP mask in Xray.
+    private static func hysteriaStream(_ p: ServerProfile) -> [String: Any] {
+        var tls: [String: Any] = [
+            "serverName": p.sni.isEmpty ? p.address : p.sni,
+            "alpn": p.alpn.isEmpty ? ["h3"] : p.alpn,
+        ]
+        tls.putIfNotEmpty("pinnedPeerCertSha256", p.pinnedPeerCertSha256)
+        var s: [String: Any] = [
+            "network": "hysteria",
+            "security": "tls",
+            "tlsSettings": tls,
+            "hysteriaSettings": ["version": 2, "auth": p.password],
+        ]
+        if !p.obfsPassword.isEmpty {
+            s["finalmask"] = ["udp": [["type": "salamander", "settings": ["password": p.obfsPassword]]]]
+        }
+        return s
+    }
+
+    private static func streamSettings(_ p: ServerProfile) -> [String: Any] {
         var s: [String: Any] = ["network": p.network, "security": p.security]
         let serverName = p.sni.isEmpty ? p.host : p.sni
 
@@ -139,15 +175,16 @@ enum XrayConfig {
     }
 }
 
-extension VlessProfile {
-    /// Connection parameters without the uuid and keys, safe to show in the log.
+extension ServerProfile {
+    /// Connection parameters without the uuid, passwords and keys, safe to show in the log.
     var summary: String {
-        var parts = ["\(address):\(port)", "type=\(network)", "security=\(security)"]
+        var parts = [self.protocol, "\(address):\(port)", "type=\(network)", "security=\(security)"]
         // VLESS encryption strings carry a key after the first dot; only the scheme is shown.
-        let enc = encryption.split(separator: ".").first.map(String.init) ?? encryption
+        let enc = self.protocol == ServerProfile.vless ? encryption.split(separator: ".").first.map(String.init) ?? encryption : ""
         for (key, value) in [("enc", enc), ("sni", sni), ("fp", fingerprint), ("flow", flow), ("mode", mode), ("spx", spiderX),
                              ("path", path), ("host", host), ("sid", shortId.isEmpty ? "" : "set"),
-                             ("pbk", publicKey.isEmpty ? "" : "set"), ("extra", extra.isEmpty ? "" : "set")]
+                             ("pbk", publicKey.isEmpty ? "" : "set"), ("extra", extra.isEmpty ? "" : "set"),
+                             ("obfs", obfsPassword.isEmpty ? "" : "salamander")]
         where !value.isEmpty {
             parts.append("\(key)=\(value)")
         }

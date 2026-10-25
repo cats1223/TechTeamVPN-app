@@ -15,7 +15,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import androidx.core.content.ContextCompat
 import com.techteam.vpn.R
-import com.techteam.vpn.core.VlessProfile
+import com.techteam.vpn.core.ServerProfile
 import com.techteam.vpn.core.XrayConfig
 import com.techteam.vpn.core.XrayCore
 import com.techteam.vpn.data.AppSettings
@@ -88,7 +88,7 @@ class TechTeamVpnService : VpnService() {
         stopSelfCompletely()
     }
 
-    private fun start(profile: VlessProfile) {
+    private fun start(profile: ServerProfile) {
         val settings = AppSettings.get(this)
         val fd = establish(profile, settings.bypassApps.value)
         tun = fd
@@ -133,7 +133,7 @@ class TechTeamVpnService : VpnService() {
         return dir.path
     }
 
-    private fun establish(profile: VlessProfile, bypassApps: Set<String>): ParcelFileDescriptor {
+    private fun establish(profile: ServerProfile, bypassApps: Set<String>): ParcelFileDescriptor {
         val builder = Builder()
             .setSession(profile.name)
             .setMtu(XrayConfig.TUN_MTU)

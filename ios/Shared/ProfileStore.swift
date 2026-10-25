@@ -15,7 +15,7 @@ enum AppGroup {
 }
 
 struct StoredProfile: Codable, Hashable, Identifiable {
-    var profile: VlessProfile
+    var profile: ServerProfile
     var fromSubscription: Bool
     var id: String { profile.id }
 }
@@ -26,7 +26,7 @@ struct ProfilesState: Codable, Hashable {
     var subscriptionURL = ""
     var subscriptionInfo: SubscriptionInfo?
 
-    var selected: VlessProfile? {
+    var selected: ServerProfile? {
         (profiles.first { $0.id == selectedId } ?? profiles.first)?.profile
     }
 }

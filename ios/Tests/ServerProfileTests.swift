@@ -1,6 +1,6 @@
 import XCTest
 
-final class VlessProfileTests: XCTestCase {
+final class ServerProfileTests: XCTestCase {
     private let reality =
         "vless://0f6e1a3c-7c6e-4a59-9f2a-3d1a7c2b9e01@nl1.techteam.example:443" +
         "?encryption=none&flow=xtls-rprx-vision&security=reality&sni=www.microsoft.com&fp=chrome" +
@@ -8,7 +8,7 @@ final class VlessProfileTests: XCTestCase {
         "#🇳🇱 Нидерланды"
 
     func testParsesRealityLink() throws {
-        let p = try XCTUnwrap(VlessProfile.parse(reality))
+        let p = try XCTUnwrap(ServerProfile.parse(reality))
         XCTAssertEqual(p.uuid, "0f6e1a3c-7c6e-4a59-9f2a-3d1a7c2b9e01")
         XCTAssertEqual(p.address, "nl1.techteam.example")
         XCTAssertEqual(p.port, 443)
@@ -23,7 +23,7 @@ final class VlessProfileTests: XCTestCase {
     }
 
     func testParsesIPv6AndDefaults() throws {
-        let p = try XCTUnwrap(VlessProfile.parse("vless://abc@[2001:db8::1]:8443?type=raw"))
+        let p = try XCTUnwrap(ServerProfile.parse("vless://abc@[2001:db8::1]:8443?type=raw"))
         XCTAssertEqual(p.address, "2001:db8::1")
         XCTAssertEqual(p.network, "tcp")
         XCTAssertEqual(p.security, "none")
@@ -31,19 +31,19 @@ final class VlessProfileTests: XCTestCase {
     }
 
     func testKeepsPlusInValues() throws {
-        let p = try XCTUnwrap(VlessProfile.parse("vless://abc@h:1?security=reality&pbk=a+b/c&sid=1"))
+        let p = try XCTUnwrap(ServerProfile.parse("vless://abc@h:1?security=reality&pbk=a+b/c&sid=1"))
         XCTAssertEqual(p.publicKey, "a+b/c")
     }
 
     func testRejectsInvalidLinks() {
-        XCTAssertNil(VlessProfile.parse("vmess://abc"))
-        XCTAssertNil(VlessProfile.parse("vless://@host:443"))
-        XCTAssertNil(VlessProfile.parse("vless://id@host"))
-        XCTAssertNil(VlessProfile.parse("not a link"))
+        XCTAssertNil(ServerProfile.parse("vmess://abc"))
+        XCTAssertNil(ServerProfile.parse("vless://@host:443"))
+        XCTAssertNil(ServerProfile.parse("vless://id@host"))
+        XCTAssertNil(ServerProfile.parse("not a link"))
     }
 
     func testBuildsRealityConfig() throws {
-        let p = try XCTUnwrap(VlessProfile.parse(reality))
+        let p = try XCTUnwrap(ServerProfile.parse(reality))
         let json = try XrayConfig.build(p, tunFd: 42)
         let root = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
         XCTAssertEqual((root["env"] as? [String: String])?["xray.tun.fd"], "42")
@@ -63,7 +63,7 @@ final class VlessProfileTests: XCTestCase {
     }
 
     func testRussiaDirectRoutesRussianSitesPastTheProxy() throws {
-        let p = try XCTUnwrap(VlessProfile.parse(reality))
+        let p = try XCTUnwrap(ServerProfile.parse(reality))
         let plain = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(XrayConfig.build(p, tunFd: 42).utf8)) as? [String: Any])
         XCTAssertNil((plain["env"] as? [String: String])?["xray.location.asset"])
         XCTAssertEqual((plain["routing"] as? [String: Any]).flatMap { $0["rules"] as? [Any] }?.count, 2)
@@ -79,7 +79,7 @@ final class VlessProfileTests: XCTestCase {
     }
 
     func testBuildsTransports() throws {
-        let xhttp = try XCTUnwrap(VlessProfile.parse(
+        let xhttp = try XCTUnwrap(ServerProfile.parse(
             "vless://id@h:443?type=xhttp&path=%2Fx&mode=auto&extra=%7B%22xPaddingBytes%22%3A%22100-1000%22%7D"
         ))
         let stream = try XCTUnwrap(XrayConfig.outbound(xhttp)["streamSettings"] as? [String: Any])
@@ -87,7 +87,7 @@ final class VlessProfileTests: XCTestCase {
         XCTAssertEqual(x["path"] as? String, "/x")
         XCTAssertEqual(x["xPaddingBytes"] as? String, "100-1000")
 
-        let grpc = try XCTUnwrap(VlessProfile.parse("vless://id@h:443?type=grpc&serviceName=svc&mode=multi&security=tls"))
+        let grpc = try XCTUnwrap(ServerProfile.parse("vless://id@h:443?type=grpc&serviceName=svc&mode=multi&security=tls"))
         let g = try XCTUnwrap((XrayConfig.outbound(grpc)["streamSettings"] as? [String: Any])?["grpcSettings"] as? [String: Any])
         XCTAssertEqual(g["serviceName"] as? String, "svc")
         XCTAssertEqual(g["multiMode"] as? Bool, true)
@@ -148,5 +148,44 @@ final class VlessProfileTests: XCTestCase {
         XCTAssertEqual(r.version, "1.1.0")
         XCTAssertEqual(r.pageURL.absoluteString, "https://github.com/o/r/releases/tag/v1.1.0")
         XCTAssertNil(Updates.parse(Data("{}".utf8)))
+    }
+
+    func testParsesTrojanAndHysteria2() throws {
+        let trojan = try XCTUnwrap(ServerProfile.parse("trojan://p%40ss@t.example:443?type=ws&path=%2Ft&sni=cdn.example#Trojan"))
+        XCTAssertEqual(trojan.protocol, ServerProfile.trojan)
+        XCTAssertEqual(trojan.password, "p@ss")
+        XCTAssertEqual(trojan.security, "tls")
+        XCTAssertEqual(trojan.network, "ws")
+        let tOut = XrayConfig.outbound(trojan)
+        XCTAssertEqual(tOut["protocol"] as? String, "trojan")
+        XCTAssertEqual((tOut["settings"] as? [String: Any])?["password"] as? String, "p@ss")
+
+        let hy = try XCTUnwrap(ServerProfile.parse(
+            "hy2://user:1234-5678@h.example:443,20000-30000/?sni=real.example&obfs=salamander&obfs-password=secret#HY"
+        ))
+        XCTAssertEqual(hy.protocol, ServerProfile.hysteria2)
+        XCTAssertEqual(hy.password, "user:1234-5678")
+        XCTAssertEqual(hy.port, 443)
+        XCTAssertEqual(hy.obfsPassword, "secret")
+        let hOut = XrayConfig.outbound(hy)
+        XCTAssertEqual(hOut["protocol"] as? String, "hysteria")
+        let stream = try XCTUnwrap(hOut["streamSettings"] as? [String: Any])
+        XCTAssertEqual(stream["network"] as? String, "hysteria")
+        XCTAssertEqual((stream["hysteriaSettings"] as? [String: Any])?["auth"] as? String, "user:1234-5678")
+        XCTAssertEqual((stream["tlsSettings"] as? [String: Any])?["serverName"] as? String, "real.example")
+        XCTAssertNotNil(stream["finalmask"])
+
+        XCTAssertTrue(ServerProfile.isShareLink("HYSTERIA2://a@b:1"))
+        XCTAssertNil(ServerProfile.parse("vmess://abc"))
+    }
+
+    func testStoredProfilesAreRebuiltFromTheLink() throws {
+        let old = #"{"id":"keep","name":"x","address":"h","port":1,"uuid":"u","link":"vless://u@h:1?type=ws#x"}"#
+        let p = try JSONDecoder().decode(ServerProfile.self, from: Data(old.utf8))
+        XCTAssertEqual(p.id, "keep")
+        XCTAssertEqual(p.network, "ws")
+        XCTAssertEqual(p.protocol, ServerProfile.vless)
+        let again = try JSONDecoder().decode(ServerProfile.self, from: JSONEncoder().encode(p))
+        XCTAssertEqual(again, p)
     }
 }

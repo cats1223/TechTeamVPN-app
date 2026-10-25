@@ -25,7 +25,7 @@ final class VPNManager: ObservableObject {
         refresh()
     }
 
-    func connect(_ profile: VlessProfile, diagnose: Bool = false) async {
+    func connect(_ profile: ServerProfile, diagnose: Bool = false) async {
         lastError = nil
         do {
             // A diagnostic run stops itself on purpose, so it must not be restarted on demand.
@@ -56,7 +56,7 @@ final class VPNManager: ObservableObject {
 
     /// Runs the tunnel for 20 s in diagnostic mode and returns the log it hands back as its
     /// disconnect error, or nil when the tunnel died without reporting.
-    func recordLog(_ profile: VlessProfile) async -> String? {
+    func recordLog(_ profile: ServerProfile) async -> String? {
         if isActive {
             await disconnect()
             for _ in 0..<50 where status != .disconnected { try? await Task.sleep(nanoseconds: 100_000_000) }
@@ -85,7 +85,7 @@ final class VPNManager: ObservableObject {
     }
 
     /// Restarts the tunnel when it is running, so a newly selected server takes effect.
-    func reconnect(_ profile: VlessProfile) async {
+    func reconnect(_ profile: ServerProfile) async {
         guard isActive else { return }
         await disconnect()
         for _ in 0..<50 where status != .disconnected {
@@ -94,7 +94,7 @@ final class VPNManager: ObservableObject {
         await connect(profile)
     }
 
-    private func preparedManager(_ profile: VlessProfile, reconnectOnFailure: Bool) async throws -> NETunnelProviderManager {
+    private func preparedManager(_ profile: ServerProfile, reconnectOnFailure: Bool) async throws -> NETunnelProviderManager {
         let manager = manager ?? NETunnelProviderManager()
         let proto = (manager.protocolConfiguration as? NETunnelProviderProtocol) ?? NETunnelProviderProtocol()
         proto.providerBundleIdentifier = AppGroup.tunnelBundleId

@@ -12,7 +12,7 @@ struct TechTeamVPNApp: App {
                 .environmentObject(model)
                 .environmentObject(model.vpn)
                 .preferredColorScheme(AppSettings.Theme(rawValue: theme) == .light ? .light : .dark)
-                // Opening a vless:// link imports the key.
+                // Opening a server link (vless, trojan, hysteria2) imports the key.
                 .onOpenURL { url in
                     Task { await model.addInput(url.absoluteString) }
                 }

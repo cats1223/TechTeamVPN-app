@@ -41,7 +41,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         // crash, on demand) it comes from the saved configuration.
         let providerConfig = (protocolConfiguration as? NETunnelProviderProtocol)?.providerConfiguration
         let link = options?["link"] as? String ?? providerConfig?["link"] as? String
-        guard let profile = link.flatMap(VlessProfile.parse) ?? ProfileStore.load().selected else {
+        guard let profile = link.flatMap(ServerProfile.parse) ?? ProfileStore.load().selected else {
             throw TunnelError.noServer
         }
 
@@ -158,7 +158,7 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
         XrayCore.stop()
     }
 
-    private func networkSettings(for profile: VlessProfile) -> NEPacketTunnelNetworkSettings {
+    private func networkSettings(for profile: ServerProfile) -> NEPacketTunnelNetworkSettings {
         let settings = NEPacketTunnelNetworkSettings(tunnelRemoteAddress: profile.address)
         settings.mtu = NSNumber(value: XrayConfig.tunMTU)
 

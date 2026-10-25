@@ -45,7 +45,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.techteam.vpn.BuildConfig
-import com.techteam.vpn.core.VlessProfile
+import com.techteam.vpn.core.ServerProfile
 import com.techteam.vpn.vpn.TechTeamVpnService
 import java.io.File
 
@@ -54,7 +54,7 @@ fun SettingsScreen(
     lightTheme: Boolean,
     devMode: Boolean,
     hwid: String,
-    selected: VlessProfile?,
+    selected: ServerProfile?,
     russiaDirect: Boolean,
     bypassApps: Set<String>,
     onTheme: (Boolean) -> Unit,

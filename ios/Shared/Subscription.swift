@@ -21,7 +21,7 @@ enum SubscriptionError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .http(let code): return "HTTP \(code)"
-        case .empty: return "В подписке нет серверов VLESS"
+        case .empty: return "В подписке нет серверов VLESS, Trojan или Hysteria2"
         }
     }
 }
@@ -30,7 +30,7 @@ enum Subscription {
     static let userAgent = "TechTeamVPN/1.0"
 
     /// - Parameter headers: device headers (`x-hwid` and friends) for panels that bind keys to devices.
-    static func fetch(_ url: URL, headers: [String: String] = [:]) async throws -> (profiles: [VlessProfile], info: SubscriptionInfo) {
+    static func fetch(_ url: URL, headers: [String: String] = [:]) async throws -> (profiles: [ServerProfile], info: SubscriptionInfo) {
         var request = URLRequest(url: url, timeoutInterval: 15)
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         for (name, value) in headers { request.setValue(value, forHTTPHeaderField: name) }
@@ -48,10 +48,10 @@ enum Subscription {
     }
 
     /// Accepts plain text or base64 with one share link per line.
-    static func parseLinks(_ body: String) -> [VlessProfile] {
+    static func parseLinks(_ body: String) -> [ServerProfile] {
         let text = body.trimmingCharacters(in: .whitespacesAndNewlines)
         let plain = text.contains("://") ? text : (decodeBase64(text) ?? text)
-        return plain.split(whereSeparator: \.isNewline).compactMap { VlessProfile.parse(String($0)) }
+        return plain.split(whereSeparator: \.isNewline).compactMap { ServerProfile.parse(String($0)) }
     }
 
     static func parseUserInfo(_ header: String?) -> SubscriptionInfo {
