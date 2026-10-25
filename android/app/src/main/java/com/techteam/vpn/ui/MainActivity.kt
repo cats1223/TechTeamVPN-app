@@ -105,6 +105,7 @@ class MainActivity : ComponentActivity() {
                 val homeLocation by vm.homeLocation.collectAsStateWithLifecycle()
                 val visibleLocation by vm.visibleLocation.collectAsStateWithLifecycle()
                 val serverLocations by vm.serverLocations.collectAsStateWithLifecycle()
+                val traffic by vm.traffic.collectAsStateWithLifecycle()
 
                 // Servers and settings open from the panel on the home screen; Back returns to it.
                 BackHandler(enabled = tab != 0) { tab = 0 }
@@ -116,6 +117,7 @@ class MainActivity : ComponentActivity() {
                         visibleLocation = visibleLocation,
                         serverLocations = serverLocations,
                         pings = pings,
+                        traffic = traffic,
                         onPing = { vm.pingAll() },
                         onToggle = ::toggle,
                         onAdd = { showAdd = true },

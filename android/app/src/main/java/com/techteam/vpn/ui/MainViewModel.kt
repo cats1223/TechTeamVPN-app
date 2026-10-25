@@ -23,6 +23,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -61,6 +62,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     /** Server address to its location, for the map pin and the server's flag. */
     val serverLocations: StateFlow<Map<String, GeoIP.Location>> = _serverLocations.asStateFlow()
 
+    /** Download and upload speed in bytes per second and the session's total; zero when not connected. */
+    data class Traffic(val down: Long = 0, val up: Long = 0, val session: Long = 0)
+
+    private val _traffic = MutableStateFlow(Traffic())
+    val traffic: StateFlow<Traffic> = _traffic.asStateFlow()
+
     private val prefs = app.getSharedPreferences("settings", android.content.Context.MODE_PRIVATE)
 
     init {
@@ -78,6 +85,26 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         viewModelScope.launch { repo.state.collect { locateSelectedServer() } }
+        viewModelScope.launch {
+            // Xray runs in this app, so the app's own byte counters are the VPN's traffic.
+            VpnStatus.state.collectLatest { state ->
+                _traffic.value = Traffic()
+                if (state !is VpnState.Connected) return@collectLatest
+                val uid = android.os.Process.myUid()
+                val startRx = android.net.TrafficStats.getUidRxBytes(uid)
+                val startTx = android.net.TrafficStats.getUidTxBytes(uid)
+                var lastRx = startRx
+                var lastTx = startTx
+                while (true) {
+                    kotlinx.coroutines.delay(1000)
+                    val rx = android.net.TrafficStats.getUidRxBytes(uid)
+                    val tx = android.net.TrafficStats.getUidTxBytes(uid)
+                    _traffic.value = Traffic(rx - lastRx, tx - lastTx, (rx - startRx) + (tx - startTx))
+                    lastRx = rx
+                    lastTx = tx
+                }
+            }
+        }
     }
 
     private suspend fun refreshLocation(connected: Boolean) {

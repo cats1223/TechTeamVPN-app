@@ -38,14 +38,17 @@ struct HomeView: View {
         .sheet(isPresented: $showServers) { ServersView().messageAlert().presentationDragIndicator(.visible) }
         .sheet(isPresented: $showSettings) { SettingsView().messageAlert().presentationDragIndicator(.visible) }
         .task {
+            if connected { model.traffic.start() }
             await model.refreshLocation(connected: connected)
             await model.locateSelectedServer()
         }
         .onChange(of: vpn.status) { status in
             if status == .connected {
                 Task { await model.checkInternet() }
+                model.traffic.start()
             } else {
                 model.resetInternetCheck()
+                model.traffic.stop()
             }
             if status == .connected || status == .disconnected {
                 Task { await model.refreshLocation(connected: status == .connected) }
@@ -125,6 +128,11 @@ struct HomeView: View {
                     subtitle.font(.footnote).foregroundStyle(.secondary).lineLimit(2)
                 }
                 Spacer(minLength: 0)
+            }
+
+            if connected {
+                TrafficLine(meter: model.traffic)
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
 
             if model.state.selected == nil {
@@ -300,6 +308,24 @@ struct HomeView: View {
     private func duration(_ t: TimeInterval) -> String {
         let s = Int(max(0, t))
         return String(format: "%02d:%02d:%02d", s / 3600, s % 3600 / 60, s % 60)
+    }
+}
+
+/// Download and upload speed right now, and what the session has used.
+private struct TrafficLine: View {
+    @ObservedObject var meter: TrafficMeter
+
+    var body: some View {
+        HStack(spacing: 14) {
+            Label(formatRate(meter.down), systemImage: "arrow.down")
+            Label(formatRate(meter.up), systemImage: "arrow.up")
+            Spacer(minLength: 0)
+            Text(formatBytes(Int64(meter.sessionDown + meter.sessionUp)))
+                .foregroundStyle(.secondary)
+        }
+        .font(.footnote.monospacedDigit())
+        .animation(.default, value: meter.down)
+        .padding(.horizontal, 4)
     }
 }
 

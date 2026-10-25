@@ -102,6 +102,7 @@ fun HomeScreen(
     visibleLocation: GeoIP.Location?,
     serverLocations: Map<String, GeoIP.Location>,
     pings: Map<String, Long>,
+    traffic: MainViewModel.Traffic,
     onPing: () -> Unit,
     onToggle: () -> Unit,
     onAdd: () -> Unit,
@@ -160,7 +161,7 @@ fun HomeScreen(
                 Box(Modifier.size(40.dp, 5.dp).clip(CircleShape).background(Brand.TextMuted.copy(alpha = 0.6f)))
             }
 
-            StatusCard(state, vpn, homeLocation, visibleLocation, onToggle, onAdd)
+            StatusCard(state, vpn, homeLocation, visibleLocation, traffic, onToggle, onAdd)
 
             if (state.profiles.isNotEmpty()) {
                 Text("Серверы", color = Brand.TextMuted, fontSize = 14.sp, modifier = Modifier.padding(start = 4.dp))
@@ -259,6 +260,7 @@ private fun StatusCard(
     vpn: VpnState,
     homeLocation: GeoIP.Location?,
     visibleLocation: GeoIP.Location?,
+    traffic: MainViewModel.Traffic,
     onToggle: () -> Unit,
     onAdd: () -> Unit,
 ) {
@@ -350,6 +352,16 @@ private fun StatusCard(
                     else -> "Подключитесь к VPN для защиты"
                 }
                 Text(subtitle, color = Brand.TextMuted, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        AnimatedVisibility(connected, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+            // Download and upload speed right now, and what the session has used.
+            Row(Modifier.padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("↓ " + stringResource(R.string.rate, formatBytes(traffic.down)), color = Brand.Text, fontSize = 13.sp)
+                Spacer(Modifier.width(14.dp))
+                Text("↑ " + stringResource(R.string.rate, formatBytes(traffic.up)), color = Brand.Text, fontSize = 13.sp)
+                Spacer(Modifier.weight(1f))
+                Text(formatBytes(traffic.session), color = Brand.TextMuted, fontSize = 13.sp)
             }
         }
         val (label, color, action) = when {

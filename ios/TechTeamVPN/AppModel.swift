@@ -32,6 +32,7 @@ final class AppModel: ObservableObject {
     }
 
     let vpn = VPNManager()
+    let traffic = TrafficMeter()
 
     init() {
         if !state.subscriptionURL.isEmpty {
