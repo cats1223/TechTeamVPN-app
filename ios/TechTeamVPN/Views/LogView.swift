@@ -12,7 +12,7 @@ struct LogView: View {
         NavigationStack {
             ScrollView {
                 recordButton.padding(.horizontal, 12).padding(.top, 12)
-                Text(text.isEmpty ? "VPN включён, но модуль VPN не вернул журнал." : text)
+                Text(text.isEmpty ? String(localized: "VPN включён, но модуль VPN не вернул журнал.") : text)
                     .font(.system(.caption2, design: .monospaced))
                     .foregroundStyle(text.isEmpty ? Brand.muted : .primary)
                     .textSelection(.enabled)
@@ -63,7 +63,7 @@ struct LogView: View {
         recording = true
         defer { recording = false }
         let report = await vpn.recordLog(profile)
-        text = report ?? "Модуль VPN не вернул отчёт: скорее всего, iOS его выгрузила (например, по памяти)."
+        text = report ?? String(localized: "Модуль VPN не вернул отчёт: скорее всего, iOS его выгрузила (например, по памяти).")
     }
 
     private func load() async {
@@ -73,7 +73,7 @@ struct LogView: View {
             raw = String(decoding: data, as: UTF8.self)
         }
         guard let raw, !raw.isEmpty else {
-            text = vpn.isActive ? "" : "Журнал доступен, пока VPN включён."
+            text = vpn.isActive ? "" : String(localized: "Журнал доступен, пока VPN включён.")
             return
         }
         // Info level is chatty; the last part is what matters.

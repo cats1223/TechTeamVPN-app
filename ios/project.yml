@@ -27,6 +27,7 @@ targets:
       - TechTeamVPN
       - Shared
       - Intents
+      - Localization
       # Shown as "what's new" after an update.
       - path: ../CHANGELOG.md
         buildPhase: resources
@@ -50,6 +51,7 @@ targets:
     sources:
       - PacketTunnel
       - Shared
+      - Localization
       # Russian IP ranges and sites for split tunneling (scripts/update-geodata.py), copied as a folder.
       - path: ../geodata
         type: folder
@@ -77,6 +79,7 @@ targets:
     sources:
       - Widget
       - Intents
+      - Localization
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID).widget

@@ -20,7 +20,7 @@ struct HomeView: View {
             GlobeMap(
                 home: model.homeLocation,
                 server: model.selectedServerLocation,
-                serverName: model.state.selected?.name ?? "Сервер",
+                serverName: model.state.selected?.name ?? String(localized: "Сервер"),
                 connected: connected
             )
             .ignoresSafeArea()
@@ -136,7 +136,7 @@ struct HomeView: View {
             }
 
             if model.state.selected == nil {
-                bigButton("Добавить ключ", color: Brand.cyan) { showAdd = true }
+                bigButton(String(localized: "Добавить ключ"), color: Brand.cyan) { showAdd = true }
             } else {
                 bigButton(buttonTitle, color: connected || busy ? Brand.red : Brand.cyan) {
                     Task { await model.toggle() }
@@ -163,10 +163,10 @@ struct HomeView: View {
 
     private var title: String {
         switch vpn.status {
-        case .connected: return "Вы защищены"
-        case .connecting, .reasserting: return "Подключение…"
-        case .disconnecting: return "Отключение…"
-        default: return "Вы не защищены"
+        case .connected: return String(localized: "Вы защищены")
+        case .connecting, .reasserting: return String(localized: "Подключение…")
+        case .disconnecting: return String(localized: "Отключение…")
+        default: return String(localized: "Вы не защищены")
         }
     }
 
@@ -175,11 +175,11 @@ struct HomeView: View {
             Text(error)
         } else if connected, let since = vpn.connectedDate {
             TimelineView(.periodic(from: since, by: 1)) { context in
-                Text(locationLine(model.visibleLocation, prefix: "Сайты видят") + " · " + duration(context.date.timeIntervalSince(since)))
+                Text(locationLine(model.visibleLocation, prefix: String(localized: "Сайты видят")) + " · " + duration(context.date.timeIntervalSince(since)))
                     .monospacedDigit()
             }
         } else if let home = model.homeLocation {
-            Text(locationLine(home, prefix: "Ваш адрес"))
+            Text(locationLine(home, prefix: String(localized: "Ваш адрес")))
         } else {
             Text("Подключитесь к VPN для защиты")
         }
@@ -187,10 +187,10 @@ struct HomeView: View {
 
     private var buttonTitle: String {
         switch vpn.status {
-        case .connected: return "Отключиться"
-        case .connecting, .reasserting: return "Отменить"
-        case .disconnecting: return "Отключение…"
-        default: return "Подключиться"
+        case .connected: return String(localized: "Отключиться")
+        case .connecting, .reasserting: return String(localized: "Отменить")
+        case .disconnecting: return String(localized: "Отключение…")
+        default: return String(localized: "Подключиться")
         }
     }
 
@@ -269,11 +269,11 @@ struct HomeView: View {
 
     private var menu: some View {
         VStack(spacing: 0) {
-            menuRow("Все серверы", icon: "server.rack") { showServers = true }
+            menuRow(String(localized: "Все серверы"), icon: "server.rack") { showServers = true }
             Divider().opacity(0.4)
-            menuRow("Добавить ключ", icon: "plus.circle") { showAdd = true }
+            menuRow(String(localized: "Добавить ключ"), icon: "plus.circle") { showAdd = true }
             Divider().opacity(0.4)
-            menuRow("Настройки", icon: "gearshape") { showSettings = true }
+            menuRow(String(localized: "Настройки"), icon: "gearshape") { showSettings = true }
         }
         .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(.white.opacity(0.12)))
@@ -301,7 +301,7 @@ struct HomeView: View {
     }
 
     private func locationLine(_ location: GeoIP.Location?, prefix: String) -> String {
-        guard let location else { return "\(prefix): определяю…" }
+        guard let location else { return "\(prefix): " + String(localized: "определяю…") }
         return "\(prefix): \(location.flag) \(location.place)"
     }
 
@@ -361,10 +361,10 @@ private struct StatusPill: View {
 
     private var text: String {
         switch status {
-        case .connected: return "Подключено"
-        case .connecting, .reasserting: return "Подключение…"
-        case .disconnecting: return "Отключение…"
-        default: return error == nil ? "Не подключено" : "Ошибка подключения"
+        case .connected: return String(localized: "Подключено")
+        case .connecting, .reasserting: return String(localized: "Подключение…")
+        case .disconnecting: return String(localized: "Отключение…")
+        default: return error == nil ? String(localized: "Не подключено") : String(localized: "Ошибка подключения")
         }
     }
 
@@ -382,7 +382,7 @@ private struct SubscriptionCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(info.title.isEmpty ? "Подписка" : info.title).font(.body.weight(.semibold))
+            Text(info.title.isEmpty ? String(localized: "Подписка") : info.title).font(.body.weight(.semibold))
             let used = info.upload + info.download
             if info.total > 0 {
                 ProgressView(value: min(1, Double(used) / Double(info.total))).tint(Brand.cyan)

@@ -75,13 +75,13 @@ final class AppModel: ObservableObject {
         do {
             release = try await Updates.fetchLatest(includeBeta: defaults.bool(forKey: AppSettings.betaUpdatesKey))
         } catch {
-            if manual { message = "Не удалось проверить обновления: \(error.localizedDescription)" }
+            if manual { message = String(localized: "Не удалось проверить обновления: \(error.localizedDescription)") }
             return
         }
         if !Updates.isNewer(release.version, than: AppSettings.shortVersion) {
             // On a beta with betas off, "latest" would be misleading: only releases were checked.
             let betaOff = Updates.isBeta(AppSettings.shortVersion) && !defaults.bool(forKey: AppSettings.betaUpdatesKey)
-            if manual { message = betaOff ? "Новых релизов нет. Чтобы получать беты, включите «Получать бета-версии»" : "У вас последняя версия" }
+            if manual { message = betaOff ? String(localized: "Новых релизов нет. Чтобы получать беты, включите «Получать бета-версии»") : String(localized: "У вас последняя версия") }
         } else {
             update = release
         }
@@ -134,7 +134,7 @@ final class AppModel: ObservableObject {
             if UserDefaults.standard.bool(forKey: AppSettings.autoFastestKey) { await selectFastest() }
             if let profile = state.selected { await vpn.connect(profile) }
         } else {
-            message = "Сначала добавьте сервер"
+            message = String(localized: "Сначала добавьте сервер")
         }
     }
 
@@ -166,14 +166,14 @@ final class AppModel: ObservableObject {
         }
         let parsed = Subscription.parseLinks(input)
         guard !parsed.isEmpty else {
-            message = "Не удалось распознать ключ"
+            message = String(localized: "Не удалось распознать ключ")
             return
         }
         update { s in
             s.profiles += parsed.map { StoredProfile(profile: $0, fromSubscription: false) }
             if s.selectedId == nil { s.selectedId = parsed.first?.id }
         }
-        message = "Добавлено серверов: \(parsed.count)"
+        message = String(localized: "Добавлено серверов: \(parsed.count)")
     }
 
     /// Offers to add what is in the clipboard: always after the bot's link (`force`), otherwise
@@ -182,7 +182,7 @@ final class AppModel: ObservableObject {
     func offerClipboard(force: Bool) async {
         let board = UIPasteboard.general
         guard board.hasStrings || board.hasURLs else {
-            if force { message = "В буфере обмена нет ссылки. Скопируйте подписку в боте и откройте ссылку ещё раз." }
+            if force { message = String(localized: "В буфере обмена нет ссылки. Скопируйте подписку в боте и откройте ссылку ещё раз.") }
             return
         }
         if !force {
@@ -202,7 +202,7 @@ final class AppModel: ObservableObject {
 
     func addFromClipboard() async {
         guard let pasted = UIPasteboard.general.string ?? UIPasteboard.general.url?.absoluteString, !pasted.isEmpty else {
-            message = "В буфере обмена нет ссылки"
+            message = String(localized: "В буфере обмена нет ссылки")
             return
         }
         await addInput(pasted)
@@ -230,9 +230,9 @@ final class AppModel: ObservableObject {
                 s.subscriptionInfo = result.info
             }
             ExpiryReminders.schedule(expire: result.info.expire)
-            if !silent { message = "Подписка обновлена" }
+            if !silent { message = String(localized: "Подписка обновлена") }
         } catch {
-            if !silent { message = "Ошибка подписки: \(error.localizedDescription)" }
+            if !silent { message = String(localized: "Ошибка подписки: \(error.localizedDescription)") }
         }
     }
 
@@ -279,7 +279,7 @@ final class AppModel: ObservableObject {
     func runDiagnostics() async {
         guard !diagnosticsRunning else { return }
         guard let profile = state.selected else {
-            message = "Сначала добавьте сервер"
+            message = String(localized: "Сначала добавьте сервер")
             return
         }
         diagnosticsRunning = true
@@ -290,14 +290,14 @@ final class AppModel: ObservableObject {
         // 1. The server answers on its port, checked outside the tunnel.
         set(.server, .running)
         switch await Self.tcpProbe(host: profile.address, port: profile.port) {
-        case .success(let ms): set(.server, .ok("\(profile.address):\(profile.port) · \(ms) мс"))
+        case .success(let ms): set(.server, .ok(String(localized: "\(profile.address):\(profile.port) · \(ms) мс")))
         case .failure(let e): set(.server, .failed("\(profile.address):\(profile.port) — \(e.message)"))
         }
 
         // 2. The tunnel is up.
         set(.vpn, .running)
         guard vpn.status == .connected else {
-            set(.vpn, .failed("VPN не подключён — нажмите кнопку на главной"))
+            set(.vpn, .failed(String(localized: "VPN не подключён — нажмите кнопку на главной")))
             skipRemaining()
             return
         }
@@ -308,7 +308,7 @@ final class AppModel: ObservableObject {
         if let ip = await Self.resolve("www.gstatic.com") {
             set(.dns, .ok("www.gstatic.com → \(ip)"))
         } else {
-            set(.dns, .failed("адреса сайтов не определяются через VPN"))
+            set(.dns, .failed(String(localized: "адреса сайтов не определяются через VPN")))
             skipRemaining()
             return
         }
@@ -316,7 +316,7 @@ final class AppModel: ObservableObject {
         // 4. A real HTTPS request goes through.
         set(.internet, .running)
         switch await Self.probeInternet() {
-        case .success(let ms): set(.internet, .ok("ответ за \(ms) мс"))
+        case .success(let ms): set(.internet, .ok(String(localized: "ответ за \(ms) мс")))
         case .failure(let reason):
             set(.internet, .failed(reason.message))
             skipRemaining()
@@ -326,14 +326,14 @@ final class AppModel: ObservableObject {
         // 5. Sites see the server's address, so traffic really exits there.
         set(.exitIP, .running)
         guard let exitIP = await Self.fetchText("https://api.ipify.org") else {
-            set(.exitIP, .failed("не удалось узнать внешний IP"))
+            set(.exitIP, .failed(String(localized: "не удалось узнать внешний IP")))
             return
         }
         var serverIP: String? = profile.address
         if !Self.isIPAddress(profile.address) { serverIP = await Self.resolve(profile.address) }
         set(.exitIP, exitIP == serverIP
-            ? .ok("внешний IP \(exitIP) — ваш сервер")
-            : .warning("внешний IP \(exitIP), сервер \(serverIP ?? profile.address)"))
+            ? .ok(String(localized: "внешний IP \(exitIP) — ваш сервер"))
+            : .warning(String(localized: "внешний IP \(exitIP), сервер \(serverIP ?? profile.address)")))
     }
 
     private func set(_ kind: DiagnosticStep.Kind, _ state: DiagnosticStep.State) {
@@ -373,8 +373,8 @@ final class AppModel: ObservableObject {
             return .success(Int(Date().timeIntervalSince(start) * 1000))
         } catch let error as URLError {
             switch error.code {
-            case .cannotFindHost, .dnsLookupFailed: return .failure(ProbeError(message: "не работает DNS через VPN"))
-            case .timedOut: return .failure(ProbeError(message: "нет ответа — трафик не проходит через сервер"))
+            case .cannotFindHost, .dnsLookupFailed: return .failure(ProbeError(message: String(localized: "не работает DNS через VPN")))
+            case .timedOut: return .failure(ProbeError(message: String(localized: "нет ответа — трафик не проходит через сервер")))
             default: return .failure(ProbeError(message: error.localizedDescription))
             }
         } catch {
@@ -428,7 +428,7 @@ final class AppModel: ObservableObject {
     /// Connects straight to the server over Wi-Fi or cellular. Through the tunnel the local TUN stack
     /// would accept every connection instantly, so the result would mean nothing.
     private nonisolated static func tcpProbe(host: String, port: Int) async -> Result<Int, ProbeError> {
-        guard let nwPort = NWEndpoint.Port(rawValue: UInt16(port)) else { return .failure(ProbeError(message: "неверный порт")) }
+        guard let nwPort = NWEndpoint.Port(rawValue: UInt16(port)) else { return .failure(ProbeError(message: String(localized: "неверный порт"))) }
         let parameters = NWParameters.tcp
         if let physical = await physicalInterface() { parameters.requiredInterface = physical }
         let connection = NWConnection(host: NWEndpoint.Host(host), port: nwPort, using: parameters)
@@ -453,7 +453,7 @@ final class AppModel: ObservableObject {
                 }
             }
             connection.start(queue: .global())
-            DispatchQueue.global().asyncAfter(deadline: .now() + 6) { finish(.failure(ProbeError(message: "таймаут 6 с"))) }
+            DispatchQueue.global().asyncAfter(deadline: .now() + 6) { finish(.failure(ProbeError(message: String(localized: "таймаут 6 с")))) }
         }
     }
 
@@ -494,12 +494,12 @@ struct DiagnosticStep: Identifiable, Equatable {
 
         var title: String {
             switch self {
-            case .key: return "Параметры ключа"
-            case .server: return "Сервер доступен"
-            case .vpn: return "VPN подключён"
-            case .dns: return "DNS работает через VPN"
-            case .internet: return "Интернет через VPN"
-            case .exitIP: return "Трафик идёт через сервер"
+            case .key: return String(localized: "Параметры ключа")
+            case .server: return String(localized: "Сервер доступен")
+            case .vpn: return String(localized: "VPN подключён")
+            case .dns: return String(localized: "DNS работает через VPN")
+            case .internet: return String(localized: "Интернет через VPN")
+            case .exitIP: return String(localized: "Трафик идёт через сервер")
             }
         }
     }

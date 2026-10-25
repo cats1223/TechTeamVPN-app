@@ -33,12 +33,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.core.graphics.drawable.toBitmap
+import com.techteam.vpn.R
 import com.techteam.vpn.core.RussianApps
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -59,25 +61,25 @@ fun AppsDialog(selected: Set<String>, onDismiss: () -> Unit, onSave: (Set<String
         Column(Modifier.fillMaxSize().background(Brand.Background).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    "Приложения без VPN", color = Brand.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold,
+                    stringResource(R.string.apps_title), color = Brand.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier.weight(1f),
                 )
-                TextButton(onClick = onDismiss) { Text("Отмена") }
-                TextButton(onClick = { onSave(chosen) }) { Text("Готово") }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+                TextButton(onClick = { onSave(chosen) }) { Text(stringResource(R.string.done)) }
             }
             Text(
-                "Отмеченные приложения работают мимо VPN, с вашего обычного адреса, и не видят туннель как своё подключение.",
+                stringResource(R.string.apps_hint),
                 color = Brand.TextMuted, fontSize = 12.sp,
             )
             OutlinedTextField(
                 value = query, onValueChange = { query = it }, singleLine = true,
-                label = { Text("Поиск") }, modifier = Modifier.fillMaxWidth(),
+                label = { Text(stringResource(R.string.search)) }, modifier = Modifier.fillMaxWidth(),
             )
             Row {
                 TextButton(onClick = {
                     chosen = chosen + apps.orEmpty().map { it.packageName }.filter(RussianApps::isRussian)
-                }) { Text("Отметить российские") }
-                TextButton(onClick = { chosen = emptySet() }) { Text("Снять все", color = Brand.TextMuted) }
+                }) { Text(stringResource(R.string.apps_mark_russian)) }
+                TextButton(onClick = { chosen = emptySet() }) { Text(stringResource(R.string.apps_clear), color = Brand.TextMuted) }
             }
 
             val list = apps

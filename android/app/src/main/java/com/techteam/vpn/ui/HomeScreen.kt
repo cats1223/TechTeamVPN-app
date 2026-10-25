@@ -117,9 +117,9 @@ fun HomeScreen(
     var expanded by rememberSaveable { mutableStateOf(false) }
 
     val pins = buildList {
-        homeLocation?.let { add(MapPin(it.latitude, it.longitude, "${it.flag} " + if (connected) "Реальный адрес" else "Вы здесь", false)) }
+        homeLocation?.let { add(MapPin(it.latitude, it.longitude, "${it.flag} " + stringResource(if (connected) R.string.pin_real else R.string.pin_here), false)) }
         server?.let {
-            add(MapPin(it.latitude, it.longitude, "${it.flag} " + if (connected) "Вы сейчас здесь" else state.selected?.name.orEmpty(), connected))
+            add(MapPin(it.latitude, it.longitude, "${it.flag} " + if (connected) stringResource(R.string.pin_now) else state.selected?.name.orEmpty(), connected))
         }
     }
     val focus = if (connected) server ?: homeLocation else homeLocation ?: server
@@ -164,7 +164,7 @@ fun HomeScreen(
             StatusCard(state, vpn, homeLocation, visibleLocation, traffic, onToggle, onAdd)
 
             if (state.profiles.isNotEmpty()) {
-                Text("Серверы", color = Brand.TextMuted, fontSize = 14.sp, modifier = Modifier.padding(start = 4.dp))
+                Text(stringResource(R.string.servers_title), color = Brand.TextMuted, fontSize = 14.sp, modifier = Modifier.padding(start = 4.dp))
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     state.profiles.forEach { item ->
                         val p = item.profile
@@ -213,9 +213,9 @@ fun HomeScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     state.subscriptionInfo?.let { SubscriptionCard(it) }
                     Column(Modifier.clip(RoundedCornerShape(24.dp)).background(Brand.SurfaceHigh)) {
-                        MenuRow(Icons.Rounded.Dns, "Все серверы", onOpenServers)
+                        MenuRow(Icons.Rounded.Dns, stringResource(R.string.all_servers), onOpenServers)
                         MenuRow(Icons.Rounded.Add, stringResource(R.string.add_key), onAdd)
-                        MenuRow(Icons.Rounded.Settings, "Настройки", onOpenSettings)
+                        MenuRow(Icons.Rounded.Settings, stringResource(R.string.tab_settings), onOpenSettings)
                     }
                 }
             }
@@ -327,9 +327,9 @@ private fun StatusCard(
             Column {
                 AnimatedContent(
                     when {
-                        connected -> "Вы защищены"
+                        connected -> stringResource(R.string.protected_title)
                         connecting -> stringResource(R.string.status_connecting)
-                        else -> "Вы не защищены"
+                        else -> stringResource(R.string.unprotected_title)
                     },
                     transitionSpec = { (slideInVertically { it / 2 } + fadeIn()) togetherWith fadeOut() },
                     label = "title",
@@ -346,10 +346,10 @@ private fun StatusCard(
                                 delay(1000)
                             }
                         }
-                        locationLine(visibleLocation, "Сайты видят") + " · " + formatDuration((now - (vpn as VpnState.Connected).since) / 1000)
+                        locationLine(visibleLocation, stringResource(R.string.sites_see), stringResource(R.string.locating)) + " · " + formatDuration((now - (vpn as VpnState.Connected).since) / 1000)
                     }
-                    homeLocation != null -> locationLine(homeLocation, "Ваш адрес")
-                    else -> "Подключитесь к VPN для защиты"
+                    homeLocation != null -> locationLine(homeLocation, stringResource(R.string.your_address), "")
+                    else -> stringResource(R.string.connect_hint)
                 }
                 Text(subtitle, color = Brand.TextMuted, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
@@ -368,7 +368,7 @@ private fun StatusCard(
             state.selected == null -> Triple(stringResource(R.string.add_key), Brand.Cyan, onAdd)
             connected -> Triple(stringResource(R.string.action_disconnect), Brand.Red, onToggle)
             connecting -> Triple(stringResource(R.string.cancel), Brand.Red, onToggle)
-            else -> Triple("Подключиться", Brand.Cyan, onToggle)
+            else -> Triple(stringResource(R.string.action_connect), Brand.Cyan, onToggle)
         }
         val buttonColor by animateColorAsState(color, tween(450), label = "button")
         Button(
@@ -395,8 +395,8 @@ private fun MenuRow(icon: ImageVector, title: String, onClick: () -> Unit) {
     }
 }
 
-private fun locationLine(location: GeoIP.Location?, prefix: String): String =
-    if (location == null) "$prefix: определяю…" else "$prefix: ${location.flag} ${location.place}"
+private fun locationLine(location: GeoIP.Location?, prefix: String, locating: String): String =
+    if (location == null) "$prefix: $locating" else "$prefix: ${location.flag} ${location.place}"
 
 /** A flag emoji at the start of a server name, like "🇳🇱 Нидерланды". */
 private fun leadingFlag(name: String): String? {
@@ -453,7 +453,7 @@ fun formatDuration(seconds: Long): String =
     "%02d:%02d:%02d".format(seconds / 3600, (seconds % 3600) / 60, seconds % 60)
 
 fun formatBytes(bytes: Long): String {
-    val units = listOf("Б", "КБ", "МБ", "ГБ", "ТБ")
+    val units = if (java.util.Locale.getDefault().language == "ru") listOf("Б", "КБ", "МБ", "ГБ", "ТБ") else listOf("B", "KB", "MB", "GB", "TB")
     var value = bytes.toDouble()
     var i = 0
     while (value >= 1024 && i < units.lastIndex) {

@@ -200,8 +200,8 @@ enum TunnelError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .noServer: return "Сервер не выбран"
-        case .noTunDescriptor: return "Не удалось получить дескриптор туннеля"
+        case .noServer: return String(localized: "Сервер не выбран")
+        case .noTunDescriptor: return String(localized: "Не удалось получить дескриптор туннеля")
         case .xray(let message): return message
         }
     }

@@ -120,7 +120,8 @@ extension View {
 }
 
 func formatBytes(_ bytes: Int64) -> String {
-    let units = ["Б", "КБ", "МБ", "ГБ", "ТБ"]
+    let units = Bundle.main.preferredLocalizations.first == "ru"
+        ? ["Б", "КБ", "МБ", "ГБ", "ТБ"] : ["B", "KB", "MB", "GB", "TB"]
     var value = Double(bytes)
     var i = 0
     while value >= 1024, i < units.count - 1 {

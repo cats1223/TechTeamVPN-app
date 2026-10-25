@@ -55,7 +55,7 @@ fun AddSheet(busy: Boolean, onDismiss: () -> Unit, onSubmit: (String) -> Unit, o
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it },
-                placeholder = { Text("vless://  trojan://  или  https://…") },
+                placeholder = { Text(stringResource(R.string.add_placeholder)) },
                 minLines = 3,
                 maxLines = 6,
                 modifier = Modifier.fillMaxWidth(),

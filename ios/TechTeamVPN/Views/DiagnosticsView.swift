@@ -44,12 +44,12 @@ struct DiagnosticsView: View {
     private var summary: String {
         let states = model.diagnostics.map(\.state)
         if states.allSatisfy({ if case .ok = $0 { return true } else { return false } }) {
-            return "Всё в порядке: трафик идёт через ваш сервер."
+            return String(localized: "Всё в порядке: трафик идёт через ваш сервер.")
         }
         if let failed = model.diagnostics.first(where: { if case .failed = $0.state { return true } else { return false } }) {
-            return "Проблема на шаге «\(failed.kind.title)». Подробности — в «Журнале подключения» на главном экране."
+            return String(localized: "Проблема на шаге «\(failed.kind.title)». Подробности — в «Журнале подключения» на главном экране.")
         }
-        return "Проверка завершена."
+        return String(localized: "Проверка завершена.")
     }
 }
 
@@ -86,7 +86,7 @@ private struct DiagnosticRow: View {
     private var detail: String? {
         switch step.state {
         case .ok(let s), .warning(let s), .failed(let s): return s
-        case .skipped: return "пропущено"
+        case .skipped: return String(localized: "пропущено")
         default: return nil
         }
     }

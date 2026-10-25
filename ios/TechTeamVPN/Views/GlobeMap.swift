@@ -33,8 +33,8 @@ struct GlobeMap: UIViewRepresentable {
         c.connected = connected
 
         var pins: [Pin] = []
-        if let home { pins.append(Pin(kind: .home, location: home, title: connected ? "Реальный адрес" : "Вы здесь")) }
-        if let server { pins.append(Pin(kind: .server, location: server, title: connected ? "Вы сейчас здесь" : serverName)) }
+        if let home { pins.append(Pin(kind: .home, location: home, title: connected ? String(localized: "Реальный адрес") : String(localized: "Вы здесь"))) }
+        if let server { pins.append(Pin(kind: .server, location: server, title: connected ? String(localized: "Вы сейчас здесь") : serverName)) }
         if pins != c.pins {
             map.removeAnnotations(c.pins)
             map.addAnnotations(pins)

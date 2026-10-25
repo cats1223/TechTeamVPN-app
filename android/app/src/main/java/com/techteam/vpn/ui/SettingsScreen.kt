@@ -87,24 +87,24 @@ fun SettingsScreen(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text(
-            "Настройки", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Brand.Text,
+            stringResource(R.string.tab_settings), fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Brand.Text,
             modifier = Modifier.padding(start = 4.dp, top = 16.dp, bottom = 4.dp),
         )
 
-        SectionTitle("Оформление")
+        SectionTitle(stringResource(R.string.appearance))
         Card {
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Brand.SurfaceHigh)) {
-                ThemeOption("Чёрная", selected = !lightTheme, Modifier.weight(1f)) { onTheme(false) }
-                ThemeOption("Белая", selected = lightTheme, Modifier.weight(1f)) { onTheme(true) }
+                ThemeOption(stringResource(R.string.theme_dark), selected = !lightTheme, Modifier.weight(1f)) { onTheme(false) }
+                ThemeOption(stringResource(R.string.theme_light), selected = lightTheme, Modifier.weight(1f)) { onTheme(true) }
             }
         }
 
-        SectionTitle("Раздельное туннелирование")
+        SectionTitle(stringResource(R.string.split_title))
         Card(Modifier.clickable { onRussiaDirect(!russiaDirect) }) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Российские сайты напрямую", color = Brand.Text)
-                    Text("Зоны .ru, .su, .рф и российские адреса — без VPN", color = Brand.TextMuted, fontSize = 12.sp)
+                    Text(stringResource(R.string.russia_direct), color = Brand.Text)
+                    Text(stringResource(R.string.russia_direct_hint), color = Brand.TextMuted, fontSize = 12.sp)
                 }
                 Switch(
                     checked = russiaDirect, onCheckedChange = onRussiaDirect,
@@ -115,10 +115,10 @@ fun SettingsScreen(
         Card(Modifier.clickable { showApps = true }) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Приложения без VPN", color = Brand.Text)
-                    Text("Банки, Госуслуги и другие не увидят VPN", color = Brand.TextMuted, fontSize = 12.sp)
+                    Text(stringResource(R.string.apps_title), color = Brand.Text)
+                    Text(stringResource(R.string.apps_card_hint), color = Brand.TextMuted, fontSize = 12.sp)
                 }
-                Text(if (bypassApps.isEmpty()) "Нет" else bypassApps.size.toString(), color = Brand.Cyan)
+                Text(if (bypassApps.isEmpty()) stringResource(R.string.none) else bypassApps.size.toString(), color = Brand.Cyan)
             }
         }
 
@@ -146,7 +146,7 @@ fun SettingsScreen(
             }
         }
 
-        SectionTitle("О приложении")
+        SectionTitle(stringResource(R.string.about))
         Card(
             Modifier.clickable {
                 // Five taps on the version within a couple of seconds ask for the developer password.
@@ -155,21 +155,21 @@ fun SettingsScreen(
                 lastTap = now
                 if (taps >= 5) {
                     taps = 0
-                    if (devMode) toast(context, "Режим разработчика уже включён") else askPassword = true
+                    if (devMode) toast(context, context.getString(R.string.dev_already_on)) else askPassword = true
                 }
             },
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Версия", color = Brand.Text, modifier = Modifier.weight(1f))
+                Text(stringResource(R.string.version), color = Brand.Text, modifier = Modifier.weight(1f))
                 Text("${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})", color = Brand.TextMuted)
             }
         }
-        Card(Modifier.clickable(onClick = onCheckUpdate)) { Text("Проверить обновления", color = Brand.Cyan) }
+        Card(Modifier.clickable(onClick = onCheckUpdate)) { Text(stringResource(R.string.check_updates), color = Brand.Cyan) }
         Card(Modifier.clickable { onBetaUpdates(!betaUpdates) }) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text("Получать бета-версии", color = Brand.Text)
-                    Text("Предлагать обновиться и на бету, а не только на релиз", color = Brand.TextMuted, fontSize = 12.sp)
+                    Text(stringResource(R.string.beta_updates), color = Brand.Text)
+                    Text(stringResource(R.string.beta_updates_hint), color = Brand.TextMuted, fontSize = 12.sp)
                 }
                 Switch(
                     checked = betaUpdates, onCheckedChange = onBetaUpdates,
@@ -179,13 +179,13 @@ fun SettingsScreen(
         }
 
         if (devMode) {
-            SectionTitle("Разработчик")
-            Card(Modifier.clickable { showLog = true }) { Text("Журнал подключения", color = Brand.Cyan) }
-            CopyCard("ID устройства", hwid)
-            selected?.let { CopyCard("Параметры ключа", it.summary) }
-            Card(Modifier.clickable(onClick = onDisableDevMode)) { Text("Выключить режим разработчика", color = Brand.Red) }
+            SectionTitle(stringResource(R.string.developer))
+            Card(Modifier.clickable { showLog = true }) { Text(stringResource(R.string.connection_log), color = Brand.Cyan) }
+            CopyCard(stringResource(R.string.device_id), hwid)
+            selected?.let { CopyCard(stringResource(R.string.key_params), it.summary) }
+            Card(Modifier.clickable(onClick = onDisableDevMode)) { Text(stringResource(R.string.dev_disable), color = Brand.Red) }
             Text(
-                "В режиме разработчика VPN ведёт подробный журнал Xray. Переподключитесь, чтобы он начал записываться.",
+                stringResource(R.string.dev_hint),
                 color = Brand.TextMuted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 4.dp),
             )
         }
@@ -197,7 +197,7 @@ fun SettingsScreen(
             onDismiss = { askPassword = false },
             onSubmit = { password ->
                 askPassword = false
-                toast(context, if (onUnlock(password)) "Режим разработчика включён" else "Неверный пароль")
+                toast(context, context.getString(if (onUnlock(password)) R.string.dev_enabled else R.string.wrong_password))
             },
         )
     }
@@ -250,7 +250,7 @@ private fun CopyCard(title: String, value: String) {
     Card(
         Modifier.clickable {
             copy(context, value)
-            toast(context, "$title: скопировано")
+            toast(context, context.getString(R.string.copied, title))
         },
     ) {
         Column {
@@ -265,19 +265,19 @@ private fun PasswordDialog(onDismiss: () -> Unit, onSubmit: (String) -> Unit) {
     var password by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Режим разработчика") },
+        title = { Text(stringResource(R.string.developer_mode)) },
         text = {
             OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
-                label = { Text("Пароль") },
+                label = { Text(stringResource(R.string.password)) },
                 singleLine = true,
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             )
         },
-        confirmButton = { TextButton(onClick = { onSubmit(password) }) { Text("Включить") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } },
+        confirmButton = { TextButton(onClick = { onSubmit(password) }) { Text(stringResource(R.string.enable)) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
     )
 }
 
@@ -289,10 +289,10 @@ private fun LogDialog(onDismiss: () -> Unit) {
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(Modifier.fillMaxSize().background(Brand.Background).padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("Журнал", color = Brand.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                TextButton(onClick = { text = readLog(context) }) { Text("Обновить") }
-                TextButton(onClick = { copy(context, text); toast(context, "Журнал скопирован") }) { Text("Копировать") }
-                TextButton(onClick = onDismiss) { Text("Закрыть") }
+                Text(stringResource(R.string.log), color = Brand.Text, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                TextButton(onClick = { text = readLog(context) }) { Text(stringResource(R.string.refresh)) }
+                TextButton(onClick = { copy(context, text); toast(context, context.getString(R.string.log_copied)) }) { Text(stringResource(R.string.copy)) }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) }
             }
             Text(
                 text, color = Brand.Text, fontSize = 11.sp, fontFamily = FontFamily.Monospace,
@@ -305,7 +305,7 @@ private fun LogDialog(onDismiss: () -> Unit) {
 private fun readLog(context: Context): String {
     val file = File(context.filesDir, TechTeamVpnService.LOG_FILE)
     val lines = runCatching { file.readLines() }.getOrDefault(emptyList())
-    return if (lines.isEmpty()) "Журнал пуст. Включите VPN в режиме разработчика и откройте сайт." else lines.takeLast(400).joinToString("\n")
+    return if (lines.isEmpty()) context.getString(R.string.log_empty) else lines.takeLast(400).joinToString("\n")
 }
 
 private fun copy(context: Context, text: String) {

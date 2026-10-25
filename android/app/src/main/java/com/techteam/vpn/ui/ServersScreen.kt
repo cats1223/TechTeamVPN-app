@@ -128,7 +128,7 @@ private fun ServerRow(
         }
         ping?.let {
             Text(
-                if (it < 0) "—" else "$it мс",
+                if (it < 0) "—" else stringResource(R.string.ping_ms, it),
                 color = when {
                     it < 0 -> Brand.Red
                     it < 150 -> Brand.Green

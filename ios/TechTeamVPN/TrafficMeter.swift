@@ -72,5 +72,5 @@ final class TrafficMeter: ObservableObject {
 
 /// "1.2 МБ/с" for a byte rate.
 func formatRate(_ bytesPerSecond: Double) -> String {
-    formatBytes(Int64(bytesPerSecond)) + "/с"
+    String(localized: "\(formatBytes(Int64(bytesPerSecond)))/с")
 }

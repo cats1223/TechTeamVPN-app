@@ -26,7 +26,7 @@ enum AppSettings {
     enum Theme: String, CaseIterable, Identifiable {
         case dark, light
         var id: String { rawValue }
-        var title: String { self == .dark ? "Чёрная" : "Белая" }
+        var title: String { self == .dark ? String(localized: "Чёрная") : String(localized: "Белая") }
     }
 
     /// SHA-256 of the developer password, so the password itself is not in the source.
@@ -83,9 +83,7 @@ struct SettingsView: View {
                 } header: {
                     Text("Раздельное туннелирование")
                 } footer: {
-                    Text("Сайты в зонах .ru, .su, .рф и российские адреса открываются без VPN, с вашего обычного адреса. "
-                        + "Российские приложения ходят на свои серверы тоже напрямую. Выбрать отдельные приложения "
-                        + "на iPhone нельзя: Apple разрешает это только через MDM.")
+                    Text("Сайты в зонах .ru, .su, .рф и российские адреса открываются без VPN, с вашего обычного адреса. Российские приложения ходят на свои серверы тоже напрямую. Выбрать отдельные приложения на iPhone нельзя: Apple разрешает это только через MDM.")
                 }
 
                 Section {
@@ -101,8 +99,8 @@ struct SettingsView: View {
                 Section {
                     NavigationLink {
                         SitesView(
-                            title: "Всегда напрямую",
-                            footer: "Эти сайты открываются без VPN, с вашего обычного адреса. Поддомены тоже.",
+                            title: String(localized: "Всегда напрямую"),
+                            footer: String(localized: "Эти сайты открываются без VPN, с вашего обычного адреса. Поддомены тоже."),
                             key: AppSettings.directSitesKey
                         ) { Task { await model.applyTunnelSettings() } }
                     } label: {
@@ -111,8 +109,8 @@ struct SettingsView: View {
                     .listRowBackground(Brand.surface)
                     NavigationLink {
                         SitesView(
-                            title: "Всегда через VPN",
-                            footer: "Эти сайты идут через VPN, даже если они российские. Поддомены тоже.",
+                            title: String(localized: "Всегда через VPN"),
+                            footer: String(localized: "Эти сайты идут через VPN, даже если они российские. Поддомены тоже."),
                             key: AppSettings.proxySitesKey
                         ) { Task { await model.applyTunnelSettings() } }
                     } label: {
@@ -160,9 +158,9 @@ struct SettingsView: View {
         Section {
             Button { showLog = true } label: { Label("Журнал подключения", systemImage: "doc.text.magnifyingglass") }
             Button { showDiagnostics = true } label: { Label("Проверка подключения", systemImage: "checklist") }
-            copyRow("ID устройства", DeviceInfo.hwid)
+            copyRow(String(localized: "ID устройства"), DeviceInfo.hwid)
             if let profile = model.state.selected {
-                copyRow("Параметры ключа", profile.summary)
+                copyRow(String(localized: "Параметры ключа"), profile.summary)
             }
             Button(role: .destructive) { devMode = false } label: {
                 Label("Выключить режим разработчика", systemImage: "hammer")
@@ -180,14 +178,14 @@ struct SettingsView: View {
             Text(title)
             Spacer()
             let count = AppSettings.sites(key).count
-            Text(count == 0 ? "Нет" : "\(count)").foregroundStyle(Brand.muted)
+            Text(count == 0 ? String(localized: "Нет") : "\(count)").foregroundStyle(Brand.muted)
         }
     }
 
     private func copyRow(_ title: String, _ value: String) -> some View {
         Button {
             UIPasteboard.general.string = value
-            model.message = "\(title): скопировано"
+            model.message = String(localized: "\(title): скопировано")
         } label: {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).foregroundStyle(.primary)
@@ -204,7 +202,7 @@ struct SettingsView: View {
         guard versionTaps >= 5 else { return }
         versionTaps = 0
         if devMode {
-            model.message = "Режим разработчика уже включён"
+            model.message = String(localized: "Режим разработчика уже включён")
         } else {
             askPassword = true
         }
@@ -213,9 +211,9 @@ struct SettingsView: View {
     private func unlock() {
         if AppSettings.checkDevPassword(password) {
             devMode = true
-            model.message = "Режим разработчика включён"
+            model.message = String(localized: "Режим разработчика включён")
         } else {
-            model.message = "Неверный пароль"
+            model.message = String(localized: "Неверный пароль")
         }
         password = ""
     }
