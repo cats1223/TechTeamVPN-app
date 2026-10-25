@@ -66,7 +66,7 @@ import com.techteam.vpn.vpn.VpnState
 import kotlinx.coroutines.delay
 
 /**
- * The globe fills the screen and shows where sites see you: your own location before the VPN,
+ * The map fills the screen and shows where sites see you: your own location before the VPN,
  * the server's after. A panel at the bottom holds the status, the button and the servers, and
  * pulls up for the subscription, all servers and settings.
  */
@@ -88,19 +88,20 @@ fun HomeScreen(
     var expanded by rememberSaveable { mutableStateOf(false) }
 
     val pins = buildList {
-        homeLocation?.let { add(GlobePin(it.latitude, it.longitude, "${it.flag} " + if (connected) "Реальный адрес" else "Вы здесь", false)) }
+        homeLocation?.let { add(MapPin(it.latitude, it.longitude, "${it.flag} " + if (connected) "Реальный адрес" else "Вы здесь", false)) }
         server?.let {
-            add(GlobePin(it.latitude, it.longitude, "${it.flag} " + if (connected) "Вы сейчас здесь" else state.selected?.name.orEmpty(), connected))
+            add(MapPin(it.latitude, it.longitude, "${it.flag} " + if (connected) "Вы сейчас здесь" else state.selected?.name.orEmpty(), connected))
         }
     }
     val focus = if (connected) server ?: homeLocation else homeLocation ?: server
 
     Box(Modifier.fillMaxSize()) {
-        Globe(
+        WorldMap(
             centerLat = focus?.latitude ?: 55.75,
             centerLon = focus?.longitude ?: 37.62,
             pins = pins,
             line = if (connected && pins.size == 2) pins[0] to pins[1] else null,
+            dark = !LocalLightTheme.current,
             modifier = Modifier.fillMaxSize(),
         )
 

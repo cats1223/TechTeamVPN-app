@@ -57,7 +57,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val visibleLocation: StateFlow<GeoIP.Location?> = _visibleLocation.asStateFlow()
 
     private val _serverLocations = MutableStateFlow<Map<String, GeoIP.Location>>(emptyMap())
-    /** Server address to its location, for the globe pin and the server's flag. */
+    /** Server address to its location, for the map pin and the server's flag. */
     val serverLocations: StateFlow<Map<String, GeoIP.Location>> = _serverLocations.asStateFlow()
 
     private val prefs = app.getSharedPreferences("settings", android.content.Context.MODE_PRIVATE)

@@ -195,22 +195,6 @@ class ServerProfileTest {
     }
 
     @Test
-    fun globeProjectionRoundTrips() {
-        val g = GlobeMath(55.75, 37.62)
-        val center = g.project(55.75, 37.62)!!
-        assertEquals(0.0, center.first, 1e-9)
-        assertEquals(0.0, center.second, 1e-9)
-        val helsinki = g.project(60.17, 24.94)!!
-        val back = g.unproject(helsinki.first, helsinki.second)!!
-        assertEquals(60.17, back.first, 1e-6)
-        assertEquals(24.94, back.second, 1e-6)
-        assertNull(g.project(-55.75, 37.62 - 180))
-        val path = GlobeMath.greatCircle(55.75 to 37.62, 60.17 to 24.94)
-        assertEquals(55.75, path.first().first, 1e-6)
-        assertEquals(24.94, path.last().second, 1e-6)
-    }
-
-    @Test
     fun parsesTrojanAndHysteria2() {
         val trojan = ServerProfile.parse("trojan://p%40ss@t.example:443?type=ws&path=%2Ft&sni=cdn.example#Trojan")!!
         assertEquals(ServerProfile.TROJAN, trojan.protocol)
