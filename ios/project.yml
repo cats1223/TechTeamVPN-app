@@ -26,6 +26,7 @@ targets:
     sources:
       - TechTeamVPN
       - Shared
+      - Intents
       # Shown as "what's new" after an update.
       - path: ../CHANGELOG.md
         buildPhase: resources
@@ -39,6 +40,8 @@ targets:
         TARGETED_DEVICE_FAMILY: "1,2"
     dependencies:
       - target: PacketTunnel
+        embed: true
+      - target: TechTeamWidget
         embed: true
 
   PacketTunnel:
@@ -64,6 +67,24 @@ targets:
       - framework: Frameworks/LibXray.xcframework
         embed: false
       - sdk: NetworkExtension.framework
+
+  # Home screen widget and Control Center button. Interactive widgets need iOS 17; the toggle's
+  # intent runs in the app, so the extension needs no VPN entitlement or App Group.
+  TechTeamWidget:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - Widget
+      - Intents
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: $(APP_BUNDLE_ID).widget
+        INFOPLIST_FILE: Widget/Info.plist
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) WIDGET
+    dependencies:
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
 
   TechTeamVPNTests:
     type: bundle.unit-test

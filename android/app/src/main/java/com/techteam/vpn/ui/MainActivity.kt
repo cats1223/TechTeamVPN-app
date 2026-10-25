@@ -51,6 +51,7 @@ import com.techteam.vpn.core.ServerProfile
 import com.techteam.vpn.data.AppSettings
 import com.techteam.vpn.data.ProfileRepository
 import com.techteam.vpn.vpn.VpnState
+import com.techteam.vpn.vpn.VpnStatus
 
 class MainActivity : ComponentActivity() {
     private val vm: MainViewModel by viewModels()
@@ -76,6 +77,7 @@ class MainActivity : ComponentActivity() {
         // Links shared from a browser or messenger land here.
         if (savedInstanceState == null) intent?.dataString?.let(::handleLink)
 
+        VpnStatus.appContext = applicationContext
         val settings = AppSettings.get(this)
         setContent {
             val lightTheme by settings.lightTheme.collectAsStateWithLifecycle()

@@ -31,7 +31,7 @@ final class AppModel: ObservableObject {
         case failed(String)
     }
 
-    let vpn = VPNManager()
+    let vpn = VPNManager.shared
     let traffic = TrafficMeter()
 
     init() {

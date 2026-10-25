@@ -16,3 +16,6 @@
 - APK подписывается постоянным ключом из секрета `ANDROID_KEYSTORE_BASE64` (debug-формат: пароль android, alias
   androiddebugkey; отпечаток SHA-256 698e8d29…2bb2). CI кладёт его в файл и передаёт Gradle через ANDROID_KEYSTORE_PATH;
   без него каждая сборка с новым ключом не ставится поверх старой и обновление из приложения не работает.
+- iOS-виджет (`ios/Widget`, цель TechTeamWidget, bundle id `<app>.widget`) не видит настроек VPN: статус он берёт по
+  интерфейсу utun с адресом 172.19.0.1, а переключение — `SetVPNIntent` (LiveActivityIntent), который iOS выполняет в
+  самом приложении. Подпись в CI (`scripts/ci/ios-sign.sh`) профиль для виджета пока не умеет — IPA подписывают в Feather.

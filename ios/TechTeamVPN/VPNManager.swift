@@ -11,7 +11,10 @@ final class VPNManager: ObservableObject {
     private var manager: NETunnelProviderManager?
     private var observer: NSObjectProtocol?
 
-    init() {
+    /// One manager for the app and the Siri/widget intents, which run in the app process too.
+    static let shared = VPNManager()
+
+    private init() {
         Task { await load() }
     }
 
@@ -134,6 +137,9 @@ final class VPNManager: ObservableObject {
 
     private func refresh() {
         guard let connection = manager?.connection else { return }
+        if connection.status != status, [.connected, .disconnected].contains(connection.status) {
+            VPNControl.reloadWidgets()
+        }
         status = connection.status
         connectedDate = connection.status == .connected ? connection.connectedDate : nil
         if connection.status == .disconnected {

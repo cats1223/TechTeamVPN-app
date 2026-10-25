@@ -37,6 +37,11 @@ class TechTeamVpnService : VpnService() {
     private var tun: ParcelFileDescriptor? = null
     private var watchdog: Job? = null
 
+    override fun onCreate() {
+        super.onCreate()
+        VpnStatus.appContext = applicationContext
+    }
+
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_DISCONNECT -> scope.launch { disconnect() }

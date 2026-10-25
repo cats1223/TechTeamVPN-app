@@ -51,6 +51,10 @@
     <string name="rate">%1$s/с</string>
     <string name="whats_new_title">Что нового в %1$s</string>
     <string name="whats_new_ok">Отлично</string>
+    <string name="widget_wide_label">TechTeamVPN</string>
+    <string name="widget_small_label">TechTeamVPN · кнопка</string>
+    <string name="widget_wide_description">Статус VPN и переключатель</string>
+    <string name="widget_small_description">Включить или выключить VPN одним касанием</string>
     <string name="expiry_channel">Подписка</string>
     <string name="expiry_in_3_days">Подписка закончится через 3 дня</string>
     <string name="expiry_tomorrow">Подписка закончится завтра</string>
