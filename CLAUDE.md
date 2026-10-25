@@ -20,6 +20,11 @@
 - iOS-виджет (`ios/Widget`, цель TechTeamWidget, bundle id `<app>.widget`) не видит настроек VPN: статус он берёт по
   интерфейсу utun с адресом 172.19.0.1, а переключение — `SetVPNIntent` (LiveActivityIntent), который iOS выполняет в
   самом приложении. Подпись в CI (`scripts/ci/ios-sign.sh`) профиль для виджета пока не умеет — IPA подписывают в Feather.
+- Windows (`windows/`): WPF + WebView2, интерфейс — веб-страница `windows/TechTeamVPN/Web` (тот же дизайн и глобус
+  MapLibre, что на Android; без WebView2 открывается в браузере в демо-режиме — так проверяется дизайн). Логика —
+  `windows/TechTeamVPN.Core` (порт android/.../core, тесты `TechTeamVPN.Core.Tests`, идут на Linux). Режимы: системный
+  прокси (без прав) и TUN через встроенный в Xray Wintun (`autoSystemRoutingTable`, нужны права администратора —
+  приложение перезапускается elevated). CI кладёт в zip xray.exe, wintun.dll, geodata и MapLibre (Web/vendor).
 
 ## Память между сжатиями контекста
 
