@@ -33,7 +33,7 @@ struct StatusProvider: TimelineProvider {
     }
 }
 
-/// A switch with the status under it: on iOS 26 the system draws it in Liquid Glass.
+/// A switch with the status under it, on a dark gradient.
 struct StatusWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "TechTeamVPNStatus", provider: StatusProvider()) { entry in
@@ -71,9 +71,7 @@ struct StatusWidgetView: View {
             HStack {
                 shield(size: 34)
                 Spacer()
-                Toggle(isOn: entry.connected, intent: SetVPNIntent(value: !entry.connected)) { EmptyView() }
-                    .labelsHidden()
-                    .tint(accent)
+                slider
             }
             Spacer()
             Text("TechTeamVPN").font(.caption).foregroundStyle(.secondary)
@@ -91,10 +89,28 @@ struct StatusWidgetView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
             Spacer(minLength: 0)
-            Toggle(isOn: entry.connected, intent: SetVPNIntent(value: !entry.connected)) { EmptyView() }
-                .labelsHidden()
-                .tint(accent)
+            slider
         }
+    }
+
+    /// A drawn switch: the system Toggle in a small widget loses its knob and looks like a grey
+    /// pill. Tapping it runs the same intent as the toggle would.
+    private var slider: some View {
+        Button(intent: SetVPNIntent(value: !entry.connected)) {
+            ZStack(alignment: entry.connected ? .trailing : .leading) {
+                Capsule()
+                    .fill(entry.connected ? accent : Color.white.opacity(0.22))
+                    .overlay(Capsule().strokeBorder(.white.opacity(0.15), lineWidth: 1))
+                Circle()
+                    .fill(.white)
+                    .shadow(color: .black.opacity(0.35), radius: 2, y: 1)
+                    .padding(3)
+            }
+            .frame(width: 56, height: 32)
+            .invalidatableContent()
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text(status))
     }
 
     private var statusLine: some View {
