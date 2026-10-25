@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -27,8 +28,9 @@ public sealed class Bridge
     private readonly StoredState state = Store.Load();
     private readonly XrayService xray = new();
     private readonly HttpClient direct = new(new HttpClientHandler { UseProxy = false }) { Timeout = TimeSpan.FromSeconds(15) };
-    private readonly Dictionary<string, int> pings = new();
-    private readonly Dictionary<string, GeoIP.Location> serverLocations = new();
+    // Written from pings and lookups that finish on different threads.
+    private readonly ConcurrentDictionary<string, int> pings = new();
+    private readonly ConcurrentDictionary<string, GeoIP.Location> serverLocations = new();
     private GeoIP.Location? home, visible;
     private long blockedToday;
     private int reconnects;
@@ -367,7 +369,8 @@ public sealed class Bridge
             isAdmin = Elevation.IsAdmin,
             status = xray.Status.ToString().ToLowerInvariant(),
             error = xray.Error,
-            since = new DateTimeOffset(xray.Since).ToUnixTimeMilliseconds(),
+            // Since is UTC, and unset (DateTime.MinValue) until the first connection.
+            since = xray.Since == default ? 0 : new DateTimeOffset(DateTime.SpecifyKind(xray.Since, DateTimeKind.Utc)).ToUnixTimeMilliseconds(),
             selectedId = state.Selected?.Id,
             profiles = state.Profiles.Select(p => new { p.Id, p.Name, p.Address, p.Port, p.Protocol, p.Network, p.Security }),
             subscription = state.SubscriptionUrl.Length > 0 ? new { url = state.SubscriptionUrl, info = state.SubscriptionInfo } : null,
