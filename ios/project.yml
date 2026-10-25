@@ -70,7 +70,7 @@ targets:
         embed: false
       - sdk: NetworkExtension.framework
 
-  # Home screen widget and Control Center button. Interactive widgets need iOS 17; the toggle's
+  # Home screen widget. Interactive widgets need iOS 17; the toggle's
   # intent runs in the app, so the extension needs no VPN entitlement or App Group.
   TechTeamWidget:
     type: app-extension
