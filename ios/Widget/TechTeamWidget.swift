@@ -6,9 +6,6 @@ import WidgetKit
 struct TechTeamWidgets: WidgetBundle {
     var body: some Widget {
         StatusWidget()
-        if #available(iOS 18.0, *) {
-            VPNControlWidget()
-        }
     }
 }
 

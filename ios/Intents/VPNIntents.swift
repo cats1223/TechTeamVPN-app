@@ -3,7 +3,7 @@ import AppIntents
 import WidgetKit
 #endif
 
-/// Turns the VPN on or off; used by the home screen widget and the Control Center button.
+/// Turns the VPN on or off; used by the home screen widget.
 /// As a LiveActivityIntent it always runs in the app (iOS starts it in the background), which
 /// owns the VPN configuration; the widget extension only builds the button.
 @available(iOS 17.0, *)
@@ -88,10 +88,9 @@ enum VPNControl {
         reloadWidgets()
     }
 
-    /// The widget and the Control Center button show the new state right away.
+    /// The widget shows the new state right away.
     static func reloadWidgets() {
         WidgetCenter.shared.reloadAllTimelines()
-        if #available(iOS 18.0, *) { ControlCenter.shared.reloadAllControls() }
     }
 }
 #endif
