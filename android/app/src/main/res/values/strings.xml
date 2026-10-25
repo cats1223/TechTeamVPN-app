@@ -57,6 +57,7 @@
     <string name="update_allow">Разрешите установку из TechTeamVPN, затем нажмите «Обновить» ещё раз</string>
     <string name="update_later">Позже</string>
     <string name="update_none">У вас последняя версия</string>
+    <string name="update_none_beta">Новых релизов нет. Чтобы получать беты, включите «Получать бета-версии»</string>
     <string name="update_error">Не удалось проверить обновления: %1$s</string>
 
     <string name="notification_channel">Состояние VPN</string>

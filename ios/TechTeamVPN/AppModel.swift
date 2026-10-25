@@ -55,7 +55,9 @@ final class AppModel: ObservableObject {
         }
         defaults.set(now, forKey: "updateCheckedAt")
         if !Updates.isNewer(release.version, than: AppSettings.shortVersion) {
-            if manual { message = "У вас последняя версия" }
+            // On a beta with betas off, "latest" would be misleading: only releases were checked.
+            let betaOff = Updates.isBeta(AppSettings.shortVersion) && !defaults.bool(forKey: AppSettings.betaUpdatesKey)
+            if manual { message = betaOff ? "Новых релизов нет. Чтобы получать беты, включите «Получать бета-версии»" : "У вас последняя версия" }
         } else if manual || defaults.string(forKey: "updateDismissed") != release.version {
             update = release
         }

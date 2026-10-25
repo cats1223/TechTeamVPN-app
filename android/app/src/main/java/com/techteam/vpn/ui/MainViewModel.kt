@@ -120,7 +120,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
         prefs.edit().putLong("updateCheckedAt", now).apply()
         when {
-            !Updates.isNewer(release.version, BuildConfig.VERSION_NAME) -> if (manual) toast(str(R.string.update_none))
+            !Updates.isNewer(release.version, BuildConfig.VERSION_NAME) -> if (manual) {
+                // On a beta with betas off, "latest" would be misleading: only releases were checked.
+                val betaOff = Updates.isBeta(BuildConfig.VERSION_NAME) && !AppSettings.get(getApplication()).betaUpdates.value
+                toast(str(if (betaOff) R.string.update_none_beta else R.string.update_none))
+            }
             // Asked from settings: download and install straight away.
             manual -> {
                 _update.value = release
