@@ -3,7 +3,6 @@ package com.techteam.vpn.ui
 import android.Manifest
 import android.content.ClipboardManager
 import android.content.Intent
-import android.net.Uri
 import android.net.VpnService
 import android.os.Build
 import android.os.Bundle
@@ -15,7 +14,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.ui.unit.dp
@@ -172,19 +174,29 @@ class MainActivity : ComponentActivity() {
                 }
 
                 val update by vm.update.collectAsStateWithLifecycle()
+                val updateProgress by vm.updateProgress.collectAsStateWithLifecycle()
                 update?.let { release ->
+                    val downloading = updateProgress != null
                     AlertDialog(
-                        onDismissRequest = vm::dismissUpdate,
+                        onDismissRequest = { if (!downloading) vm.dismissUpdate() },
                         title = { Text(stringResource(R.string.update_title)) },
-                        text = { Text(stringResource(R.string.update_text, release.version, BuildConfig.VERSION_NAME)) },
-                        confirmButton = {
-                            TextButton(onClick = {
-                                vm.dismissUpdate()
-                                // The APK link downloads the file in the browser; the system then offers to install it.
-                                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(release.downloadUrl)))
-                            }) { Text(stringResource(R.string.update_download)) }
+                        text = {
+                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text(stringResource(R.string.update_text, release.version, BuildConfig.VERSION_NAME))
+                                updateProgress?.let { progress ->
+                                    LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth())
+                                    Text(stringResource(R.string.update_downloading, (progress * 100).toInt()))
+                                }
+                            }
                         },
-                        dismissButton = { TextButton(onClick = vm::dismissUpdate) { Text(stringResource(R.string.update_later)) } },
+                        confirmButton = {
+                            TextButton(onClick = { vm.installUpdate(release) }, enabled = !downloading) {
+                                Text(stringResource(R.string.update_download))
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = vm::dismissUpdate, enabled = !downloading) { Text(stringResource(R.string.update_later)) }
+                        },
                     )
                 }
 

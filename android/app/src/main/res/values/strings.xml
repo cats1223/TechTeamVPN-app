@@ -48,8 +48,10 @@
     <string name="error_vpn_permission">Нужно разрешение на VPN</string>
 
     <string name="update_title">Доступно обновление</string>
-    <string name="update_text">Вышла версия %1$s, у вас %2$s. Скачать новую версию?</string>
-    <string name="update_download">Скачать</string>
+    <string name="update_text">Вышла версия %1$s, у вас %2$s. Обновить?</string>
+    <string name="update_download">Обновить</string>
+    <string name="update_downloading">Загрузка: %1$d%%</string>
+    <string name="update_allow">Разрешите установку из TechTeamVPN, затем нажмите «Обновить» ещё раз</string>
     <string name="update_later">Позже</string>
     <string name="update_none">У вас последняя версия</string>
     <string name="update_error">Не удалось проверить обновления: %1$s</string>

@@ -73,17 +73,18 @@ extension View {
     func messageAlert(active: Bool = true) -> some View { modifier(MessageAlert(active: active)) }
 }
 
-/// Brand palette; every color has a dark and a light variant for the theme setting.
+/// Brand palette; every color has a dark and a light variant for the theme setting. Backgrounds
+/// are neutral black, gray and white; only the accents carry color.
 enum Brand {
-    static let background = adaptive(dark: (0.043, 0.063, 0.125), light: (0.957, 0.965, 0.984))
-    static let surface = adaptive(dark: (0.082, 0.106, 0.180), light: (1, 1, 1))
-    static let surfaceHigh = adaptive(dark: (0.118, 0.149, 0.251), light: (0.902, 0.918, 0.953))
+    static let background = adaptive(dark: (0, 0, 0), light: (0.949, 0.949, 0.969))
+    static let surface = adaptive(dark: (0.110, 0.110, 0.118), light: (1, 1, 1))
+    static let surfaceHigh = adaptive(dark: (0.173, 0.173, 0.180), light: (0.898, 0.898, 0.918))
     static let cyan = adaptive(dark: (0, 0.82, 1), light: (0, 0.58, 0.78))
     static let violet = adaptive(dark: (0.482, 0.361, 1), light: (0.416, 0.294, 1))
     static let green = adaptive(dark: (0.169, 0.851, 0.545), light: (0.071, 0.659, 0.400))
     static let amber = adaptive(dark: (1, 0.71, 0.278), light: (0.851, 0.541, 0))
     static let red = adaptive(dark: (1, 0.361, 0.478), light: (0.878, 0.267, 0.373))
-    static let muted = adaptive(dark: (0.541, 0.576, 0.698), light: (0.420, 0.447, 0.502))
+    static let muted = adaptive(dark: (0.557, 0.557, 0.576), light: (0.424, 0.424, 0.439))
     static let gradient = LinearGradient(colors: [cyan, violet], startPoint: .topLeading, endPoint: .bottomTrailing)
 
     private static func adaptive(dark: (Double, Double, Double), light: (Double, Double, Double)) -> Color {
