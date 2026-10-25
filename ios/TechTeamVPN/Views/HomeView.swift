@@ -10,6 +10,7 @@ struct HomeView: View {
     @State private var showAdd = false
     @State private var showServers = false
     @State private var showSettings = false
+    @State private var burst = false
 
     private var connected: Bool { vpn.status == .connected }
     private var busy: Bool { [.connecting, .reasserting, .disconnecting].contains(vpn.status) }
@@ -74,11 +75,15 @@ struct HomeView: View {
             }
 
             if expanded {
-                if connected { internetCheck }
-                if let info = model.state.subscriptionInfo { SubscriptionCard(info: info) }
-                menu
+                Group {
+                    if connected { internetCheck }
+                    if let info = model.state.subscriptionInfo { SubscriptionCard(info: info) }
+                    menu
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
+        .animation(.spring(response: 0.45, dampingFraction: 0.85), value: expanded)
         .padding(.horizontal, 16)
         .padding(.bottom, 12)
         .liquidGlass(in: RoundedRectangle(cornerRadius: 32, style: .continuous))
@@ -96,12 +101,25 @@ struct HomeView: View {
     private var statusCard: some View {
         VStack(spacing: 14) {
             HStack(spacing: 14) {
-                Image(systemName: connected ? "checkmark.shield" : busy ? "shield.lefthalf.filled" : "exclamationmark.triangle")
-                    .font(.system(size: 30))
-                    .foregroundStyle(connected ? Brand.green : busy ? Brand.amber : Color.secondary)
-                    .frame(width: 44)
+                ZStack {
+                    // A ring that bursts out once when the connection comes up.
+                    Circle()
+                        .stroke(Brand.green, lineWidth: 3)
+                        .frame(width: 44, height: 44)
+                        .scaleEffect(burst ? 2.2 : 0.6)
+                        .opacity(burst ? 0 : (connected ? 0.9 : 0))
+                    Image(systemName: statusIcon)
+                        .font(.system(size: 30))
+                        .foregroundStyle(connected ? Brand.green : busy ? Brand.amber : Color.secondary)
+                        .id(statusIcon)
+                        .transition(.scale(scale: 0.4).combined(with: .opacity))
+                        .symbolPulse(busy)
+                }
+                .frame(width: 44)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title).font(.title3.weight(.semibold))
+                        .id(title)
+                        .transition(.asymmetric(insertion: .move(edge: .bottom).combined(with: .opacity), removal: .opacity))
                     subtitle.font(.footnote).foregroundStyle(.secondary).lineLimit(2)
                 }
                 Spacer(minLength: 0)
@@ -117,7 +135,20 @@ struct HomeView: View {
         }
         .padding(16)
         .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(.white.opacity(0.12)))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(connected ? Brand.green.opacity(0.6) : .white.opacity(0.12), lineWidth: connected ? 1.5 : 1)
+        )
+        .animation(.spring(response: 0.5, dampingFraction: 0.7), value: vpn.status)
+        .onChange(of: vpn.status) { status in
+            guard status == .connected else { return }
+            burst = false
+            withAnimation(.easeOut(duration: 0.9)) { burst = true }
+        }
+    }
+
+    private var statusIcon: String {
+        connected ? "checkmark.shield.fill" : busy ? "shield.lefthalf.filled" : "exclamationmark.triangle"
     }
 
     private var title: String {
@@ -182,6 +213,8 @@ struct HomeView: View {
                             .frame(height: 46)
                             .liquidGlass(in: Capsule(), tint: selected ? Brand.cyan.opacity(0.35) : nil, interactive: true)
                             .foregroundStyle(selected ? Brand.cyan : .primary)
+                            .scaleEffect(selected ? 1 : 0.95)
+                            .animation(.spring(response: 0.35, dampingFraction: 0.6), value: selected)
                         }
                         .buttonStyle(.plain)
                     }
@@ -266,15 +299,31 @@ struct HomeView: View {
 private struct StatusPill: View {
     let status: NEVPNStatus
     let error: String?
+    @State private var pulse = false
+
+    private var busy: Bool { [.connecting, .reasserting, .disconnecting].contains(status) }
 
     var body: some View {
         HStack(spacing: 10) {
-            Circle().fill(color).frame(width: 12, height: 12)
+            ZStack {
+                // While connecting the dot sends out rings; once connected it glows.
+                Circle().fill(color.opacity(0.5)).frame(width: 12, height: 12)
+                    .scaleEffect(busy && pulse ? 2.4 : 1)
+                    .opacity(busy && pulse ? 0 : (busy ? 0.8 : 0))
+                Circle().fill(color).frame(width: 12, height: 12)
+                    .shadow(color: status == .connected ? color : .clear, radius: 6)
+            }
             Text(text).font(.headline).foregroundStyle(.white)
+                .id(text)
+                .transition(.opacity.combined(with: .scale(scale: 0.9)))
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
         .liquidGlass(in: Capsule(), tint: .black.opacity(0.35))
+        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: status)
+        .onAppear {
+            withAnimation(.easeOut(duration: 1.1).repeatForever(autoreverses: false)) { pulse = true }
+        }
     }
 
     private var text: String {

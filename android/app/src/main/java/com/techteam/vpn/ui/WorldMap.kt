@@ -18,6 +18,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
@@ -48,6 +49,10 @@ import org.maplibre.geojson.Feature
 import org.maplibre.geojson.FeatureCollection
 import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
+import kotlin.math.atan
+import kotlin.math.exp
+import kotlin.math.ln
+import kotlin.math.tan
 
 /** A labelled point on the map; [active] pins are drawn in the accent color. */
 data class MapPin(val lat: Double, val lon: Double, val label: String, val active: Boolean)
@@ -128,11 +133,30 @@ fun WorldMap(
         m.setStyle(Style.Builder().fromUri(if (dark) DARK_STYLE else LIGHT_STYLE)) { s ->
             s.addSource(GeoJsonSource(ROUTE_SOURCE))
             s.addSource(GeoJsonSource(PINS_SOURCE))
+            s.addSource(GeoJsonSource(PACKETS_SOURCE))
+            s.addSource(GeoJsonSource(HALO_SOURCE))
             s.addLayer(
                 LineLayer(ROUTE_LAYER, ROUTE_SOURCE).withProperties(
                     PropertyFactory.lineColor(accent),
                     PropertyFactory.lineWidth(3f),
                     PropertyFactory.lineDasharray(arrayOf(2f, 1.5f)),
+                ),
+            )
+            // Glowing dots that run along the route from the phone to the server, like traffic.
+            s.addLayer(
+                CircleLayer(PACKETS_LAYER, PACKETS_SOURCE).withProperties(
+                    PropertyFactory.circleRadius(5f),
+                    PropertyFactory.circleColor(accent),
+                    PropertyFactory.circleBlur(0.6f),
+                    PropertyFactory.circleOpacity(0.95f),
+                ),
+            )
+            // A ring that keeps spreading out from the active pin.
+            s.addLayer(
+                CircleLayer(HALO_LAYER, HALO_SOURCE).withProperties(
+                    PropertyFactory.circleRadius(8f),
+                    PropertyFactory.circleColor(green),
+                    PropertyFactory.circleOpacity(0f),
                 ),
             )
             s.addLayer(
@@ -160,6 +184,34 @@ fun WorldMap(
             listOf(Feature.fromGeometry(LineString.fromLngLats(listOf(Point.fromLngLat(a.lon, a.lat), Point.fromLngLat(b.lon, b.lat)))))
         }.orEmpty()
         s.getSourceAs<GeoJsonSource>(ROUTE_SOURCE)?.setGeoJson(FeatureCollection.fromFeatures(route))
+    }
+
+    // Moves the traffic dots and the pulsing ring on every frame while there is something to show.
+    LaunchedEffect(style, line, pins) {
+        val s = style ?: return@LaunchedEffect
+        val active = pins.firstOrNull { it.active }
+        s.getSourceAs<GeoJsonSource>(HALO_SOURCE)?.setGeoJson(
+            FeatureCollection.fromFeatures(listOfNotNull(active?.let { Feature.fromGeometry(Point.fromLngLat(it.lon, it.lat)) })),
+        )
+        val packets = s.getSourceAs<GeoJsonSource>(PACKETS_SOURCE)
+        val halo = s.getLayerAs<CircleLayer>(HALO_LAYER)
+        if (line == null) packets?.setGeoJson(FeatureCollection.fromFeatures(emptyList()))
+        if (line == null && active == null) return@LaunchedEffect
+        while (true) {
+            val now = withFrameMillis { it }
+            line?.let { (a, b) ->
+                val t = (now % PACKET_TRIP_MS) / PACKET_TRIP_MS.toFloat()
+                val dots = (0 until PACKET_COUNT).map { k ->
+                    val (lat, lon) = alongMercator(a, b, ((t + k.toFloat() / PACKET_COUNT) % 1f).toDouble())
+                    Feature.fromGeometry(Point.fromLngLat(lon, lat))
+                }
+                packets?.setGeoJson(FeatureCollection.fromFeatures(dots))
+            }
+            if (active != null) {
+                val p = (now % HALO_MS) / HALO_MS.toFloat()
+                halo?.setProperties(PropertyFactory.circleRadius(8f + 22f * p), PropertyFactory.circleOpacity(0.5f * (1 - p)))
+            }
+        }
     }
 
     // Fly to the place only when it changes, so the user's own panning is left alone.
@@ -200,6 +252,24 @@ private const val PINS_SOURCE = "pins"
 private const val PINS_LAYER = "pins-layer"
 private const val ROUTE_SOURCE = "route"
 private const val ROUTE_LAYER = "route-layer"
+private const val PACKETS_SOURCE = "packets"
+private const val PACKETS_LAYER = "packets-layer"
+private const val HALO_SOURCE = "halo"
+private const val HALO_LAYER = "halo-layer"
+private const val PACKET_COUNT = 3
+private const val PACKET_TRIP_MS = 1800L
+private const val HALO_MS = 1600L
+
+/**
+ * The point a fraction [f] of the way from [a] to [b] along the straight line the map draws
+ * between them, which is straight in Web Mercator rather than in degrees.
+ */
+private fun alongMercator(a: MapPin, b: MapPin, f: Double): Pair<Double, Double> {
+    fun y(lat: Double) = ln(tan(Math.PI / 4 + Math.toRadians(lat) / 2))
+    val my = y(a.lat) + (y(b.lat) - y(a.lat)) * f
+    val lat = Math.toDegrees(2 * atan(exp(my)) - Math.PI / 2)
+    return lat to a.lon + (b.lon - a.lon) * f
+}
 
 private fun colorString(argb: Int): String =
     "rgba(%d,%d,%d,1)".format(AndroidColor.red(argb), AndroidColor.green(argb), AndroidColor.blue(argb))

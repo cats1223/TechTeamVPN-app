@@ -41,6 +41,18 @@ private func makeGlass(tint: Color?, interactive: Bool) -> Glass {
 }
 #endif
 
+extension View {
+    /// The SF Symbol pulses while `active` (iOS 17+); earlier systems show it still.
+    @ViewBuilder
+    func symbolPulse(_ active: Bool) -> some View {
+        if #available(iOS 17.0, *) {
+            self.symbolEffect(.pulse, isActive: active)
+        } else {
+            self
+        }
+    }
+}
+
 private struct FilledCapsuleStyle: ButtonStyle {
     let color: Color
 

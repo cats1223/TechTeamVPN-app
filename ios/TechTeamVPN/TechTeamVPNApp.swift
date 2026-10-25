@@ -5,10 +5,17 @@ struct TechTeamVPNApp: App {
     @StateObject private var model = AppModel()
     @AppStorage(AppSettings.themeKey) private var theme = AppSettings.Theme.dark.rawValue
     @Environment(\.scenePhase) private var scenePhase
+    @State private var showSplash = true
 
     var body: some Scene {
         WindowGroup {
-            RootView()
+            ZStack {
+                RootView()
+                if showSplash {
+                    SplashView { showSplash = false }
+                        .zIndex(1)
+                }
+            }
                 .environmentObject(model)
                 .environmentObject(model.vpn)
                 .preferredColorScheme(AppSettings.Theme(rawValue: theme) == .light ? .light : .dark)

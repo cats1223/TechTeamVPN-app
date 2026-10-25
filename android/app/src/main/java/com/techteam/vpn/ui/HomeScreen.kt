@@ -1,6 +1,30 @@
 package com.techteam.vpn.ui
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -140,8 +164,10 @@ fun HomeScreen(
                     state.profiles.forEach { item ->
                         val p = item.profile
                         val selected = p.id == state.selected?.id
+                        val scale by animateFloatAsState(if (selected) 1f else 0.95f, spring(dampingRatio = 0.5f), label = "chip")
                         Row(
                             Modifier
+                                .scale(scale)
                                 .height(46.dp)
                                 .clip(CircleShape)
                                 .background(if (selected) Brand.Cyan.copy(alpha = 0.22f) else Brand.SurfaceHigh)
@@ -161,12 +187,18 @@ fun HomeScreen(
                 }
             }
 
-            if (expanded) {
-                state.subscriptionInfo?.let { SubscriptionCard(it) }
-                Column(Modifier.clip(RoundedCornerShape(24.dp)).background(Brand.SurfaceHigh)) {
-                    MenuRow(Icons.Rounded.Dns, "Все серверы", onOpenServers)
-                    MenuRow(Icons.Rounded.Add, stringResource(R.string.add_key), onAdd)
-                    MenuRow(Icons.Rounded.Settings, "Настройки", onOpenSettings)
+            AnimatedVisibility(
+                visible = expanded,
+                enter = fadeIn() + expandVertically(spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow)),
+                exit = fadeOut() + shrinkVertically(),
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    state.subscriptionInfo?.let { SubscriptionCard(it) }
+                    Column(Modifier.clip(RoundedCornerShape(24.dp)).background(Brand.SurfaceHigh)) {
+                        MenuRow(Icons.Rounded.Dns, "Все серверы", onOpenServers)
+                        MenuRow(Icons.Rounded.Add, stringResource(R.string.add_key), onAdd)
+                        MenuRow(Icons.Rounded.Settings, "Настройки", onOpenSettings)
+                    }
                 }
             }
         }
@@ -181,13 +213,26 @@ private fun StatusPill(vpn: VpnState, modifier: Modifier) {
         is VpnState.Error -> stringResource(R.string.status_error) to Brand.Red
         VpnState.Disconnected -> stringResource(R.string.status_disconnected) to Brand.Red
     }
+    val dot by animateColorAsState(color, tween(400), label = "dot")
+    // While connecting the dot sends out rings.
+    val ring = rememberInfiniteTransition(label = "ring")
+    val ringScale by ring.animateFloat(1f, 2.6f, infiniteRepeatable(tween(1100, easing = LinearOutSlowInEasing)), label = "scale")
+    val ringAlpha by ring.animateFloat(0.8f, 0f, infiniteRepeatable(tween(1100, easing = LinearOutSlowInEasing)), label = "alpha")
     Row(
-        modifier.clip(CircleShape).background(Color.Black.copy(alpha = 0.75f)).padding(horizontal = 20.dp, vertical = 12.dp),
+        modifier.clip(CircleShape).background(Color.Black.copy(alpha = 0.75f)).animateContentSize()
+            .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(12.dp).clip(CircleShape).background(color))
+        Box(contentAlignment = Alignment.Center) {
+            if (vpn is VpnState.Connecting) {
+                Box(Modifier.size(12.dp).scale(ringScale).alpha(ringAlpha).clip(CircleShape).background(dot))
+            }
+            Box(Modifier.size(12.dp).clip(CircleShape).background(dot))
+        }
         Spacer(Modifier.width(10.dp))
-        Text(text, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+        AnimatedContent(text, transitionSpec = { fadeIn(tween(250)) togetherWith fadeOut(tween(150)) }, label = "pill") {
+            Text(it, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+        }
     }
 }
 
@@ -202,35 +247,76 @@ private fun StatusCard(
 ) {
     val connected = vpn is VpnState.Connected
     val connecting = vpn is VpnState.Connecting
+    val border by animateColorAsState(if (connected) Brand.Green.copy(alpha = 0.6f) else Color.Transparent, tween(500), label = "border")
     Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Brand.SurfaceHigh).padding(16.dp),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Brand.SurfaceHigh)
+            .border(1.5.dp, border, RoundedCornerShape(24.dp)).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                when {
-                    connected -> Icons.Rounded.VerifiedUser
-                    connecting -> Icons.Rounded.Shield
-                    else -> Icons.Rounded.WarningAmber
+            // A ring bursts out of the shield once when the connection comes up.
+            val burst = remember { Animatable(1f) }
+            LaunchedEffect(connected) {
+                if (connected) {
+                    burst.snapTo(0f)
+                    burst.animateTo(1f, tween(900, easing = LinearOutSlowInEasing))
+                }
+            }
+            val green = Brand.Green
+            Box(
+                Modifier.size(40.dp).drawBehind {
+                    if (burst.value < 1f) {
+                        drawCircle(
+                            green.copy(alpha = 1f - burst.value),
+                            radius = size.minDimension / 2 * (0.6f + 1.6f * burst.value),
+                            style = Stroke(width = 3.dp.toPx()),
+                        )
+                    }
                 },
-                null,
-                tint = when {
-                    connected -> Brand.Green
-                    connecting -> Brand.Amber
-                    else -> Brand.TextMuted
-                },
-                modifier = Modifier.size(34.dp),
-            )
+                contentAlignment = Alignment.Center,
+            ) {
+                AnimatedContent(
+                    targetState = when {
+                        connected -> 2
+                        connecting -> 1
+                        else -> 0
+                    },
+                    transitionSpec = {
+                        (scaleIn(spring(dampingRatio = 0.5f), initialScale = 0.4f) + fadeIn()) togetherWith (scaleOut() + fadeOut())
+                    },
+                    label = "icon",
+                ) { status ->
+                    val pulse = rememberInfiniteTransition(label = "pulse")
+                    val alpha by pulse.animateFloat(1f, 0.35f, infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "a")
+                    Icon(
+                        when (status) {
+                            2 -> Icons.Rounded.VerifiedUser
+                            1 -> Icons.Rounded.Shield
+                            else -> Icons.Rounded.WarningAmber
+                        },
+                        null,
+                        tint = when (status) {
+                            2 -> Brand.Green
+                            1 -> Brand.Amber
+                            else -> Brand.TextMuted
+                        },
+                        modifier = Modifier.size(34.dp).alpha(if (status == 1) alpha else 1f),
+                    )
+                }
+            }
             Spacer(Modifier.width(14.dp))
             Column {
-                Text(
+                AnimatedContent(
                     when {
                         connected -> "Вы защищены"
                         connecting -> stringResource(R.string.status_connecting)
                         else -> "Вы не защищены"
                     },
-                    color = Brand.Text, fontSize = 19.sp, fontWeight = FontWeight.SemiBold,
-                )
+                    transitionSpec = { (slideInVertically { it / 2 } + fadeIn()) togetherWith fadeOut() },
+                    label = "title",
+                ) { title ->
+                    Text(title, color = Brand.Text, fontSize = 19.sp, fontWeight = FontWeight.SemiBold)
+                }
                 val subtitle = when {
                     vpn is VpnState.Error -> vpn.message
                     connected -> {
@@ -255,9 +341,10 @@ private fun StatusCard(
             connecting -> Triple(stringResource(R.string.cancel), Brand.Red, onToggle)
             else -> Triple("Подключиться", Brand.Cyan, onToggle)
         }
+        val buttonColor by animateColorAsState(color, tween(450), label = "button")
         Button(
             onClick = action,
-            colors = ButtonDefaults.buttonColors(containerColor = color, contentColor = Color.White),
+            colors = ButtonDefaults.buttonColors(containerColor = buttonColor, contentColor = Color.White),
             shape = CircleShape,
             modifier = Modifier.fillMaxWidth().height(54.dp),
         ) {

@@ -224,6 +224,10 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
+                // Launch animation over everything; shown once per start of the app.
+                var splash by rememberSaveable { mutableStateOf(true) }
+                if (splash) SplashOverlay { splash = false }
+
                 if (showAdd) {
                     AddSheet(
                         busy = busy,

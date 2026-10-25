@@ -40,10 +40,16 @@ struct GlobeMap: UIViewRepresentable {
             c.pins = pins
         }
 
-        map.removeOverlays(map.overlays)
-        if connected, let home, let server {
-            var points = [home.coordinate, server.coordinate]
-            map.addOverlay(MKGeodesicPolyline(coordinates: &points, count: 2))
+        // The route is redrawn only when it changes, so its flowing animation is not restarted.
+        let route = connected ? home.flatMap { h in server.map { (h, $0) } } : nil
+        let routeKey = route.map { "\($0.0.latitude),\($0.0.longitude)>\($0.1.latitude),\($0.1.longitude)" }
+        if routeKey != c.routeKey {
+            c.routeKey = routeKey
+            map.removeOverlays(map.overlays)
+            if case let (from, to)? = route {
+                var points = [from.coordinate, to.coordinate]
+                map.addOverlay(MKGeodesicPolyline(coordinates: &points, count: 2))
+            }
         }
 
         // Turn the globe only when the place to look at changes, not on every redraw.
@@ -63,6 +69,27 @@ struct GlobeMap: UIViewRepresentable {
         var pins: [Pin] = []
         var target: CLLocationCoordinate2D?
         var connected = false
+        var routeKey: String?
+        private weak var routeRenderer: MKPolylineRenderer?
+        private var displayLink: CADisplayLink?
+        /// One dash plus one gap; the dash phase cycles through it.
+        private let dashPeriod: CGFloat = 26
+        private var phase: CGFloat = 0
+
+        deinit { displayLink?.invalidate() }
+
+        /// Moves the dashes from the phone towards the server, like traffic going out.
+        @objc private func step() {
+            guard let renderer = routeRenderer else {
+                displayLink?.invalidate()
+                displayLink = nil
+                return
+            }
+            // A smaller phase shifts the dash pattern forward along the line.
+            phase = (phase - 1.2).truncatingRemainder(dividingBy: dashPeriod)
+            renderer.lineDashPhase = phase < 0 ? phase + dashPeriod : phase
+            renderer.setNeedsDisplay()
+        }
 
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
             guard let pin = annotation as? Pin else { return nil }
@@ -80,8 +107,16 @@ struct GlobeMap: UIViewRepresentable {
         func mapView(_ mapView: MKMapView, rendererFor overlay: MKOverlay) -> MKOverlayRenderer {
             let renderer = MKPolylineRenderer(overlay: overlay)
             renderer.strokeColor = UIColor(Brand.cyan)
-            renderer.lineWidth = 3
-            renderer.lineDashPattern = [8, 6]
+            renderer.lineWidth = 4
+            renderer.lineCap = .round
+            renderer.lineDashPattern = [14, 12]
+            routeRenderer = renderer
+            if displayLink == nil {
+                let link = CADisplayLink(target: self, selector: #selector(step))
+                link.preferredFramesPerSecond = 30
+                link.add(to: .main, forMode: .common)
+                displayLink = link
+            }
             return renderer
         }
     }
