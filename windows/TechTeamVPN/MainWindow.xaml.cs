@@ -44,7 +44,18 @@ public partial class MainWindow : Window
         };
         tray.MouseClick += (_, e) => { if (e.Button == Forms.MouseButtons.Left) ShowFromTray(); };
 
-        Loaded += async (_, _) => await InitWebAsync();
+        Loaded += async (_, _) =>
+        {
+            try
+            {
+                await InitWebAsync();
+            }
+            catch (Exception e)
+            {
+                MessageBox.Show(this, "Не удалось открыть окно приложения (WebView2):\n\n" + e.Message, "TechTeamVPN",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        };
         SourceInitialized += (_, _) => UseDarkTitleBar();
         if (startMinimized) _ = InitWebAsync();
     }

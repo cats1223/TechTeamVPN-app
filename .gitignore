@@ -6,3 +6,4 @@ __pycache__/
 windows/**/bin/
 windows/**/obj/
 windows/TechTeamVPN/Web/vendor/
+windows/MicrosoftEdgeWebview2Setup.exe
