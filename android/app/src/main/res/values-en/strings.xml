@@ -130,4 +130,7 @@
     <string name="your_address">Your address</string>
     <string name="locating">locating…</string>
     <string name="connect_hint">Connect to the VPN to stay protected</string>
+    <string name="protection_title">Protection</string>
+    <string name="block_ads">Block ads</string>
+    <string name="block_ads_hint">Ad and tracker domains don\'t load. If a site breaks, add it to \"Custom sites\"</string>
 </resources>

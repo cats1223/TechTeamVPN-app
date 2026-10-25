@@ -23,15 +23,18 @@ object XrayConfig {
     val RUSSIAN_DOMAINS = listOf("geosite:category-ru", "domain:ru", "domain:su", "domain:xn--p1ai")
     /** Resolver for those sites, reached directly (its address is in geoip:ru), so they get the addresses a Russian network would. */
     const val RUSSIAN_DNS = "77.88.8.8"
+    /** Ad and tracker domains (geodata/geosite.dat) dropped when ad blocking is on. */
+    val AD_DOMAINS = listOf("geosite:category-ads-all")
 
     /**
      * @param tunFd the VpnService tun descriptor; Xray reads it from the `xray.tun.fd` env key.
      *              Pass null to build a config for validation only.
      * @param logPath file for Xray's error log at info level, used for troubleshooting.
      * @param russiaDirect send Russian sites and IP ranges past the VPN.
-     * @param assetDir directory with geoip.dat and geosite.dat, needed for [russiaDirect].
+     * @param assetDir directory with geoip.dat and geosite.dat, needed for [russiaDirect] and [blockAds].
      * @param directSites the user's sites that always go past the VPN.
      * @param proxySites the user's sites that always go through the VPN, even Russian ones.
+     * @param blockAds drop connections to ad and tracker domains.
      */
     fun build(
         profile: ServerProfile,
@@ -41,6 +44,7 @@ object XrayConfig {
         assetDir: String? = null,
         directSites: List<String> = emptyList(),
         proxySites: List<String> = emptyList(),
+        blockAds: Boolean = false,
     ): String {
         val root = JSONObject()
         root.put(
@@ -50,7 +54,7 @@ object XrayConfig {
         )
         val env = JSONObject()
         if (tunFd != null) env.put("xray.tun.fd", tunFd.toString())
-        if (russiaDirect && assetDir != null) env.put("xray.location.asset", assetDir)
+        if ((russiaDirect || blockAds) && assetDir != null) env.put("xray.location.asset", assetDir)
         if (env.length() > 0) root.put("env", env)
 
         val dnsServers = JSONArray()
@@ -96,13 +100,14 @@ object XrayConfig {
                     .put("outboundTag", "dns-out"),
             )
             .put(JSONObject().put("ip", JSONArray(PRIVATE_CIDRS)).put("outboundTag", "direct"))
-        // The user's own lists come first, so they win over the Russian rules.
+        // The user's own lists come first, so they win over ad blocking and the Russian rules.
         siteRules(proxySites).takeIf { it.isNotEmpty() }?.let {
             rules.put(JSONObject().put("domain", JSONArray(it)).put("outboundTag", "proxy"))
         }
         siteRules(directSites).takeIf { it.isNotEmpty() }?.let {
             rules.put(JSONObject().put("domain", JSONArray(it)).put("outboundTag", "direct"))
         }
+        if (blockAds) rules.put(JSONObject().put("domain", JSONArray(AD_DOMAINS)).put("outboundTag", "block"))
         if (russiaDirect) {
             rules.put(JSONObject().put("domain", JSONArray(RUSSIAN_DOMAINS)).put("outboundTag", "direct"))
             rules.put(JSONObject().put("ip", JSONArray(listOf("geoip:ru"))).put("outboundTag", "direct"))

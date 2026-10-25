@@ -101,10 +101,11 @@ class TechTeamVpnService : VpnService() {
         val log = java.io.File(filesDir, LOG_FILE).apply { writeText("") }
         val logPath = if (settings.devMode.value) log.path else null
         val russiaDirect = settings.russiaDirect.value
-        val assetDir = if (russiaDirect) installGeoData() else null
+        val blockAds = settings.blockAds.value
+        val assetDir = if (russiaDirect || blockAds) installGeoData() else null
         val config = XrayConfig.build(
             profile, fd.fd, logPath, russiaDirect, assetDir,
-            directSites = settings.directSites.value, proxySites = settings.proxySites.value,
+            directSites = settings.directSites.value, proxySites = settings.proxySites.value, blockAds = blockAds,
         )
         XrayCore.start(config, "${XrayConfig.DNS_SERVERS.first()}:53") { protect(it) }
     }

@@ -107,6 +107,7 @@ final class VPNManager: ObservableObject {
         // own: without App Groups it cannot read the app's server list.
         proto.providerConfiguration = [
             "russiaDirect": AppSettings.russiaDirect,
+            "blockAds": UserDefaults.standard.bool(forKey: AppSettings.blockAdsKey),
             "link": profile.link,
             "verbose": UserDefaults.standard.bool(forKey: AppSettings.devModeKey),
             "directSites": AppSettings.sites(AppSettings.directSitesKey),

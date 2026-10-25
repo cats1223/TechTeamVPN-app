@@ -83,6 +83,7 @@ class MainActivity : ComponentActivity() {
             val lightTheme by settings.lightTheme.collectAsStateWithLifecycle()
             val devMode by settings.devMode.collectAsStateWithLifecycle()
             val russiaDirect by settings.russiaDirect.collectAsStateWithLifecycle()
+            val blockAds by settings.blockAds.collectAsStateWithLifecycle()
             val bypassApps by settings.bypassApps.collectAsStateWithLifecycle()
             val betaUpdates by settings.betaUpdates.collectAsStateWithLifecycle()
             val directSites by settings.directSites.collectAsStateWithLifecycle()
@@ -139,6 +140,7 @@ class MainActivity : ComponentActivity() {
                                 hwid = ProfileRepository.get(this@MainActivity).hwid,
                                 selected = profiles.selected,
                                 russiaDirect = russiaDirect,
+                                blockAds = blockAds,
                                 bypassApps = bypassApps,
                                 betaUpdates = betaUpdates,
                                 directSites = directSites,
@@ -148,6 +150,10 @@ class MainActivity : ComponentActivity() {
                                 onTheme = settings::setLightTheme,
                                 onRussiaDirect = {
                                     settings.setRussiaDirect(it)
+                                    vm.reconnectIfActive()
+                                },
+                                onBlockAds = {
+                                    settings.setBlockAds(it)
                                     vm.reconnectIfActive()
                                 },
                                 onBypassApps = {

@@ -78,6 +78,20 @@ final class ServerProfileTests: XCTestCase {
         XCTAssertEqual((dns.first as? [String: Any])?["address"] as? String, XrayConfig.russianDNS)
     }
 
+    func testBlockAdsDropsAdDomainsAfterTheUserLists() throws {
+        let p = try XCTUnwrap(ServerProfile.parse(reality))
+        let json = try XrayConfig.build(p, tunFd: 42, assetDir: "/geo", proxySites: ["ads.example.com"], blockAds: true)
+        let root = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+        XCTAssertEqual((root["env"] as? [String: String])?["xray.location.asset"], "/geo")
+        let rules = try XCTUnwrap((root["routing"] as? [String: Any])?["rules"] as? [[String: Any]])
+        let block = try XCTUnwrap(rules.firstIndex { $0["outboundTag"] as? String == "block" })
+        XCTAssertEqual(rules[block]["domain"] as? [String], ["geosite:category-ads-all"])
+        // A site the user listed still goes through, ad domain or not.
+        let proxy = try XCTUnwrap(rules.firstIndex { $0["outboundTag"] as? String == "proxy" })
+        XCTAssertLessThan(proxy, block)
+        XCTAssertFalse(try XrayConfig.build(p, tunFd: 42).contains("category-ads"))
+    }
+
     func testBuildsTransports() throws {
         let xhttp = try XCTUnwrap(ServerProfile.parse(
             "vless://id@h:443?type=xhttp&path=%2Fx&mode=auto&extra=%7B%22xPaddingBytes%22%3A%22100-1000%22%7D"

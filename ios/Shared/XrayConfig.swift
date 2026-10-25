@@ -19,27 +19,31 @@ enum XrayConfig {
     /// Resolver for those sites, reached directly (its address is in geoip:ru), so they get
     /// the addresses a Russian network would.
     static let russianDNS = "77.88.8.8"
+    /// Ad and tracker domains (geodata/geosite.dat) dropped when ad blocking is on.
+    static let adDomains = ["geosite:category-ads-all"]
 
     /// - Parameter tunFd: the utun descriptor; Xray reads it from the `xray.tun.fd` env key.
     ///   Pass nil to build a config for validation only.
     /// - Parameter logPath: file for Xray's error log at info level, shown in the app's connection log.
     /// - Parameter russiaDirect: send Russian sites and IP ranges past the VPN.
-    /// - Parameter assetDir: directory with geoip.dat and geosite.dat, needed for `russiaDirect`.
+    /// - Parameter assetDir: directory with geoip.dat and geosite.dat, needed for `russiaDirect` and `blockAds`.
     /// - Parameter directSites: the user's sites that always go past the VPN.
     /// - Parameter proxySites: the user's sites that always go through the VPN, even Russian ones.
+    /// - Parameter blockAds: drop connections to ad and tracker domains.
     static func build(
         _ profile: ServerProfile, tunFd: Int32?, logPath: String? = nil, russiaDirect: Bool = false, assetDir: String? = nil,
-        directSites: [String] = [], proxySites: [String] = []
+        directSites: [String] = [], proxySites: [String] = [], blockAds: Bool = false
     ) throws -> String {
         var dnsServers: [Any] = upstreamDNS
         var rules: [[String: Any]] = [
             ["inboundTag": ["tun-in"], "port": "53", "outboundTag": "dns-out"],
             ["ip": privateCIDRs, "outboundTag": "direct"],
         ]
-        // The user's own lists come first, so they win over the Russian rules.
+        // The user's own lists come first, so they win over ad blocking and the Russian rules.
         let proxy = siteRules(proxySites), direct = siteRules(directSites)
         if !proxy.isEmpty { rules.append(["domain": proxy, "outboundTag": "proxy"]) }
         if !direct.isEmpty { rules.append(["domain": direct, "outboundTag": "direct"]) }
+        if blockAds { rules.append(["domain": adDomains, "outboundTag": "block"]) }
         if russiaDirect {
             dnsServers.insert(["address": russianDNS, "domains": russianDomains, "skipFallback": true], at: 0)
             rules.append(["domain": russianDomains, "outboundTag": "direct"])
@@ -64,7 +68,7 @@ enum XrayConfig {
         ]
         var env: [String: String] = [:]
         if let tunFd { env["xray.tun.fd"] = String(tunFd) }
-        if russiaDirect, let assetDir { env["xray.location.asset"] = assetDir }
+        if russiaDirect || blockAds, let assetDir { env["xray.location.asset"] = assetDir }
         if !env.isEmpty { root["env"] = env }
         let data = try JSONSerialization.data(withJSONObject: root, options: [.sortedKeys])
         return String(decoding: data, as: UTF8.self)

@@ -23,6 +23,10 @@ class AppSettings private constructor(context: Context) {
     private val _russiaDirect = MutableStateFlow(prefs.getBoolean("russiaDirect", true))
     val russiaDirect: StateFlow<Boolean> = _russiaDirect.asStateFlow()
 
+    /** Ad and tracker domains are blocked; off by default, since a few sites break without them. */
+    private val _blockAds = MutableStateFlow(prefs.getBoolean("blockAds", false))
+    val blockAds: StateFlow<Boolean> = _blockAds.asStateFlow()
+
     /** Packages excluded from the VPN: their traffic goes straight to the network. */
     private val _bypassApps = MutableStateFlow(prefs.getStringSet("bypassApps", null).orEmpty().toSet())
     val bypassApps: StateFlow<Set<String>> = _bypassApps.asStateFlow()
@@ -64,6 +68,11 @@ class AppSettings private constructor(context: Context) {
     fun setRussiaDirect(enabled: Boolean) {
         _russiaDirect.value = enabled
         prefs.edit().putBoolean("russiaDirect", enabled).apply()
+    }
+
+    fun setBlockAds(enabled: Boolean) {
+        _blockAds.value = enabled
+        prefs.edit().putBoolean("blockAds", enabled).apply()
     }
 
     fun setBypassApps(packages: Set<String>) {

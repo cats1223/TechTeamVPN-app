@@ -132,4 +132,7 @@
     <string name="your_address">Ваш адрес</string>
     <string name="locating">определяю…</string>
     <string name="connect_hint">Подключитесь к VPN для защиты</string>
+    <string name="protection_title">Защита</string>
+    <string name="block_ads">Блокировать рекламу</string>
+    <string name="block_ads_hint">Рекламные и следящие домены не загружаются. Если сайт сломался — добавьте его в «Свои сайты»</string>
 </resources>

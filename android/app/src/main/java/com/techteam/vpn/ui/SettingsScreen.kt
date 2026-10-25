@@ -58,6 +58,7 @@ fun SettingsScreen(
     hwid: String,
     selected: ServerProfile?,
     russiaDirect: Boolean,
+    blockAds: Boolean,
     bypassApps: Set<String>,
     betaUpdates: Boolean,
     directSites: List<String>,
@@ -66,6 +67,7 @@ fun SettingsScreen(
     proxySites: List<String>,
     onTheme: (Boolean) -> Unit,
     onRussiaDirect: (Boolean) -> Unit,
+    onBlockAds: (Boolean) -> Unit,
     onBypassApps: (Set<String>) -> Unit,
     onCheckUpdate: () -> Unit,
     onBetaUpdates: (Boolean) -> Unit,
@@ -119,6 +121,20 @@ fun SettingsScreen(
                     Text(stringResource(R.string.apps_card_hint), color = Brand.TextMuted, fontSize = 12.sp)
                 }
                 Text(if (bypassApps.isEmpty()) stringResource(R.string.none) else bypassApps.size.toString(), color = Brand.Cyan)
+            }
+        }
+
+        SectionTitle(stringResource(R.string.protection_title))
+        Card(Modifier.clickable { onBlockAds(!blockAds) }) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.block_ads), color = Brand.Text)
+                    Text(stringResource(R.string.block_ads_hint), color = Brand.TextMuted, fontSize = 12.sp)
+                }
+                Switch(
+                    checked = blockAds, onCheckedChange = onBlockAds,
+                    colors = SwitchDefaults.colors(checkedTrackColor = Brand.Cyan),
+                )
             }
         }
 

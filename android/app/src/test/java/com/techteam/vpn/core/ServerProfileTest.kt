@@ -97,6 +97,19 @@ class ServerProfileTest {
     }
 
     @Test
+    fun blockAdsDropsAdDomainsAfterTheUserLists() {
+        val p = ServerProfile.parse(reality)!!
+        val config = JSONObject(XrayConfig.build(p, 42, assetDir = "/geo", proxySites = listOf("ads.example.com"), blockAds = true))
+        assertEquals("/geo", config.getJSONObject("env").getString("xray.location.asset"))
+        val rules = config.getJSONObject("routing").getJSONArray("rules").let { r -> (0 until r.length()).map { r.getJSONObject(it) } }
+        val block = rules.indexOfFirst { it.getString("outboundTag") == "block" }
+        assertEquals("[\"geosite:category-ads-all\"]", rules[block].getJSONArray("domain").toString())
+        // A site the user listed still goes through, ad domain or not.
+        assertTrue(rules.indexOfFirst { it.getString("outboundTag") == "proxy" } in 0 until block)
+        assertTrue(JSONObject(XrayConfig.build(p, 42)).getJSONObject("routing").toString().indexOf("block") < 0)
+    }
+
+    @Test
     fun buildsTransports() {
         val ws = XrayConfig.outbound(ServerProfile.parse("vless://id@h:443?type=ws&security=tls&path=%2Fws&host=cdn.example&alpn=h2,http/1.1")!!)
             .getJSONObject("streamSettings")

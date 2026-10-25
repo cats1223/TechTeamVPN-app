@@ -6,6 +6,8 @@ enum AppSettings {
     static let devModeKey = "devMode"
     /// Russian sites and IP ranges go past the VPN; on by default.
     static let russiaDirectKey = "russiaDirect"
+    /// Ad and tracker domains are blocked; off by default, since a few sites break without them.
+    static let blockAdsKey = "blockAds"
     /// Offer betas in the update check too, not only full releases.
     static let betaUpdatesKey = "betaUpdates"
 
@@ -53,6 +55,7 @@ struct SettingsView: View {
     @AppStorage(AppSettings.themeKey) private var theme = AppSettings.Theme.dark.rawValue
     @AppStorage(AppSettings.devModeKey) private var devMode = false
     @AppStorage(AppSettings.russiaDirectKey) private var russiaDirect = true
+    @AppStorage(AppSettings.blockAdsKey) private var blockAds = false
     @AppStorage(AppSettings.betaUpdatesKey) private var betaUpdates = false
     @AppStorage(AppSettings.autoFastestKey) private var autoFastest = false
     @State private var versionTaps = 0
@@ -84,6 +87,19 @@ struct SettingsView: View {
                     Text("Раздельное туннелирование")
                 } footer: {
                     Text("Сайты в зонах .ru, .su, .рф и российские адреса открываются без VPN, с вашего обычного адреса. Российские приложения ходят на свои серверы тоже напрямую. Выбрать отдельные приложения на iPhone нельзя: Apple разрешает это только через MDM.")
+                }
+
+                Section {
+                    Toggle("Блокировать рекламу", isOn: $blockAds)
+                        .tint(Brand.cyan)
+                        .onChange(of: blockAds) { _ in
+                            Task { await model.applyTunnelSettings() }
+                        }
+                        .listRowBackground(Brand.surface)
+                } header: {
+                    Text("Защита")
+                } footer: {
+                    Text("Рекламные и следящие домены не загружаются — в браузере и в приложениях. Если сайт сломался, добавьте его в «Свои сайты».")
                 }
 
                 Section {

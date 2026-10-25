@@ -55,13 +55,15 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
             let verbose = options?["verbose"] as? String == "1" || options?["diagnose"] as? String == "1"
                 || (options == nil && providerConfig?["verbose"] as? Bool == true)
             let russiaDirect = providerConfig?["russiaDirect"] as? Bool ?? true
+            let blockAds = providerConfig?["blockAds"] as? Bool ?? false
             // geoip.dat and geosite.dat are bundled with the extension (geodata/ in project.yml).
             let assetDir = Bundle.main.resourceURL?.appendingPathComponent("geodata").path
-            appendLog("TechTeamVPN: russian sites direct \(russiaDirect ? "on" : "off")")
+            appendLog("TechTeamVPN: russian sites direct \(russiaDirect ? "on" : "off"), ads \(blockAds ? "blocked" : "allowed")")
             let config = try XrayConfig.build(
                 profile, tunFd: fd, logPath: verbose ? logURL.path : nil, russiaDirect: russiaDirect, assetDir: assetDir,
                 directSites: providerConfig?["directSites"] as? [String] ?? [],
-                proxySites: providerConfig?["proxySites"] as? [String] ?? []
+                proxySites: providerConfig?["proxySites"] as? [String] ?? [],
+                blockAds: blockAds
             )
             try XrayCore.run(config)
             appendLog("TechTeamVPN: Xray started, memory \(Self.memoryMB()) MB")

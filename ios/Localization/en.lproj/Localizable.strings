@@ -147,3 +147,6 @@
 "Трафик: %@ из %@" = "Traffic: %@ of %@";
 "Использовано: %@" = "Used: %@";
 "Осталось дней: %lld" = "Days left: %lld";
+"Блокировать рекламу" = "Block ads";
+"Защита" = "Protection";
+"Рекламные и следящие домены не загружаются — в браузере и в приложениях. Если сайт сломался, добавьте его в «Свои сайты»." = "Ad and tracker domains don't load, in the browser and in apps. If a site breaks, add it to “Custom sites”.";
