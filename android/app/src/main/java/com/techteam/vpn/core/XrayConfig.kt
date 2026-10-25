@@ -30,6 +30,8 @@ object XrayConfig {
      * @param logPath file for Xray's error log at info level, used for troubleshooting.
      * @param russiaDirect send Russian sites and IP ranges past the VPN.
      * @param assetDir directory with geoip.dat and geosite.dat, needed for [russiaDirect].
+     * @param directSites the user's sites that always go past the VPN.
+     * @param proxySites the user's sites that always go through the VPN, even Russian ones.
      */
     fun build(
         profile: ServerProfile,
@@ -37,6 +39,8 @@ object XrayConfig {
         logPath: String? = null,
         russiaDirect: Boolean = false,
         assetDir: String? = null,
+        directSites: List<String> = emptyList(),
+        proxySites: List<String> = emptyList(),
     ): String {
         val root = JSONObject()
         root.put(
@@ -92,12 +96,32 @@ object XrayConfig {
                     .put("outboundTag", "dns-out"),
             )
             .put(JSONObject().put("ip", JSONArray(PRIVATE_CIDRS)).put("outboundTag", "direct"))
+        // The user's own lists come first, so they win over the Russian rules.
+        siteRules(proxySites).takeIf { it.isNotEmpty() }?.let {
+            rules.put(JSONObject().put("domain", JSONArray(it)).put("outboundTag", "proxy"))
+        }
+        siteRules(directSites).takeIf { it.isNotEmpty() }?.let {
+            rules.put(JSONObject().put("domain", JSONArray(it)).put("outboundTag", "direct"))
+        }
         if (russiaDirect) {
             rules.put(JSONObject().put("domain", JSONArray(RUSSIAN_DOMAINS)).put("outboundTag", "direct"))
             rules.put(JSONObject().put("ip", JSONArray(listOf("geoip:ru"))).put("outboundTag", "direct"))
         }
         root.put("routing", JSONObject().put("domainStrategy", "AsIs").put("rules", rules))
         return root.toString()
+    }
+
+    /**
+     * Xray domain rules for what a user typed: "https://www.Site.com/page", "*.site.com" and
+     * "site.com" all become "domain:site.com", which also covers subdomains. Junk is dropped.
+     */
+    fun siteRules(entries: List<String>): List<String> = entries.mapNotNull { siteDomain(it) }.distinct().map { "domain:$it" }
+
+    fun siteDomain(entry: String): String? {
+        val host = entry.trim().lowercase()
+            .substringAfter("://").substringBefore('/').substringBefore('?').substringBefore(':')
+            .removePrefix("*.").removePrefix("www.").trim('.')
+        return host.takeIf { Regex("""^[a-z0-9-]+(\.[a-z0-9-]+)+$""").matches(it) || Regex("""^[\p{L}0-9-]+(\.[\p{L}0-9-]+)+$""").matches(it) }
     }
 
     fun outbound(p: ServerProfile): JSONObject = when (p.protocol) {

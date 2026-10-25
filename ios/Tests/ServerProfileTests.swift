@@ -159,6 +159,17 @@ final class ServerProfileTests: XCTestCase {
         XCTAssertNil(Updates.parse(Data("{}".utf8)))
     }
 
+    func testUserSiteRules() throws {
+        XCTAssertEqual(XrayConfig.siteRules(["https://www.Site.com/page?x", "*.site.com", "вк.рф", "nonsense", " "]), ["domain:site.com", "domain:вк.рф"])
+        let p = try XCTUnwrap(ServerProfile.parse(reality))
+        let json = try XrayConfig.build(p, tunFd: 1, directSites: ["bank.com"], proxySites: ["yandex.ru"])
+        let root = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+        let rules = try XCTUnwrap((root["routing"] as? [String: Any])?["rules"] as? [[String: Any]])
+        XCTAssertEqual(rules[2]["outboundTag"] as? String, "proxy")
+        XCTAssertEqual(rules[2]["domain"] as? [String], ["domain:yandex.ru"])
+        XCTAssertEqual(rules[3]["outboundTag"] as? String, "direct")
+    }
+
     func testParsesTrojan() throws {
         let trojan = try XCTUnwrap(ServerProfile.parse("trojan://p%40ss@t.example:443?type=ws&path=%2Ft&sni=cdn.example#Trojan"))
         XCTAssertEqual(trojan.protocol, ServerProfile.trojan)

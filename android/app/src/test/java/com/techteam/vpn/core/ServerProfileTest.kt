@@ -204,6 +204,16 @@ class ServerProfileTest {
     }
 
     @Test
+    fun userSiteRules() {
+        assertEquals(listOf("domain:site.com", "domain:вк.рф"), XrayConfig.siteRules(listOf("https://www.Site.com/page?x", "*.site.com", "вк.рф", "nonsense", " ")))
+        val config = JSONObject(XrayConfig.build(ServerProfile.parse(reality)!!, 1, directSites = listOf("bank.com"), proxySites = listOf("yandex.ru")))
+        val rules = config.getJSONObject("routing").getJSONArray("rules")
+        assertEquals("proxy", rules.getJSONObject(2).getString("outboundTag"))
+        assertEquals("domain:yandex.ru", rules.getJSONObject(2).getJSONArray("domain").getString(0))
+        assertEquals("direct", rules.getJSONObject(3).getString("outboundTag"))
+    }
+
+    @Test
     fun parsesTrojan() {
         val trojan = ServerProfile.parse("trojan://p%40ss@t.example:443?type=ws&path=%2Ft&sni=cdn.example#Trojan")!!
         assertEquals(ServerProfile.TROJAN, trojan.protocol)

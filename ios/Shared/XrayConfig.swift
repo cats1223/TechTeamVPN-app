@@ -25,14 +25,21 @@ enum XrayConfig {
     /// - Parameter logPath: file for Xray's error log at info level, shown in the app's connection log.
     /// - Parameter russiaDirect: send Russian sites and IP ranges past the VPN.
     /// - Parameter assetDir: directory with geoip.dat and geosite.dat, needed for `russiaDirect`.
+    /// - Parameter directSites: the user's sites that always go past the VPN.
+    /// - Parameter proxySites: the user's sites that always go through the VPN, even Russian ones.
     static func build(
-        _ profile: ServerProfile, tunFd: Int32?, logPath: String? = nil, russiaDirect: Bool = false, assetDir: String? = nil
+        _ profile: ServerProfile, tunFd: Int32?, logPath: String? = nil, russiaDirect: Bool = false, assetDir: String? = nil,
+        directSites: [String] = [], proxySites: [String] = []
     ) throws -> String {
         var dnsServers: [Any] = upstreamDNS
         var rules: [[String: Any]] = [
             ["inboundTag": ["tun-in"], "port": "53", "outboundTag": "dns-out"],
             ["ip": privateCIDRs, "outboundTag": "direct"],
         ]
+        // The user's own lists come first, so they win over the Russian rules.
+        let proxy = siteRules(proxySites), direct = siteRules(directSites)
+        if !proxy.isEmpty { rules.append(["domain": proxy, "outboundTag": "proxy"]) }
+        if !direct.isEmpty { rules.append(["domain": direct, "outboundTag": "direct"]) }
         if russiaDirect {
             dnsServers.insert(["address": russianDNS, "domains": russianDomains, "skipFallback": true], at: 0)
             rules.append(["domain": russianDomains, "outboundTag": "direct"])
@@ -61,6 +68,26 @@ enum XrayConfig {
         if !env.isEmpty { root["env"] = env }
         let data = try JSONSerialization.data(withJSONObject: root, options: [.sortedKeys])
         return String(decoding: data, as: UTF8.self)
+    }
+
+    /// Xray domain rules for what a user typed: "https://www.Site.com/page", "*.site.com" and
+    /// "site.com" all become "domain:site.com", which also covers subdomains. Junk is dropped.
+    static func siteRules(_ entries: [String]) -> [String] {
+        var seen = Set<String>()
+        return entries.compactMap(siteDomain).filter { seen.insert($0).inserted }.map { "domain:" + $0 }
+    }
+
+    static func siteDomain(_ entry: String) -> String? {
+        var host = entry.trimmingCharacters(in: .whitespaces).lowercased()
+        if let r = host.range(of: "://") { host = String(host[r.upperBound...]) }
+        for cut in ["/", "?", ":"] { if let r = host.range(of: cut) { host = String(host[..<r.lowerBound]) } }
+        for prefix in ["*.", "www."] where host.hasPrefix(prefix) { host.removeFirst(prefix.count) }
+        host = host.trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        let parts = host.split(separator: ".", omittingEmptySubsequences: false)
+        let valid = parts.count >= 2 && parts.allSatisfy { p in
+            !p.isEmpty && p.unicodeScalars.allSatisfy { CharacterSet.alphanumerics.contains($0) || $0 == "-" }
+        }
+        return valid ? host : nil
     }
 
     static func outbound(_ p: ServerProfile) -> [String: Any] {
