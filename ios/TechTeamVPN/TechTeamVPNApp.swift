@@ -6,18 +6,29 @@ struct TechTeamVPNApp: App {
     @AppStorage(AppSettings.themeKey) private var theme = AppSettings.Theme.dark.rawValue
     @Environment(\.scenePhase) private var scenePhase
     @State private var showSplash = true
+    @State private var showOnboarding = false
 
     var body: some Scene {
         WindowGroup {
             ZStack {
                 RootView()
                 if showSplash {
-                    SplashView { showSplash = false }
-                        .zIndex(1)
+                    SplashView {
+                        showSplash = false
+                        // First launch with no servers yet: a short introduction.
+                        showOnboarding = !UserDefaults.standard.bool(forKey: "onboardingSeen") && model.state.profiles.isEmpty
+                    }
+                    .zIndex(1)
                 }
             }
                 .environmentObject(model)
                 .environmentObject(model.vpn)
+                .fullScreenCover(isPresented: $showOnboarding) {
+                    OnboardingView {
+                        UserDefaults.standard.set(true, forKey: "onboardingSeen")
+                        showOnboarding = false
+                    }
+                }
                 .preferredColorScheme(AppSettings.Theme(rawValue: theme) == .light ? .light : .dark)
                 // Opening a server link (vless, trojan) imports the key.
                 .onOpenURL { url in

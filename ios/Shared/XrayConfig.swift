@@ -19,6 +19,30 @@ enum XrayConfig {
     /// Resolver for those sites, reached directly (its address is in geoip:ru), so they get
     /// the addresses a Russian network would.
     static let russianDNS = "77.88.8.8"
+    /// Upstream DNS picked in settings. AdGuard is plain DNS over TCP to its IP, which needs no
+    /// certificate for the address; it also filters ads.
+    static func upstreamDNS(choice: String, custom: String = "") -> [String] {
+        switch choice {
+        case "cloudflare": return ["https://1.1.1.1/dns-query", "https://1.0.0.1/dns-query"]
+        case "google": return ["https://8.8.8.8/dns-query", "https://8.8.4.4/dns-query"]
+        case "adguard": return ["tcp://94.140.14.14:53", "tcp://94.140.15.15:53"]
+        case "custom": return customDNS(custom).map { [$0] } ?? upstreamDNS
+        default: return upstreamDNS
+        }
+    }
+
+    /// What the user typed as their own DNS: an IPv4 address becomes DNS over TCP to it, an
+    /// https:// URL is used as DoH. Anything else is nil.
+    static func customDNS(_ entry: String) -> String? {
+        let e = entry.trimmingCharacters(in: .whitespaces)
+        if e.hasPrefix("https://") { return e.count > 8 && !e.contains(" ") ? e : nil }
+        let parts = e.split(separator: ".", omittingEmptySubsequences: false)
+        let isIP = parts.count == 4 && parts.allSatisfy { p in
+            !p.isEmpty && p.count <= 3 && p.allSatisfy(\.isNumber) && (Int(p) ?? 256) <= 255
+        }
+        return isIP ? "tcp://\(e):53" : nil
+    }
+
     /// Ad and tracker domains (geodata/geosite.dat) dropped when ad blocking is on.
     static let adDomains = ["geosite:category-ads-all"]
 
@@ -30,11 +54,12 @@ enum XrayConfig {
     /// - Parameter directSites: the user's sites that always go past the VPN.
     /// - Parameter proxySites: the user's sites that always go through the VPN, even Russian ones.
     /// - Parameter blockAds: drop connections to ad and tracker domains.
+    /// - Parameter dns: upstream resolvers, reached through the proxy; see `upstreamDNS(choice:custom:)`.
     static func build(
         _ profile: ServerProfile, tunFd: Int32?, logPath: String? = nil, russiaDirect: Bool = false, assetDir: String? = nil,
-        directSites: [String] = [], proxySites: [String] = [], blockAds: Bool = false
+        directSites: [String] = [], proxySites: [String] = [], blockAds: Bool = false, dns: [String] = upstreamDNS
     ) throws -> String {
-        var dnsServers: [Any] = upstreamDNS
+        var dnsServers: [Any] = dns
         var rules: [[String: Any]] = [
             ["inboundTag": ["tun-in"], "port": "53", "outboundTag": "dns-out"],
             ["ip": privateCIDRs, "outboundTag": "direct"],

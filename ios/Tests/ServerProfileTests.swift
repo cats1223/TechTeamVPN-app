@@ -92,6 +92,35 @@ final class ServerProfileTests: XCTestCase {
         XCTAssertFalse(try XrayConfig.build(p, tunFd: 42).contains("category-ads"))
     }
 
+    func testPicksUpstreamDNS() throws {
+        XCTAssertEqual(XrayConfig.upstreamDNS(choice: ""), XrayConfig.upstreamDNS)
+        XCTAssertEqual(XrayConfig.upstreamDNS(choice: "adguard").first, "tcp://94.140.14.14:53")
+        XCTAssertEqual(XrayConfig.upstreamDNS(choice: "custom", custom: " 9.9.9.9 "), ["tcp://9.9.9.9:53"])
+        XCTAssertEqual(XrayConfig.upstreamDNS(choice: "custom", custom: "dns.example"), XrayConfig.upstreamDNS)
+        XCTAssertEqual(XrayConfig.customDNS("https://9.9.9.9/dns-query"), "https://9.9.9.9/dns-query")
+        XCTAssertNil(XrayConfig.customDNS("300.1.1.1"))
+        let p = try XCTUnwrap(ServerProfile.parse(reality))
+        let json = try XrayConfig.build(p, tunFd: 42, dns: XrayConfig.upstreamDNS(choice: "google"))
+        let root = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+        XCTAssertEqual(((root["dns"] as? [String: Any])?["servers"] as? [Any])?.first as? String, "https://8.8.8.8/dns-query")
+    }
+
+    func testKeepsTrafficPerDay() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: "UTC")!
+        let today = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 10, day: 25, hour: 12)))
+        func ago(_ n: Int) -> Date { calendar.date(byAdding: .day, value: -n, to: today)! }
+        var h = TrafficHistory()
+        h.add(down: 100, up: 10, at: ago(61), calendar: calendar)
+        h.add(down: 300, up: 30, at: ago(1), calendar: calendar)
+        h.add(down: 500, up: 50, at: today, calendar: calendar)
+        let back = try XCTUnwrap(TrafficHistory(data: h.data))
+        XCTAssertEqual(back.total(1, until: today, calendar: calendar).down, 500)
+        XCTAssertEqual(back.total(7, until: today, calendar: calendar).up, 80)
+        XCTAssertEqual(back.daily(3, until: today, calendar: calendar).map(\.total), [0, 330, 550])
+        XCTAssertNil(back.days["2026-08-25"])
+    }
+
     func testBuildsTransports() throws {
         let xhttp = try XCTUnwrap(ServerProfile.parse(
             "vless://id@h:443?type=xhttp&path=%2Fx&mode=auto&extra=%7B%22xPaddingBytes%22%3A%22100-1000%22%7D"

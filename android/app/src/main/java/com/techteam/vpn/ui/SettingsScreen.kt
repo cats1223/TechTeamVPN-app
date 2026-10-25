@@ -3,6 +3,8 @@ package com.techteam.vpn.ui
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -48,6 +50,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.techteam.vpn.BuildConfig
 import com.techteam.vpn.R
 import com.techteam.vpn.core.ServerProfile
+import com.techteam.vpn.core.TrafficHistory
 import com.techteam.vpn.vpn.TechTeamVpnService
 import java.io.File
 
@@ -59,6 +62,9 @@ fun SettingsScreen(
     selected: ServerProfile?,
     russiaDirect: Boolean,
     blockAds: Boolean,
+    dns: String,
+    customDns: String,
+    traffic: TrafficHistory,
     bypassApps: Set<String>,
     betaUpdates: Boolean,
     directSites: List<String>,
@@ -68,6 +74,7 @@ fun SettingsScreen(
     onTheme: (Boolean) -> Unit,
     onRussiaDirect: (Boolean) -> Unit,
     onBlockAds: (Boolean) -> Unit,
+    onDns: (String, String) -> Unit,
     onBypassApps: (Set<String>) -> Unit,
     onCheckUpdate: () -> Unit,
     onBetaUpdates: (Boolean) -> Unit,
@@ -82,6 +89,9 @@ fun SettingsScreen(
     var askPassword by remember { mutableStateOf(false) }
     var showLog by remember { mutableStateOf(false) }
     var showApps by remember { mutableStateOf(false) }
+    var showDns by remember { mutableStateOf(false) }
+    var showKillSwitch by remember { mutableStateOf(false) }
+    var showStats by remember { mutableStateOf(false) }
     var editSites by remember { mutableStateOf<Boolean?>(null) } // true: direct list, false: VPN list
 
     Column(
@@ -138,6 +148,19 @@ fun SettingsScreen(
             }
         }
 
+        Card(Modifier.clickable { showKillSwitch = true }) {
+            Column {
+                Text(stringResource(R.string.kill_switch), color = Brand.Text)
+                Text(stringResource(R.string.kill_switch_hint), color = Brand.TextMuted, fontSize = 12.sp)
+            }
+        }
+        Card(Modifier.clickable { showDns = true }) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("DNS", color = Brand.Text, modifier = Modifier.weight(1f))
+                Text(dnsTitle(dns), color = Brand.Cyan)
+            }
+        }
+
         SectionTitle(stringResource(R.string.servers_title))
         Card(Modifier.clickable { onAutoFastest(!autoFastest) }) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -160,6 +183,17 @@ fun SettingsScreen(
                     Text(if (list.isEmpty()) stringResource(R.string.none) else list.size.toString(), color = Brand.Cyan)
                 }
             }
+        }
+
+        SectionTitle(stringResource(R.string.more_title))
+        Card(Modifier.clickable { showStats = true }) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.stats_title), color = Brand.Text, modifier = Modifier.weight(1f))
+                Text(formatBytes(traffic.total(1).let { it.first + it.second }), color = Brand.Cyan)
+            }
+        }
+        Card(Modifier.clickable { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(SUPPORT_URL))) } }) {
+            Text(stringResource(R.string.support), color = Brand.Cyan)
         }
 
         SectionTitle(stringResource(R.string.about))
@@ -218,6 +252,17 @@ fun SettingsScreen(
         )
     }
     if (showLog) LogDialog(onDismiss = { showLog = false })
+    if (showKillSwitch) KillSwitchDialog(onDismiss = { showKillSwitch = false })
+    if (showStats) StatsDialog(traffic, onDismiss = { showStats = false })
+    if (showDns) {
+        DnsDialog(
+            choice = dns, custom = customDns, onDismiss = { showDns = false },
+            onSave = { choice, custom ->
+                showDns = false
+                onDns(choice, custom)
+            },
+        )
+    }
     editSites?.let { direct ->
         SitesDialog(
             title = stringResource(if (direct) R.string.sites_direct else R.string.sites_proxy),
@@ -328,5 +373,7 @@ private fun copy(context: Context, text: String) {
     (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
         .setPrimaryClip(ClipData.newPlainText("TechTeamVPN", text))
 }
+
+const val SUPPORT_URL = "https://t.me/TechTeamVPN_bot"
 
 private fun toast(context: Context, text: String) = Toast.makeText(context, text, Toast.LENGTH_SHORT).show()

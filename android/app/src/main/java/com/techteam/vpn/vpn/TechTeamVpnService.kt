@@ -36,6 +36,8 @@ class TechTeamVpnService : VpnService() {
     private val lock = Mutex()
     private var tun: ParcelFileDescriptor? = null
     private var watchdog: Job? = null
+    private var trafficJob: Job? = null
+    private var lastBytes: Pair<Long, Long>? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -102,12 +104,43 @@ class TechTeamVpnService : VpnService() {
         val logPath = if (settings.devMode.value) log.path else null
         val russiaDirect = settings.russiaDirect.value
         val blockAds = settings.blockAds.value
+        val dns = XrayConfig.upstreamDns(settings.dns.value, settings.customDns.value)
         val assetDir = if (russiaDirect || blockAds) installGeoData() else null
         val config = XrayConfig.build(
             profile, fd.fd, logPath, russiaDirect, assetDir,
-            directSites = settings.directSites.value, proxySites = settings.proxySites.value, blockAds = blockAds,
+            directSites = settings.directSites.value, proxySites = settings.proxySites.value, blockAds = blockAds, dns = dns,
         )
         XrayCore.start(config, "${XrayConfig.DNS_SERVERS.first()}:53") { protect(it) }
+        countTraffic()
+    }
+
+    /**
+     * Adds the VPN's traffic to the per-day history every 10 s. Xray's own sockets carry it all
+     * and belong to this app, so the app's byte counters are the VPN's traffic.
+     */
+    private fun countTraffic() {
+        trafficJob?.cancel()
+        lastBytes = appBytes()
+        trafficJob = scope.launch {
+            while (true) {
+                delay(10_000)
+                saveTraffic()
+            }
+        }
+    }
+
+    private fun saveTraffic() {
+        val now = appBytes() ?: return
+        val last = lastBytes
+        lastBytes = now
+        if (last != null) AppSettings.get(this).addTraffic(now.first - last.first, now.second - last.second)
+    }
+
+    private fun appBytes(): Pair<Long, Long>? {
+        val uid = android.os.Process.myUid()
+        val rx = android.net.TrafficStats.getUidRxBytes(uid)
+        val tx = android.net.TrafficStats.getUidTxBytes(uid)
+        return if (rx < 0 || tx < 0) null else rx to tx
     }
 
     /** If the core stops on its own while the VPN is meant to be up, start it again. */
@@ -168,6 +201,10 @@ class TechTeamVpnService : VpnService() {
     }
 
     private fun stopCore() {
+        trafficJob?.cancel()
+        trafficJob = null
+        if (lastBytes != null) runCatching { saveTraffic() }
+        lastBytes = null
         runCatching { XrayCore.stop() }.onFailure { Log.w(TAG, "stopXray", it) }
         runCatching { tun?.close() }
         tun = null

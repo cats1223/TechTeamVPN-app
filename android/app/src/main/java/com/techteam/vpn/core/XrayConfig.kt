@@ -23,6 +23,30 @@ object XrayConfig {
     val RUSSIAN_DOMAINS = listOf("geosite:category-ru", "domain:ru", "domain:su", "domain:xn--p1ai")
     /** Resolver for those sites, reached directly (its address is in geoip:ru), so they get the addresses a Russian network would. */
     const val RUSSIAN_DNS = "77.88.8.8"
+    /**
+     * Upstream DNS picked in settings. AdGuard is plain DNS over TCP to its IP, which needs no
+     * certificate for the address; it also filters ads.
+     */
+    fun upstreamDns(choice: String, custom: String = ""): List<String> = when (choice) {
+        "cloudflare" -> listOf("https://1.1.1.1/dns-query", "https://1.0.0.1/dns-query")
+        "google" -> listOf("https://8.8.8.8/dns-query", "https://8.8.4.4/dns-query")
+        "adguard" -> listOf("tcp://94.140.14.14:53", "tcp://94.140.15.15:53")
+        "custom" -> customDns(custom)?.let { listOf(it) } ?: UPSTREAM_DNS
+        else -> UPSTREAM_DNS
+    }
+
+    /**
+     * What the user typed as their own DNS: an IPv4 address becomes DNS over TCP to it, an
+     * https:// URL is used as DoH. Anything else is null.
+     */
+    fun customDns(entry: String): String? {
+        val e = entry.trim()
+        if (e.startsWith("https://")) return e.takeIf { it.length > 8 && ' ' !in it }
+        val parts = e.split('.')
+        val isIp = parts.size == 4 && parts.all { p -> p.length in 1..3 && p.all(Char::isDigit) && p.toInt() <= 255 }
+        return if (isIp) "tcp://$e:53" else null
+    }
+
     /** Ad and tracker domains (geodata/geosite.dat) dropped when ad blocking is on. */
     val AD_DOMAINS = listOf("geosite:category-ads-all")
 
@@ -35,6 +59,7 @@ object XrayConfig {
      * @param directSites the user's sites that always go past the VPN.
      * @param proxySites the user's sites that always go through the VPN, even Russian ones.
      * @param blockAds drop connections to ad and tracker domains.
+     * @param dns upstream resolvers, reached through the proxy; see [upstreamDns].
      */
     fun build(
         profile: ServerProfile,
@@ -45,6 +70,7 @@ object XrayConfig {
         directSites: List<String> = emptyList(),
         proxySites: List<String> = emptyList(),
         blockAds: Boolean = false,
+        dns: List<String> = UPSTREAM_DNS,
     ): String {
         val root = JSONObject()
         root.put(
@@ -66,7 +92,7 @@ object XrayConfig {
                     .put("skipFallback", true),
             )
         }
-        UPSTREAM_DNS.forEach { dnsServers.put(it) }
+        dns.forEach { dnsServers.put(it) }
         root.put("dns", JSONObject().put("servers", dnsServers).put("queryStrategy", "UseIPv4"))
         root.put(
             "inbounds",

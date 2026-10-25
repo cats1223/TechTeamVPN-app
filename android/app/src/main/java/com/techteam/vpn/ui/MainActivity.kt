@@ -84,6 +84,9 @@ class MainActivity : ComponentActivity() {
             val devMode by settings.devMode.collectAsStateWithLifecycle()
             val russiaDirect by settings.russiaDirect.collectAsStateWithLifecycle()
             val blockAds by settings.blockAds.collectAsStateWithLifecycle()
+            val dns by settings.dns.collectAsStateWithLifecycle()
+            val customDns by settings.customDns.collectAsStateWithLifecycle()
+            val trafficHistory by settings.traffic.collectAsStateWithLifecycle()
             val bypassApps by settings.bypassApps.collectAsStateWithLifecycle()
             val betaUpdates by settings.betaUpdates.collectAsStateWithLifecycle()
             val directSites by settings.directSites.collectAsStateWithLifecycle()
@@ -141,6 +144,15 @@ class MainActivity : ComponentActivity() {
                                 selected = profiles.selected,
                                 russiaDirect = russiaDirect,
                                 blockAds = blockAds,
+                                dns = dns,
+                                customDns = customDns,
+                                traffic = trafficHistory,
+                                onDns = { choice, custom ->
+                                    if (choice != dns || custom != customDns) {
+                                        settings.setDns(choice, custom)
+                                        vm.reconnectIfActive()
+                                    }
+                                },
                                 bypassApps = bypassApps,
                                 betaUpdates = betaUpdates,
                                 directSites = directSites,
@@ -228,6 +240,16 @@ class MainActivity : ComponentActivity() {
 
                 val whatsNew by vm.whatsNew.collectAsStateWithLifecycle()
                 whatsNew?.let { notes -> WhatsNewDialog(notes, onClose = vm::dismissWhatsNew) }
+
+                // First launch with no servers yet: a short introduction over everything else.
+                var onboarding by remember { mutableStateOf(!settings.onboardingSeen && profiles.profiles.isEmpty()) }
+                if (onboarding) {
+                    BackHandler { }
+                    OnboardingScreen {
+                        settings.onboardingSeen = true
+                        onboarding = false
+                    }
+                }
 
                 val update by vm.update.collectAsStateWithLifecycle()
                 val updateProgress by vm.updateProgress.collectAsStateWithLifecycle()

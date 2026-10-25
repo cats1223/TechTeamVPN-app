@@ -1,6 +1,7 @@
 package com.techteam.vpn.data
 
 import android.content.Context
+import com.techteam.vpn.core.TrafficHistory
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,6 +27,21 @@ class AppSettings private constructor(context: Context) {
     /** Ad and tracker domains are blocked; off by default, since a few sites break without them. */
     private val _blockAds = MutableStateFlow(prefs.getBoolean("blockAds", false))
     val blockAds: StateFlow<Boolean> = _blockAds.asStateFlow()
+
+    /** Upstream DNS: "" (Cloudflare and Google), "cloudflare", "google", "adguard" or "custom". */
+    private val _dns = MutableStateFlow(prefs.getString("dns", "").orEmpty())
+    val dns: StateFlow<String> = _dns.asStateFlow()
+    private val _customDns = MutableStateFlow(prefs.getString("customDns", "").orEmpty())
+    val customDns: StateFlow<String> = _customDns.asStateFlow()
+
+    /** The welcome slides were shown. */
+    var onboardingSeen: Boolean
+        get() = prefs.getBoolean("onboardingSeen", false)
+        set(value) = prefs.edit().putBoolean("onboardingSeen", value).apply()
+
+    /** Traffic per day, written by the VPN service. */
+    private val _traffic = MutableStateFlow(TrafficHistory.decode(prefs.getString("traffic", null)))
+    val traffic: StateFlow<TrafficHistory> = _traffic.asStateFlow()
 
     /** Packages excluded from the VPN: their traffic goes straight to the network. */
     private val _bypassApps = MutableStateFlow(prefs.getStringSet("bypassApps", null).orEmpty().toSet())
@@ -73,6 +89,19 @@ class AppSettings private constructor(context: Context) {
     fun setBlockAds(enabled: Boolean) {
         _blockAds.value = enabled
         prefs.edit().putBoolean("blockAds", enabled).apply()
+    }
+
+    fun setDns(choice: String, custom: String = _customDns.value) {
+        _dns.value = choice
+        _customDns.value = custom
+        prefs.edit().putString("dns", choice).putString("customDns", custom).apply()
+    }
+
+    @Synchronized
+    fun addTraffic(down: Long, up: Long) {
+        val history = TrafficHistory.decode(prefs.getString("traffic", null)).apply { add(down, up) }
+        prefs.edit().putString("traffic", history.encode()).apply()
+        _traffic.value = history
     }
 
     fun setBypassApps(packages: Set<String>) {

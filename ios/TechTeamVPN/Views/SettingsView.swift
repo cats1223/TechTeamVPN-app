@@ -8,6 +8,12 @@ enum AppSettings {
     static let russiaDirectKey = "russiaDirect"
     /// Ad and tracker domains are blocked; off by default, since a few sites break without them.
     static let blockAdsKey = "blockAds"
+    /// Upstream DNS: "" (Cloudflare and Google), "cloudflare", "google", "adguard" or "custom".
+    static let dnsKey = "dns"
+    static let customDNSKey = "customDNS"
+    /// Block all traffic while the VPN is down (iOS includeAllNetworks).
+    static let killSwitchKey = "killSwitch"
+    static let supportURL = URL(string: "https://t.me/TechTeamVPN_bot")!
     /// Offer betas in the update check too, not only full releases.
     static let betaUpdatesKey = "betaUpdates"
 
@@ -56,6 +62,8 @@ struct SettingsView: View {
     @AppStorage(AppSettings.devModeKey) private var devMode = false
     @AppStorage(AppSettings.russiaDirectKey) private var russiaDirect = true
     @AppStorage(AppSettings.blockAdsKey) private var blockAds = false
+    @AppStorage(AppSettings.killSwitchKey) private var killSwitch = false
+    @AppStorage(AppSettings.dnsKey) private var dns = ""
     @AppStorage(AppSettings.betaUpdatesKey) private var betaUpdates = false
     @AppStorage(AppSettings.autoFastestKey) private var autoFastest = false
     @State private var versionTaps = 0
@@ -96,10 +104,26 @@ struct SettingsView: View {
                             Task { await model.applyTunnelSettings() }
                         }
                         .listRowBackground(Brand.surface)
+                    Toggle("Блокировать интернет без VPN", isOn: $killSwitch)
+                        .tint(Brand.cyan)
+                        .onChange(of: killSwitch) { _ in
+                            Task { await model.applyTunnelSettings() }
+                        }
+                        .listRowBackground(Brand.surface)
+                    NavigationLink {
+                        DNSView { Task { await model.applyTunnelSettings() } }
+                    } label: {
+                        HStack {
+                            Text("DNS")
+                            Spacer()
+                            Text(DNSView.title(dns)).foregroundStyle(Brand.muted)
+                        }
+                    }
+                    .listRowBackground(Brand.surface)
                 } header: {
                     Text("Защита")
                 } footer: {
-                    Text("Рекламные и следящие домены не загружаются — в браузере и в приложениях. Если сайт сломался, добавьте его в «Свои сайты».")
+                    Text("Реклама: рекламные и следящие домены не загружаются — в браузере и в приложениях; если сайт сломался, добавьте его в «Свои сайты». Без VPN: пока VPN переподключается, интернет не работает, чтобы ничего не ушло мимо него.")
                 }
 
                 Section {
@@ -135,6 +159,15 @@ struct SettingsView: View {
                     .listRowBackground(Brand.surface)
                 } header: {
                     Text("Свои сайты")
+                }
+
+                Section {
+                    NavigationLink { StatsView() } label: { Label("Статистика трафика", systemImage: "chart.bar") }
+                        .listRowBackground(Brand.surface)
+                    Link(destination: AppSettings.supportURL) {
+                        Label("Поддержка в Telegram", systemImage: "paperplane")
+                    }
+                    .listRowBackground(Brand.surface)
                 }
 
                 Section("О приложении") {

@@ -57,6 +57,23 @@ final class VPNManager: ObservableObject {
         }
     }
 
+    /// Traffic per day from the running tunnel; the last answer is kept for when it is off.
+    func fetchStats() async -> TrafficHistory {
+        let key = "trafficHistoryCache"
+        let cached = UserDefaults.standard.data(forKey: key).flatMap(TrafficHistory.init(data:)) ?? TrafficHistory()
+        guard let session = manager?.connection as? NETunnelProviderSession, isActive else { return cached }
+        let data: Data? = await withCheckedContinuation { continuation in
+            do {
+                try session.sendProviderMessage(Data("stats".utf8)) { continuation.resume(returning: $0) }
+            } catch {
+                continuation.resume(returning: nil)
+            }
+        }
+        guard let data, let fresh = TrafficHistory(data: data) else { return cached }
+        UserDefaults.standard.set(data, forKey: key)
+        return fresh
+    }
+
     /// Runs the tunnel for 20 s in diagnostic mode and returns the log it hands back as its
     /// disconnect error, or nil when the tunnel died without reporting.
     func recordLog(_ profile: ServerProfile) async -> String? {
@@ -112,7 +129,14 @@ final class VPNManager: ObservableObject {
             "verbose": UserDefaults.standard.bool(forKey: AppSettings.devModeKey),
             "directSites": AppSettings.sites(AppSettings.directSitesKey),
             "proxySites": AppSettings.sites(AppSettings.proxySitesKey),
+            "dns": UserDefaults.standard.string(forKey: AppSettings.dnsKey) ?? "",
+            "customDNS": UserDefaults.standard.string(forKey: AppSettings.customDNSKey) ?? "",
         ]
+        // Kill switch: everything must go through the tunnel, so nothing leaks while it is down;
+        // the local network (printers, AirPlay) stays reachable.
+        let killSwitch = UserDefaults.standard.bool(forKey: AppSettings.killSwitchKey)
+        proto.includeAllNetworks = killSwitch
+        proto.excludeLocalNetworks = killSwitch
         manager.protocolConfiguration = proto
         manager.localizedDescription = "TechTeamVPN"
         manager.isEnabled = true

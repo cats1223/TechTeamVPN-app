@@ -11,6 +11,9 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     private var notes: [String] = []
     private var diagnoseTask: Task<Void, Never>?
     private var memoryTask: Task<Void, Never>?
+    private var trafficTask: Task<Void, Never>?
+    private var lastCounters: (rx: UInt32, tx: UInt32)?
+    private static let historyKey = "trafficHistory"
 
     private static func writableLogURL() -> URL {
         let candidates = [AppGroup.logURL, FileManager.default.temporaryDirectory.appendingPathComponent("xray.log")]
@@ -56,6 +59,9 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
                 || (options == nil && providerConfig?["verbose"] as? Bool == true)
             let russiaDirect = providerConfig?["russiaDirect"] as? Bool ?? true
             let blockAds = providerConfig?["blockAds"] as? Bool ?? false
+            let dns = XrayConfig.upstreamDNS(
+                choice: providerConfig?["dns"] as? String ?? "", custom: providerConfig?["customDNS"] as? String ?? ""
+            )
             // geoip.dat and geosite.dat are bundled with the extension (geodata/ in project.yml).
             let assetDir = Bundle.main.resourceURL?.appendingPathComponent("geodata").path
             appendLog("TechTeamVPN: russian sites direct \(russiaDirect ? "on" : "off"), ads \(blockAds ? "blocked" : "allowed")")
@@ -63,22 +69,51 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
                 profile, tunFd: fd, logPath: verbose ? logURL.path : nil, russiaDirect: russiaDirect, assetDir: assetDir,
                 directSites: providerConfig?["directSites"] as? [String] ?? [],
                 proxySites: providerConfig?["proxySites"] as? [String] ?? [],
-                blockAds: blockAds
+                blockAds: blockAds, dns: dns
             )
             try XrayCore.run(config)
             appendLog("TechTeamVPN: Xray started, memory \(Self.memoryMB()) MB")
             log.info("Xray started for \(profile.name, privacy: .public)")
             if options?["diagnose"] as? String == "1" { scheduleDiagnosticStop() } else { watchMemory() }
+            countTraffic()
         } catch {
             appendLog("TechTeamVPN: start failed: \(error.localizedDescription)")
             throw error
         }
     }
 
-    /// The app sends "log" and gets the last 64 KB of the log back.
+    /// The app sends "log" and gets the last 64 KB of the log back, or "stats" and gets the
+    /// traffic history (TrafficHistory as JSON).
     override func handleAppMessage(_ messageData: Data) async -> Data? {
-        guard String(decoding: messageData, as: UTF8.self) == "log" else { return nil }
-        return Data(report(limit: 65_536).utf8)
+        switch String(decoding: messageData, as: UTF8.self) {
+        case "log": return Data(report(limit: 65_536).utf8)
+        case "stats":
+            saveTraffic()
+            return UserDefaults.standard.data(forKey: Self.historyKey) ?? TrafficHistory().data
+        default: return nil
+        }
+    }
+
+    /// Adds the tunnel's traffic to the per-day history every 10 s.
+    private func countTraffic() {
+        lastCounters = TunnelCounters.read()
+        trafficTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 10_000_000_000)
+                self?.saveTraffic()
+            }
+        }
+    }
+
+    private func saveTraffic() {
+        guard let now = TunnelCounters.read() else { return }
+        defer { lastCounters = now }
+        guard let last = lastCounters else { return }
+        let defaults = UserDefaults.standard
+        var history = defaults.data(forKey: Self.historyKey).flatMap(TrafficHistory.init(data:)) ?? TrafficHistory()
+        // The counters are 32-bit and wrap around at 4 GB; unsigned subtraction handles that.
+        history.add(down: Int64(now.rx &- last.rx), up: Int64(now.tx &- last.tx))
+        defaults.set(history.data, forKey: Self.historyKey)
     }
 
     /// A memory line every 30 s: iOS kills a packet tunnel near 50 MB without a word, so the trend
@@ -158,6 +193,8 @@ final class PacketTunnelProvider: NEPacketTunnelProvider {
     override func stopTunnel(with reason: NEProviderStopReason) async {
         diagnoseTask?.cancel()
         memoryTask?.cancel()
+        trafficTask?.cancel()
+        saveTraffic()
         log.info("stopping tunnel, reason \(reason.rawValue)")
         XrayCore.stop()
     }

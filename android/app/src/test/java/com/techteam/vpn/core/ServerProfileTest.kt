@@ -110,6 +110,33 @@ class ServerProfileTest {
     }
 
     @Test
+    fun picksUpstreamDns() {
+        assertEquals(XrayConfig.UPSTREAM_DNS, XrayConfig.upstreamDns(""))
+        assertEquals("tcp://94.140.14.14:53", XrayConfig.upstreamDns("adguard").first())
+        assertEquals(listOf("tcp://9.9.9.9:53"), XrayConfig.upstreamDns("custom", " 9.9.9.9 "))
+        assertEquals(XrayConfig.UPSTREAM_DNS, XrayConfig.upstreamDns("custom", "dns.example"))
+        assertEquals("https://9.9.9.9/dns-query", XrayConfig.customDns("https://9.9.9.9/dns-query"))
+        assertEquals(null, XrayConfig.customDns("300.1.1.1"))
+        val config = JSONObject(XrayConfig.build(ServerProfile.parse(reality)!!, 42, dns = XrayConfig.upstreamDns("google")))
+        assertEquals("https://8.8.8.8/dns-query", config.getJSONObject("dns").getJSONArray("servers").getString(0))
+    }
+
+    @Test
+    fun keepsTrafficPerDay() {
+        val today = java.time.LocalDate.of(2026, 10, 25)
+        val h = TrafficHistory()
+        h.add(100, 10, today.minusDays(61))
+        h.add(300, 30, today.minusDays(1))
+        h.add(500, 50, today)
+        h.add(-5, 0, today)
+        val back = TrafficHistory.decode(h.encode())
+        assertEquals(500L to 50L, back.total(1, today))
+        assertEquals(800L to 80L, back.total(7, today))
+        assertEquals(listOf(0L, 330L, 550L), back.daily(3, today).map { it.total })
+        assertEquals(false, h.encode().contains("2026-08-25"))
+    }
+
+    @Test
     fun buildsTransports() {
         val ws = XrayConfig.outbound(ServerProfile.parse("vless://id@h:443?type=ws&security=tls&path=%2Fws&host=cdn.example&alpn=h2,http/1.1")!!)
             .getJSONObject("streamSettings")
