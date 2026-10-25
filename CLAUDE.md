@@ -26,7 +26,8 @@
   прокси (без прав) и TUN через встроенный в Xray Wintun (`autoSystemRoutingTable`, нужны права администратора —
   приложение перезапускается elevated). Собирается отдельно: `.github/workflows/windows.yml` по пушу в ветку `windows-release` (версия из `windows/VERSION`; пуш тегов из этой среды не проходит), тег
   `windows-vX.Y.Z` (раздел `## windows-vX.Y.Z` в CHANGELOG), релиз с make_latest: false, чтобы телефоны не приняли его
-  за своё обновление; Windows ищет обновления только среди тегов windows-v*. В zip — xray.exe, wintun.dll, geodata, MapLibre.
+  за своё обновление; Windows ищет обновления только среди тегов windows-v*. Выпускается одним установщиком Inno Setup
+  (`windows/installer.iss`, TechTeamVPN-Setup-X.Y.Z.exe, ставится в профиль без прав) с xray.exe, wintun.dll, geodata, MapLibre.
 
 ## Память между сжатиями контекста
 

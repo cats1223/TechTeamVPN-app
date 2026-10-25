@@ -11,7 +11,7 @@ public static class Updates
     public const string AllUrl = "https://api.github.com/repos/cats1223/TechTeamVPN-app/releases?per_page=100";
     public const string TagPrefix = "windows-v";
 
-    /// <summary><see cref="DownloadUrl"/> is the Windows zip when the release has one, otherwise the release page.</summary>
+    /// <summary><see cref="DownloadUrl"/> is the setup file when the release has one, otherwise the release page.</summary>
     public sealed record Release(string Version, string PageUrl, string DownloadUrl);
 
     /// <summary>
@@ -36,14 +36,14 @@ public static class Updates
         if (!o.TryGetProperty("tag_name", out var tag) || !o.TryGetProperty("html_url", out var page)) return null;
         var name = tag.GetString() ?? "";
         if (!name.StartsWith(TagPrefix)) return null;
-        var zip = o.TryGetProperty("assets", out var assets)
+        var setup = o.TryGetProperty("assets", out var assets)
             ? assets.EnumerateArray()
-                .Where(a => a.GetProperty("name").GetString()?.EndsWith(".zip") == true)
+                .Where(a => a.GetProperty("name").GetString()?.EndsWith(".exe") == true)
                 .Select(a => a.GetProperty("browser_download_url").GetString())
                 .FirstOrDefault()
             : null;
         var pageUrl = page.GetString() ?? "";
-        return new Release(name[TagPrefix.Length..], pageUrl, zip ?? pageUrl);
+        return new Release(name[TagPrefix.Length..], pageUrl, setup ?? pageUrl);
     }
 
     /// <summary>
