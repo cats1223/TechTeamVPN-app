@@ -12,6 +12,14 @@ import androidx.compose.ui.graphics.Color
 
 val LocalLightTheme = staticCompositionLocalOf { false }
 
+/** The accent picked in settings, or null for the brand cyan. */
+val LocalAccent = staticCompositionLocalOf<Color?> { null }
+
+/** Preset accents ("RRGGBB"); empty is the brand cyan. */
+val ACCENT_PRESETS = listOf("", "7B5CFF", "2BD98B", "FF9F0A", "FF4F9A", "FF453A")
+
+fun accentColor(hex: String): Color? = hex.takeIf { it.length == 6 }?.toLongOrNull(16)?.let { Color(0xFF000000 or it) }
+
 /**
  * Brand palette; every color has a dark and a light variant for the theme setting. Backgrounds
  * are neutral black, gray and white; only the accents carry color.
@@ -20,7 +28,8 @@ object Brand {
     val Background: Color @Composable @ReadOnlyComposable get() = pick(0xFF000000, 0xFFF2F2F7)
     val Surface: Color @Composable @ReadOnlyComposable get() = pick(0xFF1C1C1E, 0xFFFFFFFF)
     val SurfaceHigh: Color @Composable @ReadOnlyComposable get() = pick(0xFF2C2C2E, 0xFFE5E5EA)
-    val Cyan: Color @Composable @ReadOnlyComposable get() = pick(0xFF00D1FF, 0xFF0094C7)
+    val Cyan: Color @Composable @ReadOnlyComposable get() = LocalAccent.current ?: pick(0xFF00D1FF, 0xFF0094C7)
+    val DefaultCyan: Color @Composable @ReadOnlyComposable get() = pick(0xFF00D1FF, 0xFF0094C7)
     val Violet: Color @Composable @ReadOnlyComposable get() = pick(0xFF7B5CFF, 0xFF6A4BFF)
     val Green: Color @Composable @ReadOnlyComposable get() = pick(0xFF2BD98B, 0xFF12A866)
     val Amber: Color @Composable @ReadOnlyComposable get() = pick(0xFFFFB547, 0xFFD98A00)
@@ -35,8 +44,8 @@ object Brand {
 }
 
 @Composable
-fun TechTeamTheme(light: Boolean, content: @Composable () -> Unit) {
-    CompositionLocalProvider(LocalLightTheme provides light) {
+fun TechTeamTheme(light: Boolean, accent: String = "", content: @Composable () -> Unit) {
+    CompositionLocalProvider(LocalLightTheme provides light, LocalAccent provides accentColor(accent)) {
         val colors = if (light) lightColorScheme() else darkColorScheme()
         MaterialTheme(
             colorScheme = colors.copy(

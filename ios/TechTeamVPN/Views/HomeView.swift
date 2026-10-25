@@ -38,7 +38,9 @@ struct HomeView: View {
         .messageAlert(active: !showAdd && !showServers && !showSettings)
         .sheet(isPresented: $showAdd) { AddView().messageAlert() }
         .sheet(isPresented: $showServers) { ServersView().messageAlert().presentationDragIndicator(.visible) }
-        .sheet(isPresented: $showSettings) { SettingsView().messageAlert().presentationDragIndicator(.visible) }
+        .sheet(isPresented: $showSettings, onDismiss: {
+            NotificationCenter.default.post(name: Accent.applyNotification, object: nil)
+        }) { SettingsView().messageAlert().presentationDragIndicator(.visible) }
         .sheet(isPresented: $showSpeedTest) { SpeedTestView() }
         .task {
             if connected { model.traffic.start() }

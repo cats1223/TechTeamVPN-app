@@ -24,6 +24,15 @@ class AppSettings private constructor(context: Context) {
     private val _russiaDirect = MutableStateFlow(prefs.getBoolean("russiaDirect", true))
     val russiaDirect: StateFlow<Boolean> = _russiaDirect.asStateFlow()
 
+    /** The accent color, "RRGGBB"; empty for the brand cyan. */
+    private val _accent = MutableStateFlow(prefs.getString("accent", "").orEmpty())
+    val accent: StateFlow<String> = _accent.asStateFlow()
+
+    fun setAccent(hex: String) {
+        _accent.value = hex
+        prefs.edit().putString("accent", hex).apply()
+    }
+
     /** Chimes when the VPN connects and disconnects; on by default. */
     private val _sounds = MutableStateFlow(prefs.getBoolean("sounds", true))
     val sounds: StateFlow<Boolean> = _sounds.asStateFlow()

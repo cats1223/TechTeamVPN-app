@@ -1,5 +1,12 @@
 package com.techteam.vpn.ui
 
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.material3.Slider
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.border
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -116,6 +123,32 @@ fun SettingsScreen(
         }
         val appSettings = com.techteam.vpn.data.AppSettings.get(context)
         val sounds by appSettings.sounds.collectAsState()
+        val accent by appSettings.accent.collectAsState()
+        var pickAccent by remember { mutableStateOf(false) }
+        Card {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(stringResource(R.string.accent), color = Brand.Text)
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    for (hex in ACCENT_PRESETS) {
+                        AccentDot(accentColor(hex) ?: Brand.DefaultCyan, selected = accent == hex) { appSettings.setAccent(hex) }
+                    }
+                    // A custom color: a rainbow dot, or the color itself once picked.
+                    val custom = accent !in ACCENT_PRESETS
+                    Box(
+                        Modifier.size(30.dp).clip(CircleShape)
+                            .background(if (custom) Brush.linearGradient(listOf(Brand.Cyan, Brand.Cyan)) else Brush.sweepGradient(RAINBOW))
+                            .border(if (custom) 3.dp else 0.dp, Color.White, CircleShape)
+                            .clickable { pickAccent = true },
+                    )
+                }
+            }
+        }
+        if (pickAccent) {
+            AccentDialog(accentColor(accent) ?: Brand.DefaultCyan, onDismiss = { pickAccent = false }) {
+                pickAccent = false
+                appSettings.setAccent(it)
+            }
+        }
         Card(Modifier.clickable { appSettings.setSounds(!sounds) }) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.sounds), color = Brand.Text, modifier = Modifier.weight(1f))
@@ -394,3 +427,39 @@ private fun copy(context: Context, text: String) {
 const val SUPPORT_URL = "https://t.me/TechTeamVPN_bot"
 
 private fun toast(context: Context, text: String) = Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
+
+private val RAINBOW = listOf(Color.Red, Color.Yellow, Color.Green, Color.Cyan, Color.Blue, Color.Magenta, Color.Red)
+
+@Composable
+private fun AccentDot(color: Color, selected: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier.size(30.dp).clip(CircleShape).background(color)
+            .border(if (selected) 3.dp else 0.dp, Color.White, CircleShape)
+            .clickable(onClick = onClick),
+    )
+}
+
+/** A custom accent: hue and brightness sliders over a preview; [onPick] gets "RRGGBB". */
+@Composable
+private fun AccentDialog(initial: Color, onDismiss: () -> Unit, onPick: (String) -> Unit) {
+    val hsv = remember { FloatArray(3).also { android.graphics.Color.colorToHSV(initial.toArgb(), it) } }
+    var hue by remember { mutableStateOf(hsv[0]) }
+    var saturation by remember { mutableStateOf(hsv[1].coerceAtLeast(0.3f)) }
+    val color = Color.hsv(hue, saturation, 1f)
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.accent)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(16.dp)).background(color))
+                Box(Modifier.fillMaxWidth().height(10.dp).clip(CircleShape).background(Brush.horizontalGradient(RAINBOW)))
+                Slider(value = hue, onValueChange = { hue = it }, valueRange = 0f..359f)
+                Slider(value = saturation, onValueChange = { saturation = it }, valueRange = 0.3f..1f)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onPick("%06X".format(color.toArgb() and 0xFFFFFF)) }) { Text(stringResource(R.string.save)) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
+    )
+}

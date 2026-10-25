@@ -76,6 +76,7 @@ struct SettingsView: View {
     @AppStorage(AppSettings.autoReconnectKey) private var autoReconnect = true
     @AppStorage(TunnelActivity.enabledKey) private var liveActivity = true
     @AppStorage(Feedback.soundKey) private var sounds = true
+    @AppStorage(Accent.key) private var accent = ""
     @EnvironmentObject private var vpn: VPNManager
     @State private var versionTaps = 0
     @State private var lastTap = Date.distantPast
@@ -93,6 +94,8 @@ struct SettingsView: View {
                     }
                     .pickerStyle(.segmented)
                     .listRowBackground(Brand.surface)
+                    accentPicker
+                        .listRowBackground(Brand.surface)
                     Toggle("Звуки подключения", isOn: $sounds)
                         .tint(Brand.cyan)
                         .listRowBackground(Brand.surface)
@@ -225,6 +228,35 @@ struct SettingsView: View {
             .sheet(isPresented: $showLog) { LogView() }
             .sheet(isPresented: $showDiagnostics) { DiagnosticsView() }
         }
+    }
+
+    /// Preset colors and a custom one; the home screen takes the new color when settings close.
+    private var accentPicker: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Цвет акцента")
+            HStack(spacing: 10) {
+                ForEach(Accent.presets, id: \.hex) { preset in
+                    Button {
+                        accent = preset.hex
+                    } label: {
+                        Circle()
+                            .fill(Color(hex: preset.hex) ?? Brand.defaultCyan)
+                            .frame(width: 30, height: 30)
+                            .overlay(Circle().strokeBorder(.white, lineWidth: accent == preset.hex ? 3 : 0))
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(Text(preset.name))
+                }
+                // Any other color; the circle shows the custom one once picked.
+                ColorPicker("Свой", selection: Binding(
+                    get: { Accent.color ?? Brand.defaultCyan },
+                    set: { accent = Accent.hex(of: $0) }
+                ), supportsOpacity: false)
+                .labelsHidden()
+                .frame(width: 30, height: 30)
+            }
+        }
+        .padding(.vertical, 4)
     }
 
     private var developerSection: some View {
