@@ -143,6 +143,31 @@ fun SettingsScreen(
                 }
             }
         }
+        var icon by remember { mutableStateOf(AppIcons.current(context)) }
+        Card {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text(stringResource(R.string.app_icon), color = Brand.Text)
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    for (option in AppIcons.all) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            androidx.compose.foundation.Image(
+                                painter = androidx.compose.ui.res.painterResource(option.preview), contentDescription = null,
+                                modifier = Modifier.size(56.dp).clip(RoundedCornerShape(14.dp))
+                                    .border(if (icon == option.alias) 3.dp else 0.dp, Brand.Cyan, RoundedCornerShape(14.dp))
+                                    .clickable {
+                                        if (icon != option.alias) {
+                                            AppIcons.set(context, option.alias)
+                                            icon = option.alias
+                                            toast(context, context.getString(R.string.icon_changed))
+                                        }
+                                    },
+                            )
+                            Text(stringResource(option.name), color = Brand.TextMuted, fontSize = 11.sp)
+                        }
+                    }
+                }
+            }
+        }
         if (pickAccent) {
             AccentDialog(accentColor(accent) ?: Brand.DefaultCyan, onDismiss = { pickAccent = false }) {
                 pickAccent = false

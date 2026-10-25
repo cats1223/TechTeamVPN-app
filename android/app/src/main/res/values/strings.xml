@@ -181,4 +181,10 @@
     <string name="ads_blocked_days">%1$d дней: %2$d</string>
     <string name="sounds">Звуки подключения</string>
     <string name="accent">Цвет акцента</string>
+    <string name="app_icon">Иконка приложения</string>
+    <string name="icon_default">Обычная</string>
+    <string name="icon_neon">Неон</string>
+    <string name="icon_gold">Золото</string>
+    <string name="icon_white">Белая</string>
+    <string name="icon_changed">Иконка сменится через несколько секунд</string>
 </resources>

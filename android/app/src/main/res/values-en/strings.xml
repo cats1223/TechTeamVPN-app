@@ -179,4 +179,10 @@
     <string name="ads_blocked_days">%1$d days: %2$d</string>
     <string name="sounds">Connection sounds</string>
     <string name="accent">Accent color</string>
+    <string name="app_icon">App icon</string>
+    <string name="icon_default">Classic</string>
+    <string name="icon_neon">Neon</string>
+    <string name="icon_gold">Gold</string>
+    <string name="icon_white">White</string>
+    <string name="icon_changed">The icon changes in a few seconds</string>
 </resources>

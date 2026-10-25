@@ -96,6 +96,8 @@ struct SettingsView: View {
                     .listRowBackground(Brand.surface)
                     accentPicker
                         .listRowBackground(Brand.surface)
+                    iconPicker
+                        .listRowBackground(Brand.surface)
                     Toggle("Звуки подключения", isOn: $sounds)
                         .tint(Brand.cyan)
                         .listRowBackground(Brand.surface)
@@ -228,6 +230,43 @@ struct SettingsView: View {
             .sheet(isPresented: $showLog) { LogView() }
             .sheet(isPresented: $showDiagnostics) { DiagnosticsView() }
         }
+    }
+
+    private static let icons: [(name: String?, preview: String, title: LocalizedStringKey)] = [
+        (nil, "IconPreviewDefault", "Обычная"), ("AppIconNeon", "IconPreviewNeon", "Неон"),
+        ("AppIconGold", "IconPreviewGold", "Золото"), ("AppIconWhite", "IconPreviewWhite", "Белая"),
+    ]
+    @State private var iconName = UIApplication.shared.alternateIconName
+
+    /// The home screen icon; iOS confirms the change with its own alert.
+    private var iconPicker: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Иконка приложения")
+            HStack(spacing: 14) {
+                ForEach(Self.icons, id: \.preview) { icon in
+                    Button {
+                        guard iconName != icon.name else { return }
+                        UIApplication.shared.setAlternateIconName(icon.name) { error in
+                            if error == nil { Task { @MainActor in iconName = icon.name } }
+                        }
+                    } label: {
+                        VStack(spacing: 4) {
+                            Image(icon.preview)
+                                .resizable()
+                                .frame(width: 56, height: 56)
+                                .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 13, style: .continuous)
+                                        .strokeBorder(Brand.cyan, lineWidth: iconName == icon.name ? 3 : 0)
+                                )
+                            Text(icon.title).font(.caption2).foregroundStyle(Brand.muted)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .padding(.vertical, 4)
     }
 
     /// Preset colors and a custom one; the home screen takes the new color when settings close.
