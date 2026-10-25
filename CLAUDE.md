@@ -19,3 +19,23 @@
 - iOS-виджет (`ios/Widget`, цель TechTeamWidget, bundle id `<app>.widget`) не видит настроек VPN: статус он берёт по
   интерфейсу utun с адресом 172.19.0.1, а переключение — `SetVPNIntent` (LiveActivityIntent), который iOS выполняет в
   самом приложении. Подпись в CI (`scripts/ci/ios-sign.sh`) профиль для виджета пока не умеет — IPA подписывают в Feather.
+
+## Память между сжатиями контекста
+
+- **После каждой очистки/сжатия контекста — первым делом перечитать все сообщения владельца** из полной переписки
+  (файлы `~/.claude/projects/*/*.jsonl`), а не полагаться только на краткое содержание:
+  ```
+  python3 - <<'PY'
+  import json,glob,os
+  for f in sorted(glob.glob(os.path.expanduser('~/.claude/projects/*/*.jsonl'))):
+      for l in open(f):
+          try: e=json.loads(l)
+          except: continue
+          c=e.get('message',{}).get('content') if e.get('type')=='user' else None
+          if isinstance(c,list): c=' '.join(x.get('text','') for x in c if isinstance(x,dict) and x.get('type')=='text')
+          if c and not c.startswith('<') and 'session is being continued' not in c: print('-',c[:600])
+  PY
+  ```
+- Общаться с владельцем на «ты», по-русски.
+- Не собирать тестовые сборки — сразу рабочую (релиз/бету) через Actions; сборку запускать только когда владелец просит.
+- План: v1.2.0-beta.10 — последняя бета, дальше релиз v1.2.0 (раздел `## v1.2.0` в CHANGELOG собрать из всех бет).
