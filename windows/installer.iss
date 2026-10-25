@@ -41,7 +41,9 @@ Name: "en"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"
 
 [Files]
-Source: "{#SourceDir}\*"; DestDir: "{app}"; Excludes: "*.pdb,*.xml"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#SourceDir}\*"; DestDir: "{app}"; Excludes: "*.pdb,*.xml,wintun.dll"; Flags: ignoreversion recursesubdirs createallsubdirs
+; The driver keeps its version: an unchanged one is left in place, even while the tunnel holds it.
+Source: "{#SourceDir}\wintun.dll"; DestDir: "{app}"; Flags: promptifolder
 ; Microsoft's WebView2 bootstrapper (CI downloads it); run only where the runtime is missing.
 Source: "MicrosoftEdgeWebview2Setup.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall; Check: not WebView2Installed
 
@@ -57,6 +59,16 @@ Filename: "{app}\TechTeamVPN.exe"; Description: "{cm:LaunchProgram,TechTeamVPN}"
 Type: filesandordirs; Name: "{localappdata}\TechTeamVPN"
 
 [Code]
+{ The tunnel mode runs elevated, and this per-user setup cannot close it: ask the user to quit first. }
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  Code: Integer;
+begin
+  Result := '';
+  if Exec(ExpandConstant('{cmd}'), '/C tasklist /FI "IMAGENAME eq xray.exe" | find /I "xray.exe" >NUL', '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0) then
+    Result := 'TechTeamVPN ещё работает. Выйдите из него (значок в трее у часов → «Выход») и нажмите «Назад», затем «Установить».';
+end;
+
 { The window of the app is WebView2; its runtime registers under EdgeUpdate, machine-wide or per user. }
 function WebView2Installed: Boolean;
 var
