@@ -189,4 +189,14 @@
     <string name="icon_changed">Иконка сменится через несколько секунд</string>
     <string name="hacker_on">Режим хакера включён. Ты в Матрице.</string>
     <string name="hacker_off">Режим хакера выключен</string>
+    <string name="share_title">Раздача</string>
+    <string name="lan_proxy">Раздавать VPN в локальной сети</string>
+    <string name="lan_proxy_hint">PS5, телевизор и другие устройства в этой Wi-Fi-сети или в раздаче с телефона ходят через VPN</string>
+    <string name="lan_proxy_how">На устройстве: Настройки сети → Прокси-сервер → адрес %1$s, порт %2$d. Работает, пока VPN включён. Голос в Discord через прокси не пойдёт.</string>
+    <string name="lan_proxy_no_network">Подключитесь к Wi-Fi или включите раздачу на телефоне — здесь появится адрес для устройств.</string>
+    <string name="router_title">Экспорт для роутера Keenetic</string>
+    <string name="router_hint">Конфиг Xray с текущим сервером и вашими правилами — тогда через VPN идёт вся домашняя сеть</string>
+    <string name="router_steps">1. На Keenetic нужен USB-накопитель и Entware (компонент «OPKG»), на нём — XKeen: github.com/Skrill0/XKeen.\n2. Замените файлы в /opt/etc/xray/configs/ содержимым ниже.\n3. Перезапустите: xkeen -restart</string>
+    <string name="router_share">Отправить оба файла</string>
+    <string name="router_note">В файле ваш ключ — не публикуйте его. Роутер будет считаться этим же устройством в подписке.</string>
 </resources>

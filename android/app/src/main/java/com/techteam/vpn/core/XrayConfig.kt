@@ -60,6 +60,8 @@ object XrayConfig {
      * @param proxySites the user's sites that always go through the VPN, even Russian ones.
      * @param blockAds drop connections to ad and tracker domains.
      * @param dns upstream resolvers, reached through the proxy; see [upstreamDns].
+     * @param lanProxy also take HTTP and SOCKS connections from the local network (PS5, TV) on
+     *                 [LAN_HTTP_PORT] and [LAN_SOCKS_PORT], routed like the phone's own traffic.
      * @param accessLogPath file for Xray's access log, one line per connection; blocked ones end
      *                      in "-> block]", which is how blocked ads are counted ([countBlocked]).
      */
@@ -74,6 +76,7 @@ object XrayConfig {
         blockAds: Boolean = false,
         dns: List<String> = UPSTREAM_DNS,
         accessLogPath: String? = null,
+        lanProxy: Boolean = false,
     ): String {
         val root = JSONObject()
         root.put(
@@ -99,9 +102,7 @@ object XrayConfig {
         }
         dns.forEach { dnsServers.put(it) }
         root.put("dns", JSONObject().put("servers", dnsServers).put("queryStrategy", "UseIPv4"))
-        root.put(
-            "inbounds",
-            JSONArray().put(
+        val inbounds = JSONArray().put(
                 JSONObject()
                     .put("tag", "tun-in")
                     .put("protocol", "tun")
@@ -113,8 +114,19 @@ object XrayConfig {
                             .put("destOverride", JSONArray(listOf("http", "tls", "quic")))
                             .put("routeOnly", true),
                     ),
-            ),
-        )
+            )
+        if (lanProxy) {
+            val sniff = JSONObject().put("enabled", true).put("destOverride", JSONArray(listOf("http", "tls"))).put("routeOnly", true)
+            inbounds.put(
+                JSONObject().put("tag", "lan-http").put("listen", "0.0.0.0").put("port", LAN_HTTP_PORT)
+                    .put("protocol", "http").put("sniffing", sniff),
+            )
+            inbounds.put(
+                JSONObject().put("tag", "lan-socks").put("listen", "0.0.0.0").put("port", LAN_SOCKS_PORT)
+                    .put("protocol", "socks").put("settings", JSONObject().put("udp", true)).put("sniffing", sniff),
+            )
+        }
+        root.put("inbounds", inbounds)
         root.put(
             "outbounds",
             JSONArray()
@@ -145,6 +157,40 @@ object XrayConfig {
         }
         root.put("routing", JSONObject().put("domainStrategy", "AsIs").put("rules", rules))
         return root.toString()
+    }
+
+    const val LAN_HTTP_PORT = 10809
+    const val LAN_SOCKS_PORT = 10808
+
+    /**
+     * The Xray config for a router (XKeen on Keenetic): its outbounds and routing, to drop into
+     * 04_outbounds.json and 05_routing.json. The router keeps its own inbounds and DNS.
+     */
+    fun routerOutbounds(profile: ServerProfile): String = JSONObject().put(
+        "outbounds",
+        JSONArray()
+            .put(outbound(profile))
+            .put(JSONObject().put("tag", "direct").put("protocol", "freedom"))
+            .put(JSONObject().put("tag", "block").put("protocol", "blackhole")),
+    ).toString(2)
+
+    fun routerRouting(
+        russiaDirect: Boolean,
+        blockAds: Boolean = false,
+        directSites: List<String> = emptyList(),
+        proxySites: List<String> = emptyList(),
+    ): String {
+        val rules = JSONArray().put(JSONObject().put("type", "field").put("ip", JSONArray(PRIVATE_CIDRS)).put("outboundTag", "direct"))
+        siteRules(proxySites).takeIf { it.isNotEmpty() }?.let { rules.put(JSONObject().put("type", "field").put("domain", JSONArray(it)).put("outboundTag", "proxy")) }
+        siteRules(directSites).takeIf { it.isNotEmpty() }?.let { rules.put(JSONObject().put("type", "field").put("domain", JSONArray(it)).put("outboundTag", "direct")) }
+        if (blockAds) rules.put(JSONObject().put("type", "field").put("domain", JSONArray(AD_DOMAINS)).put("outboundTag", "block"))
+        if (russiaDirect) {
+            rules.put(JSONObject().put("type", "field").put("domain", JSONArray(RUSSIAN_DOMAINS)).put("outboundTag", "direct"))
+            rules.put(JSONObject().put("type", "field").put("ip", JSONArray(listOf("geoip:ru"))).put("outboundTag", "direct"))
+        }
+        // Everything else through the VPN.
+        rules.put(JSONObject().put("type", "field").put("network", "tcp,udp").put("outboundTag", "proxy"))
+        return JSONObject().put("routing", JSONObject().put("domainStrategy", "IPIfNonMatch").put("rules", rules)).toString(2)
     }
 
     /** Connections Xray sent to the blackhole in a piece of its access log. */

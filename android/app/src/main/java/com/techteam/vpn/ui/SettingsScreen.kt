@@ -85,6 +85,7 @@ fun SettingsScreen(
     onRussiaDirect: (Boolean) -> Unit,
     onBlockAds: (Boolean) -> Unit,
     onDns: (String, String) -> Unit,
+    onLanProxy: (Boolean) -> Unit,
     onBypassApps: (Set<String>) -> Unit,
     onCheckUpdate: () -> Unit,
     onBetaUpdates: (Boolean) -> Unit,
@@ -103,6 +104,7 @@ fun SettingsScreen(
     var showKillSwitch by remember { mutableStateOf(false) }
     var showStats by remember { mutableStateOf(false) }
     var showSpeed by remember { mutableStateOf(false) }
+    var showRouter by remember { mutableStateOf(false) }
     var editSites by remember { mutableStateOf<Boolean?>(null) } // true: direct list, false: VPN list
 
     Column(
@@ -231,6 +233,33 @@ fun SettingsScreen(
             }
         }
 
+        SectionTitle(stringResource(R.string.share_title))
+        val lanSettings = com.techteam.vpn.data.AppSettings.get(context)
+        val lanProxy by lanSettings.lanProxy.collectAsState()
+        Card(Modifier.clickable { onLanProxy(!lanProxy) }) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.lan_proxy), color = Brand.Text)
+                    Text(stringResource(R.string.lan_proxy_hint), color = Brand.TextMuted, fontSize = 12.sp)
+                }
+                Switch(checked = lanProxy, onCheckedChange = onLanProxy, colors = SwitchDefaults.colors(checkedTrackColor = Brand.Cyan))
+            }
+        }
+        if (lanProxy) {
+            val addresses = remember(lanProxy) { localAddresses() }
+            Text(
+                if (addresses.isEmpty()) stringResource(R.string.lan_proxy_no_network)
+                else stringResource(R.string.lan_proxy_how, addresses.joinToString(", "), com.techteam.vpn.core.XrayConfig.LAN_HTTP_PORT),
+                color = Brand.Text, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 4.dp),
+            )
+        }
+        Card(Modifier.clickable { showRouter = true }) {
+            Column {
+                Text(stringResource(R.string.router_title), color = Brand.Text)
+                Text(stringResource(R.string.router_hint), color = Brand.TextMuted, fontSize = 12.sp)
+            }
+        }
+
         SectionTitle(stringResource(R.string.servers_title))
         Card(Modifier.clickable { onAutoFastest(!autoFastest) }) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -325,6 +354,19 @@ fun SettingsScreen(
     if (showLog) LogDialog(onDismiss = { showLog = false })
     if (showKillSwitch) KillSwitchDialog(onDismiss = { showKillSwitch = false })
     if (showStats) StatsDialog(traffic, onDismiss = { showStats = false })
+    if (showRouter) {
+        val p = selected
+        if (p == null) {
+            showRouter = false
+            toast(context, context.getString(R.string.error_no_server))
+        } else {
+            RouterExportDialog(
+                outbounds = com.techteam.vpn.core.XrayConfig.routerOutbounds(p),
+                routing = com.techteam.vpn.core.XrayConfig.routerRouting(russiaDirect, blockAds, directSites, proxySites),
+                onDismiss = { showRouter = false },
+            )
+        }
+    }
     if (showSpeed) {
         val vpnState by VpnStatus.state.collectAsState()
         SpeedTestDialog(connected = vpnState is VpnState.Connected, onDismiss = { showSpeed = false })

@@ -55,12 +55,14 @@ enum XrayConfig {
     /// - Parameter proxySites: the user's sites that always go through the VPN, even Russian ones.
     /// - Parameter blockAds: drop connections to ad and tracker domains.
     /// - Parameter dns: upstream resolvers, reached through the proxy; see `upstreamDNS(choice:custom:)`.
+    /// - Parameter lanProxy: also take HTTP and SOCKS connections from the local network on
+    ///   `lanHTTPPort` and `lanSOCKSPort` (the Android app shares the VPN this way; iOS keeps it off).
     /// - Parameter accessLogPath: file for Xray's access log, one line per connection; blocked ones
     ///   end in "-> block]", which is how blocked ads are counted (`countBlocked`).
     static func build(
         _ profile: ServerProfile, tunFd: Int32?, logPath: String? = nil, russiaDirect: Bool = false, assetDir: String? = nil,
         directSites: [String] = [], proxySites: [String] = [], blockAds: Bool = false, dns: [String] = upstreamDNS,
-        accessLogPath: String? = nil
+        accessLogPath: String? = nil, lanProxy: Bool = false
     ) throws -> String {
         var dnsServers: [Any] = dns
         var rules: [[String: Any]] = [
@@ -82,12 +84,7 @@ enum XrayConfig {
         var root: [String: Any] = [
             "log": log,
             "dns": ["servers": dnsServers, "queryStrategy": "UseIPv4"],
-            "inbounds": [[
-                "tag": "tun-in",
-                "protocol": "tun",
-                "settings": ["name": "xray0", "mtu": tunMTU],
-                "sniffing": ["enabled": true, "destOverride": ["http", "tls", "quic"], "routeOnly": true],
-            ]],
+            "inbounds": inbounds(lanProxy: lanProxy),
             "outbounds": [
                 outbound(profile),
                 ["tag": "direct", "protocol": "freedom"],
@@ -101,6 +98,51 @@ enum XrayConfig {
         if russiaDirect || blockAds, let assetDir { env["xray.location.asset"] = assetDir }
         if !env.isEmpty { root["env"] = env }
         let data = try JSONSerialization.data(withJSONObject: root, options: [.sortedKeys])
+        return String(decoding: data, as: UTF8.self)
+    }
+
+    static let lanHTTPPort = 10809
+    static let lanSOCKSPort = 10808
+
+    private static func inbounds(lanProxy: Bool) -> [[String: Any]] {
+        var list: [[String: Any]] = [[
+            "tag": "tun-in",
+            "protocol": "tun",
+            "settings": ["name": "xray0", "mtu": tunMTU],
+            "sniffing": ["enabled": true, "destOverride": ["http", "tls", "quic"], "routeOnly": true],
+        ]]
+        if lanProxy {
+            let sniff: [String: Any] = ["enabled": true, "destOverride": ["http", "tls"], "routeOnly": true]
+            list.append(["tag": "lan-http", "listen": "0.0.0.0", "port": lanHTTPPort, "protocol": "http", "sniffing": sniff])
+            list.append(["tag": "lan-socks", "listen": "0.0.0.0", "port": lanSOCKSPort, "protocol": "socks",
+                         "settings": ["udp": true], "sniffing": sniff])
+        }
+        return list
+    }
+
+    /// The Xray config for a router (XKeen on Keenetic): its outbounds and routing, to drop into
+    /// 04_outbounds.json and 05_routing.json. The router keeps its own inbounds and DNS.
+    static func routerOutbounds(_ profile: ServerProfile) throws -> String {
+        try pretty(["outbounds": [outbound(profile), ["tag": "direct", "protocol": "freedom"], ["tag": "block", "protocol": "blackhole"]]])
+    }
+
+    static func routerRouting(russiaDirect: Bool, blockAds: Bool = false, directSites: [String] = [], proxySites: [String] = []) throws -> String {
+        var rules: [[String: Any]] = [["type": "field", "ip": privateCIDRs, "outboundTag": "direct"]]
+        let proxy = siteRules(proxySites), direct = siteRules(directSites)
+        if !proxy.isEmpty { rules.append(["type": "field", "domain": proxy, "outboundTag": "proxy"]) }
+        if !direct.isEmpty { rules.append(["type": "field", "domain": direct, "outboundTag": "direct"]) }
+        if blockAds { rules.append(["type": "field", "domain": adDomains, "outboundTag": "block"]) }
+        if russiaDirect {
+            rules.append(["type": "field", "domain": russianDomains, "outboundTag": "direct"])
+            rules.append(["type": "field", "ip": ["geoip:ru"], "outboundTag": "direct"])
+        }
+        // Everything else through the VPN.
+        rules.append(["type": "field", "network": "tcp,udp", "outboundTag": "proxy"])
+        return try pretty(["routing": ["domainStrategy": "IPIfNonMatch", "rules": rules]])
+    }
+
+    private static func pretty(_ object: [String: Any]) throws -> String {
+        let data = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys, .prettyPrinted, .withoutEscapingSlashes])
         return String(decoding: data, as: UTF8.self)
     }
 

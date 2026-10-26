@@ -193,6 +193,8 @@ struct SettingsView: View {
                 Section {
                     NavigationLink { StatsView() } label: { Label("Статистика трафика", systemImage: "chart.bar") }
                         .listRowBackground(Brand.surface)
+                    NavigationLink { RouterExportView() } label: { Label("Экспорт для роутера Keenetic", systemImage: "wifi.router") }
+                        .listRowBackground(Brand.surface)
                     Link(destination: AppSettings.supportURL) {
                         Label("Поддержка в Telegram", systemImage: "paperplane")
                     }

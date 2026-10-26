@@ -112,6 +112,7 @@ class TechTeamVpnService : VpnService() {
         val config = XrayConfig.build(
             profile, fd.fd, logPath, russiaDirect, assetDir,
             directSites = settings.directSites.value, proxySites = settings.proxySites.value, blockAds = blockAds, dns = dns, accessLogPath = accessLog?.path,
+            lanProxy = settings.lanProxy.value,
         )
         XrayCore.start(config, "${XrayConfig.DNS_SERVERS.first()}:53") { protect(it) }
         countTraffic()

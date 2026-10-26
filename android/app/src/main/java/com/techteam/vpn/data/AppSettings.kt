@@ -24,6 +24,15 @@ class AppSettings private constructor(context: Context) {
     private val _russiaDirect = MutableStateFlow(prefs.getBoolean("russiaDirect", true))
     val russiaDirect: StateFlow<Boolean> = _russiaDirect.asStateFlow()
 
+    /** Share the VPN with the local network (PS5, TV) through HTTP and SOCKS proxies. */
+    private val _lanProxy = MutableStateFlow(prefs.getBoolean("lanProxy", false))
+    val lanProxy: StateFlow<Boolean> = _lanProxy.asStateFlow()
+
+    fun setLanProxy(enabled: Boolean) {
+        _lanProxy.value = enabled
+        prefs.edit().putBoolean("lanProxy", enabled).apply()
+    }
+
     /** The easter egg: Matrix rain over the globe. */
     private val _hackerMode = MutableStateFlow(prefs.getBoolean("hackerMode", false))
     val hackerMode: StateFlow<Boolean> = _hackerMode.asStateFlow()

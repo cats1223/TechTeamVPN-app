@@ -148,6 +148,10 @@ class MainActivity : ComponentActivity() {
                                 dns = dns,
                                 customDns = customDns,
                                 traffic = trafficHistory,
+                                onLanProxy = {
+                                    settings.setLanProxy(it)
+                                    vm.reconnectIfActive()
+                                },
                                 onDns = { choice, custom ->
                                     if (choice != dns || custom != customDns) {
                                         settings.setDns(choice, custom)
