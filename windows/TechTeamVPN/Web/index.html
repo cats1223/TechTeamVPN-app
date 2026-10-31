@@ -11,7 +11,6 @@
 <body>
   <div id="map"></div>
   <div id="labels"></div>
-  <canvas id="matrix" hidden></canvas>
 
   <div id="pill" class="pill glass"><span class="dot"></span><span class="pill-text">Не подключено</span></div>
 
@@ -28,7 +27,7 @@
       </div>
       <div class="traffic" id="traffic" hidden>
         <span id="down">↓ 0 Б/с</span><span id="up">↑ 0 Б/с</span><span class="grow"></span>
-        <span id="blocked" class="blocked" hidden></span><span id="session" class="muted"></span>
+        <span id="session" class="muted"></span>
       </div>
       <button class="big" id="connect">Подключить</button>
     </section>
@@ -42,8 +41,6 @@
       <section class="card" id="subCard" hidden></section>
       <nav class="menu">
         <button data-open="servers"><i data-icon="server"></i>Все серверы<i data-icon="chevron"></i></button>
-        <button data-open="add"><i data-icon="plus"></i>Добавить ключ<i data-icon="chevron"></i></button>
-        <button data-open="speed"><i data-icon="speed"></i>Тест скорости<i data-icon="chevron"></i></button>
         <button data-open="settings"><i data-icon="gear"></i>Настройки<i data-icon="chevron"></i></button>
       </nav>
     </div></div>
@@ -54,7 +51,7 @@
 
   <section class="sheet" id="sheet-servers" hidden>
     <header><h2>Серверы</h2><div class="actions">
-      <button class="link" id="pingAll">Пинг</button><button class="link" id="refreshSub">Обновить</button><button class="close">Закрыть</button>
+      <button class="link" id="serversAdd">Добавить</button><button class="link" id="pingAll">Пинг</button><button class="link" id="refreshSub">Обновить</button><button class="close">Закрыть</button>
     </div></header>
     <div class="list" id="serverList"></div>
     <button class="danger-link" id="removeSub">Удалить подписку</button>
@@ -85,7 +82,7 @@
   </section>
 
   <section class="sheet tall" id="sheet-settings" hidden>
-    <header><h2>Настройки</h2><div class="actions"><button class="close">Закрыть</button></div></header>
+    <header><button class="link" id="settingsBack" hidden>‹ Назад</button><h2 id="settingsTitle">Настройки</h2><div class="actions"><button class="close">Закрыть</button></div></header>
     <div class="settings" id="settings"></div>
   </section>
 

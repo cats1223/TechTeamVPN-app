@@ -84,7 +84,6 @@ class MainActivity : ComponentActivity() {
             val devMode by settings.devMode.collectAsStateWithLifecycle()
             val russiaDirect by settings.russiaDirect.collectAsStateWithLifecycle()
             val blockAds by settings.blockAds.collectAsStateWithLifecycle()
-            val accent by settings.accent.collectAsStateWithLifecycle()
             val dns by settings.dns.collectAsStateWithLifecycle()
             val customDns by settings.customDns.collectAsStateWithLifecycle()
             val trafficHistory by settings.traffic.collectAsStateWithLifecycle()
@@ -93,7 +92,7 @@ class MainActivity : ComponentActivity() {
             val directSites by settings.directSites.collectAsStateWithLifecycle()
             val autoFastest by settings.autoFastest.collectAsStateWithLifecycle()
             val proxySites by settings.proxySites.collectAsStateWithLifecycle()
-            TechTeamTheme(light = lightTheme, accent = accent) {
+            TechTeamTheme(light = lightTheme) {
                 val profiles by vm.profiles.collectAsStateWithLifecycle()
                 val vpn by vm.vpn.collectAsStateWithLifecycle()
                 val pings by vm.pings.collectAsStateWithLifecycle()
@@ -148,10 +147,6 @@ class MainActivity : ComponentActivity() {
                                 dns = dns,
                                 customDns = customDns,
                                 traffic = trafficHistory,
-                                onLanProxy = {
-                                    settings.setLanProxy(it)
-                                    vm.reconnectIfActive()
-                                },
                                 onDns = { choice, custom ->
                                     if (choice != dns || custom != customDns) {
                                         settings.setDns(choice, custom)

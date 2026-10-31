@@ -1,5 +1,6 @@
 package com.techteam.vpn.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Brush
@@ -85,7 +86,6 @@ fun SettingsScreen(
     onRussiaDirect: (Boolean) -> Unit,
     onBlockAds: (Boolean) -> Unit,
     onDns: (String, String) -> Unit,
-    onLanProxy: (Boolean) -> Unit,
     onBypassApps: (Set<String>) -> Unit,
     onCheckUpdate: () -> Unit,
     onBetaUpdates: (Boolean) -> Unit,
@@ -105,17 +105,25 @@ fun SettingsScreen(
     var showStats by remember { mutableStateOf(false) }
     var showSpeed by remember { mutableStateOf(false) }
     var showRouter by remember { mutableStateOf(false) }
+    var advanced by remember { mutableStateOf(false) }
+    BackHandler(enabled = advanced) { advanced = false }
     var editSites by remember { mutableStateOf<Boolean?>(null) } // true: direct list, false: VPN list
 
     Column(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text(
-            stringResource(R.string.tab_settings), fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Brand.Text,
-            modifier = Modifier.padding(start = 4.dp, top = 16.dp, bottom = 4.dp),
-        )
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 16.dp, bottom = 4.dp)) {
+            if (advanced) {
+                TextButton(onClick = { advanced = false }) { Text("‹ " + stringResource(R.string.tab_settings)) }
+            }
+            Text(
+                stringResource(if (advanced) R.string.advanced else R.string.tab_settings),
+                fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Brand.Text, modifier = Modifier.padding(start = 4.dp),
+            )
+        }
 
+        if (!advanced) {
         SectionTitle(stringResource(R.string.appearance))
         Card {
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Brand.SurfaceHigh)) {
@@ -123,66 +131,6 @@ fun SettingsScreen(
                 ThemeOption(stringResource(R.string.theme_light), selected = lightTheme, Modifier.weight(1f)) { onTheme(true) }
             }
         }
-        val appSettings = com.techteam.vpn.data.AppSettings.get(context)
-        val sounds by appSettings.sounds.collectAsState()
-        val accent by appSettings.accent.collectAsState()
-        var pickAccent by remember { mutableStateOf(false) }
-        Card {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(stringResource(R.string.accent), color = Brand.Text)
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    for (hex in ACCENT_PRESETS) {
-                        AccentDot(accentColor(hex) ?: Brand.DefaultCyan, selected = accent == hex) { appSettings.setAccent(hex) }
-                    }
-                    // A custom color: a rainbow dot, or the color itself once picked.
-                    val custom = accent !in ACCENT_PRESETS
-                    Box(
-                        Modifier.size(30.dp).clip(CircleShape)
-                            .background(if (custom) Brush.linearGradient(listOf(Brand.Cyan, Brand.Cyan)) else Brush.sweepGradient(RAINBOW))
-                            .border(if (custom) 3.dp else 0.dp, Color.White, CircleShape)
-                            .clickable { pickAccent = true },
-                    )
-                }
-            }
-        }
-        var icon by remember { mutableStateOf(AppIcons.current(context)) }
-        Card {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(stringResource(R.string.app_icon), color = Brand.Text)
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    for (option in AppIcons.all) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            androidx.compose.foundation.Image(
-                                painter = androidx.compose.ui.res.painterResource(option.preview), contentDescription = null,
-                                modifier = Modifier.size(56.dp).clip(RoundedCornerShape(14.dp))
-                                    .border(if (icon == option.alias) 3.dp else 0.dp, Brand.Cyan, RoundedCornerShape(14.dp))
-                                    .clickable {
-                                        if (icon != option.alias) {
-                                            AppIcons.set(context, option.alias)
-                                            icon = option.alias
-                                            toast(context, context.getString(R.string.icon_changed))
-                                        }
-                                    },
-                            )
-                            Text(stringResource(option.name), color = Brand.TextMuted, fontSize = 11.sp)
-                        }
-                    }
-                }
-            }
-        }
-        if (pickAccent) {
-            AccentDialog(accentColor(accent) ?: Brand.DefaultCyan, onDismiss = { pickAccent = false }) {
-                pickAccent = false
-                appSettings.setAccent(it)
-            }
-        }
-        Card(Modifier.clickable { appSettings.setSounds(!sounds) }) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.sounds), color = Brand.Text, modifier = Modifier.weight(1f))
-                Switch(checked = sounds, onCheckedChange = appSettings::setSounds, colors = SwitchDefaults.colors(checkedTrackColor = Brand.Cyan))
-            }
-        }
-
         SectionTitle(stringResource(R.string.split_title))
         Card(Modifier.clickable { onRussiaDirect(!russiaDirect) }) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -206,6 +154,61 @@ fun SettingsScreen(
             }
         }
 
+        SectionTitle(stringResource(R.string.servers_title))
+        Card(Modifier.clickable { onAutoFastest(!autoFastest) }) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.auto_fastest), color = Brand.Text)
+                    Text(stringResource(R.string.auto_fastest_hint), color = Brand.TextMuted, fontSize = 12.sp)
+                }
+                Switch(checked = autoFastest, onCheckedChange = onAutoFastest, colors = SwitchDefaults.colors(checkedTrackColor = Brand.Cyan))
+            }
+        }
+
+        // Everything beyond the everyday settings lives one level down.
+        Card(Modifier.clickable { advanced = true }) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.advanced), color = Brand.Text)
+                    Text(stringResource(R.string.advanced_hint), color = Brand.TextMuted, fontSize = 12.sp)
+                }
+                Text("›", color = Brand.TextMuted, fontSize = 20.sp)
+            }
+        }
+        Card(Modifier.clickable { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(SUPPORT_URL))) } }) {
+            Text(stringResource(R.string.support), color = Brand.Cyan)
+        }
+        SectionTitle(stringResource(R.string.about))
+        Card(
+            Modifier.clickable {
+                // Five taps on the version within a couple of seconds ask for the developer password.
+                val now = System.currentTimeMillis()
+                taps = if (now - lastTap < 1500) taps + 1 else 1
+                lastTap = now
+                if (taps >= 5) {
+                    taps = 0
+                    if (devMode) toast(context, context.getString(R.string.dev_already_on)) else askPassword = true
+                }
+            },
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.version), color = Brand.Text, modifier = Modifier.weight(1f))
+                Text("${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})", color = Brand.TextMuted)
+            }
+        }
+        Card(Modifier.clickable(onClick = onCheckUpdate)) { Text(stringResource(R.string.check_updates), color = Brand.Cyan) }
+        if (devMode) {
+            SectionTitle(stringResource(R.string.developer))
+            Card(Modifier.clickable { showLog = true }) { Text(stringResource(R.string.connection_log), color = Brand.Cyan) }
+            CopyCard(stringResource(R.string.device_id), hwid)
+            selected?.let { CopyCard(stringResource(R.string.key_params), it.summary) }
+            Card(Modifier.clickable(onClick = onDisableDevMode)) { Text(stringResource(R.string.dev_disable), color = Brand.Red) }
+            Text(
+                stringResource(R.string.dev_hint),
+                color = Brand.TextMuted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 4.dp),
+            )
+        }
+        } else {
         SectionTitle(stringResource(R.string.protection_title))
         Card(Modifier.clickable { onBlockAds(!blockAds) }) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -233,44 +236,6 @@ fun SettingsScreen(
             }
         }
 
-        SectionTitle(stringResource(R.string.share_title))
-        val lanSettings = com.techteam.vpn.data.AppSettings.get(context)
-        val lanProxy by lanSettings.lanProxy.collectAsState()
-        Card(Modifier.clickable { onLanProxy(!lanProxy) }) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.lan_proxy), color = Brand.Text)
-                    Text(stringResource(R.string.lan_proxy_hint), color = Brand.TextMuted, fontSize = 12.sp)
-                }
-                Switch(checked = lanProxy, onCheckedChange = onLanProxy, colors = SwitchDefaults.colors(checkedTrackColor = Brand.Cyan))
-            }
-        }
-        if (lanProxy) {
-            val addresses = remember(lanProxy) { localAddresses() }
-            Text(
-                if (addresses.isEmpty()) stringResource(R.string.lan_proxy_no_network)
-                else stringResource(R.string.lan_proxy_how, addresses.joinToString(", "), com.techteam.vpn.core.XrayConfig.LAN_HTTP_PORT),
-                color = Brand.Text, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 4.dp),
-            )
-        }
-        Card(Modifier.clickable { showRouter = true }) {
-            Column {
-                Text(stringResource(R.string.router_title), color = Brand.Text)
-                Text(stringResource(R.string.router_hint), color = Brand.TextMuted, fontSize = 12.sp)
-            }
-        }
-
-        SectionTitle(stringResource(R.string.servers_title))
-        Card(Modifier.clickable { onAutoFastest(!autoFastest) }) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.auto_fastest), color = Brand.Text)
-                    Text(stringResource(R.string.auto_fastest_hint), color = Brand.TextMuted, fontSize = 12.sp)
-                }
-                Switch(checked = autoFastest, onCheckedChange = onAutoFastest, colors = SwitchDefaults.colors(checkedTrackColor = Brand.Cyan))
-            }
-        }
-
         SectionTitle(stringResource(R.string.sites_title))
         for ((direct, list) in listOf(true to directSites, false to proxySites)) {
             Card(Modifier.clickable { editSites = direct }) {
@@ -284,6 +249,7 @@ fun SettingsScreen(
             }
         }
 
+
         SectionTitle(stringResource(R.string.more_title))
         Card(Modifier.clickable { showStats = true }) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -292,29 +258,15 @@ fun SettingsScreen(
             }
         }
         Card(Modifier.clickable { showSpeed = true }) { Text(stringResource(R.string.speed_title), color = Brand.Text) }
-        Card(Modifier.clickable { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(SUPPORT_URL))) } }) {
-            Text(stringResource(R.string.support), color = Brand.Cyan)
-        }
-
-        SectionTitle(stringResource(R.string.about))
-        Card(
-            Modifier.clickable {
-                // Five taps on the version within a couple of seconds ask for the developer password.
-                val now = System.currentTimeMillis()
-                taps = if (now - lastTap < 1500) taps + 1 else 1
-                lastTap = now
-                if (taps >= 5) {
-                    taps = 0
-                    if (devMode) toast(context, context.getString(R.string.dev_already_on)) else askPassword = true
-                }
-            },
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.version), color = Brand.Text, modifier = Modifier.weight(1f))
-                Text("${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})", color = Brand.TextMuted)
+        Card(Modifier.clickable { showRouter = true }) {
+            Column {
+                Text(stringResource(R.string.router_title), color = Brand.Text)
+                Text(stringResource(R.string.router_hint), color = Brand.TextMuted, fontSize = 12.sp)
             }
         }
-        Card(Modifier.clickable(onClick = onCheckUpdate)) { Text(stringResource(R.string.check_updates), color = Brand.Cyan) }
+
+
+        SectionTitle(stringResource(R.string.about))
         Card(Modifier.clickable { onBetaUpdates(!betaUpdates) }) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -328,16 +280,6 @@ fun SettingsScreen(
             }
         }
 
-        if (devMode) {
-            SectionTitle(stringResource(R.string.developer))
-            Card(Modifier.clickable { showLog = true }) { Text(stringResource(R.string.connection_log), color = Brand.Cyan) }
-            CopyCard(stringResource(R.string.device_id), hwid)
-            selected?.let { CopyCard(stringResource(R.string.key_params), it.summary) }
-            Card(Modifier.clickable(onClick = onDisableDevMode)) { Text(stringResource(R.string.dev_disable), color = Brand.Red) }
-            Text(
-                stringResource(R.string.dev_hint),
-                color = Brand.TextMuted, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 4.dp),
-            )
         }
         Spacer(Modifier.height(16.dp))
     }
@@ -494,39 +436,3 @@ private fun copy(context: Context, text: String) {
 const val SUPPORT_URL = "https://t.me/TechTeamVPN_bot"
 
 private fun toast(context: Context, text: String) = Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
-
-private val RAINBOW = listOf(Color.Red, Color.Yellow, Color.Green, Color.Cyan, Color.Blue, Color.Magenta, Color.Red)
-
-@Composable
-private fun AccentDot(color: Color, selected: Boolean, onClick: () -> Unit) {
-    Box(
-        Modifier.size(30.dp).clip(CircleShape).background(color)
-            .border(if (selected) 3.dp else 0.dp, Color.White, CircleShape)
-            .clickable(onClick = onClick),
-    )
-}
-
-/** A custom accent: hue and brightness sliders over a preview; [onPick] gets "RRGGBB". */
-@Composable
-private fun AccentDialog(initial: Color, onDismiss: () -> Unit, onPick: (String) -> Unit) {
-    val hsv = remember { FloatArray(3).also { android.graphics.Color.colorToHSV(initial.toArgb(), it) } }
-    var hue by remember { mutableStateOf(hsv[0]) }
-    var saturation by remember { mutableStateOf(hsv[1].coerceAtLeast(0.3f)) }
-    val color = Color.hsv(hue, saturation, 1f)
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.accent)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Box(Modifier.fillMaxWidth().height(56.dp).clip(RoundedCornerShape(16.dp)).background(color))
-                Box(Modifier.fillMaxWidth().height(10.dp).clip(CircleShape).background(Brush.horizontalGradient(RAINBOW)))
-                Slider(value = hue, onValueChange = { hue = it }, valueRange = 0f..359f)
-                Slider(value = saturation, onValueChange = { saturation = it }, valueRange = 0.3f..1f)
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = { onPick("%06X".format(color.toArgb() and 0xFFFFFF)) }) { Text(stringResource(R.string.save)) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
-    )
-}

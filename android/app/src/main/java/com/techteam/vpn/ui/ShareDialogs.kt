@@ -32,18 +32,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.techteam.vpn.R
-import java.net.Inet4Address
-import java.net.NetworkInterface
-
-/** This phone's addresses on the local network and its own hotspot, where the shared proxy listens. */
-fun localAddresses(): List<String> = runCatching {
-    NetworkInterface.getNetworkInterfaces().toList()
-        .filter { it.isUp && !it.isLoopback && !it.name.startsWith("tun") && !it.name.startsWith("rmnet") }
-        .flatMap { it.inetAddresses.toList() }
-        .filterIsInstance<Inet4Address>()
-        .map { it.hostAddress.orEmpty() }
-        .filter { it.isNotEmpty() && !it.startsWith("172.19.") }
-}.getOrDefault(emptyList())
 
 /** The router export: XKeen's outbounds and routing files, with how to put them on a Keenetic. */
 @Composable

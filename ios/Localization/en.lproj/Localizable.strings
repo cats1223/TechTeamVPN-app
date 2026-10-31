@@ -201,23 +201,11 @@
 "30 дней: %@" = "30 days: %@";
 "Блокировка рекламы" = "Ad blocking";
 "Считается, пока включена «Блокировать рекламу»." = "Counted while “Block ads” is on.";
-"Звуки подключения" = "Connection sounds";
-"Цвет акцента" = "Accent color";
-"Голубой" = "Cyan";
-"Фиолетовый" = "Violet";
-"Зелёный" = "Green";
-"Оранжевый" = "Orange";
-"Розовый" = "Pink";
-"Красный" = "Red";
-"Иконка приложения" = "App icon";
-"Обычная" = "Classic";
-"Неон" = "Neon";
-"Золото" = "Gold";
-"Режим хакера включён. Ты в Матрице." = "Hacker mode on. You're in the Matrix.";
-"Режим хакера выключен" = "Hacker mode off";
 "Экспорт для роутера Keenetic" = "Export for a Keenetic router";
 "Экспорт для роутера" = "Router export";
 "Отправить оба файла" = "Send both files";
 "Копировать" = "Copy";
 "В файле ваш ключ — не публикуйте его. Роутер будет считаться этим же устройством в подписке." = "The file holds your key — don't publish it. The router counts as this same device in the subscription.";
 "1. На Keenetic нужен USB-накопитель и Entware (компонент «OPKG»), на нём — XKeen: github.com/Skrill0/XKeen.\n2. Замените файлы в /opt/etc/xray/configs/ содержимым ниже.\n3. Перезапустите: xkeen -restart" = "1. The Keenetic needs a USB drive with Entware (the “OPKG” component) and XKeen on it: github.com/Skrill0/XKeen.\n2. Replace the files in /opt/etc/xray/configs/ with the text below.\n3. Restart: xkeen -restart";
+
+"Дополнительно" = "Advanced";

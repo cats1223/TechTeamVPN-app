@@ -149,15 +149,8 @@ class ServerProfileTest {
     }
 
     @Test
-    fun sharesOnTheLocalNetworkAndExportsForRouters() {
+    fun exportsForRouters() {
         val p = ServerProfile.parse(reality)!!
-        val plain = JSONObject(XrayConfig.build(p, 42)).getJSONArray("inbounds")
-        assertEquals(1, plain.length())
-        val lan = JSONObject(XrayConfig.build(p, 42, lanProxy = true)).getJSONArray("inbounds")
-        assertEquals("0.0.0.0", lan.getJSONObject(1).getString("listen"))
-        assertEquals(XrayConfig.LAN_HTTP_PORT, lan.getJSONObject(1).getInt("port"))
-        assertEquals("socks", lan.getJSONObject(2).getString("protocol"))
-
         val outbounds = JSONObject(XrayConfig.routerOutbounds(p)).getJSONArray("outbounds")
         assertEquals("proxy", outbounds.getJSONObject(0).getString("tag"))
         val rules = JSONObject(XrayConfig.routerRouting(russiaDirect = true, blockAds = true)).getJSONObject("routing").getJSONArray("rules")

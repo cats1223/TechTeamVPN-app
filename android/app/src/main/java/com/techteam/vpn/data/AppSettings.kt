@@ -24,42 +24,6 @@ class AppSettings private constructor(context: Context) {
     private val _russiaDirect = MutableStateFlow(prefs.getBoolean("russiaDirect", true))
     val russiaDirect: StateFlow<Boolean> = _russiaDirect.asStateFlow()
 
-    /** Share the VPN with the local network (PS5, TV) through HTTP and SOCKS proxies. */
-    private val _lanProxy = MutableStateFlow(prefs.getBoolean("lanProxy", false))
-    val lanProxy: StateFlow<Boolean> = _lanProxy.asStateFlow()
-
-    fun setLanProxy(enabled: Boolean) {
-        _lanProxy.value = enabled
-        prefs.edit().putBoolean("lanProxy", enabled).apply()
-    }
-
-    /** The easter egg: Matrix rain over the globe. */
-    private val _hackerMode = MutableStateFlow(prefs.getBoolean("hackerMode", false))
-    val hackerMode: StateFlow<Boolean> = _hackerMode.asStateFlow()
-
-    fun setHackerMode(enabled: Boolean) {
-        _hackerMode.value = enabled
-        prefs.edit().putBoolean("hackerMode", enabled).apply()
-    }
-
-    /** The accent color, "RRGGBB"; empty for the brand cyan. */
-    private val _accent = MutableStateFlow(prefs.getString("accent", "").orEmpty())
-    val accent: StateFlow<String> = _accent.asStateFlow()
-
-    fun setAccent(hex: String) {
-        _accent.value = hex
-        prefs.edit().putString("accent", hex).apply()
-    }
-
-    /** Chimes when the VPN connects and disconnects; on by default. */
-    private val _sounds = MutableStateFlow(prefs.getBoolean("sounds", true))
-    val sounds: StateFlow<Boolean> = _sounds.asStateFlow()
-
-    fun setSounds(enabled: Boolean) {
-        _sounds.value = enabled
-        prefs.edit().putBoolean("sounds", enabled).apply()
-    }
-
     /** Ad and tracker domains are blocked; off by default, since a few sites break without them. */
     private val _blockAds = MutableStateFlow(prefs.getBoolean("blockAds", false))
     val blockAds: StateFlow<Boolean> = _blockAds.asStateFlow()

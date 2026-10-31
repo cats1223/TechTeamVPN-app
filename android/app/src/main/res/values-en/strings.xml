@@ -177,24 +177,11 @@
     <string name="speed_direct">The VPN is off, measured directly.</string>
     <string name="ads_blocked_today">ads and trackers blocked today (while ad blocking is on)</string>
     <string name="ads_blocked_days">%1$d days: %2$d</string>
-    <string name="sounds">Connection sounds</string>
-    <string name="accent">Accent color</string>
-    <string name="app_icon">App icon</string>
-    <string name="icon_default">Classic</string>
-    <string name="icon_neon">Neon</string>
-    <string name="icon_gold">Gold</string>
-    <string name="icon_white">White</string>
-    <string name="icon_changed">The icon changes in a few seconds</string>
-    <string name="hacker_on">Hacker mode on. You\'re in the Matrix.</string>
-    <string name="hacker_off">Hacker mode off</string>
-    <string name="share_title">Sharing</string>
-    <string name="lan_proxy">Share the VPN on the local network</string>
-    <string name="lan_proxy_hint">A PS5, a TV and other devices on this Wi-Fi or on the phone\'s hotspot go through the VPN</string>
-    <string name="lan_proxy_how">On the device: network settings → proxy server → address %1$s, port %2$d. Works while the VPN is on. Discord voice won\'t go through a proxy.</string>
-    <string name="lan_proxy_no_network">Join a Wi-Fi network or turn on the phone\'s hotspot — the address for devices shows up here.</string>
     <string name="router_title">Export for a Keenetic router</string>
     <string name="router_hint">An Xray config with the current server and your rules, so the whole home network goes through the VPN</string>
     <string name="router_steps">1. The Keenetic needs a USB drive with Entware (the \"OPKG\" component) and XKeen on it: github.com/Skrill0/XKeen.\n2. Replace the files in /opt/etc/xray/configs/ with the text below.\n3. Restart: xkeen -restart</string>
     <string name="router_share">Send both files</string>
     <string name="router_note">The file holds your key — don\'t publish it. The router counts as this same device in the subscription.</string>
+    <string name="advanced">Advanced</string>
+    <string name="advanced_hint">Protection, DNS, own sites, statistics, speed test, router</string>
 </resources>

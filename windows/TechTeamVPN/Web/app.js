@@ -15,7 +15,6 @@ const send = (cmd, data = {}) => {
 
 let state = { profiles: [], selectedId: null, status: "disconnected", settings: {}, subscription: null, since: 0 };
 let pings = {}, locations = { home: null, visible: null, servers: {} };
-let hotspot = { on: false };
 let traffic = { down: 0, up: 0, session: 0, blocked: 0 };
 
 function onMessage(msg) {
@@ -32,11 +31,6 @@ function onMessage(msg) {
     case "traffic": traffic = msg; renderTraffic(); break;
     case "toast": toast(msg.text); break;
     case "clipboard": $("addText").value = msg.text || ""; break;
-    case "hotspot":
-      hotspot = msg;
-      if (msg.error) toast(msg.error);
-      if (!$("sheet-settings").hidden) renderSettings();
-      break;
     case "update":
       if (confirm(`Вышла версия ${msg.version}, у вас ${state.version}. Скачать?`)) send("openUrl", { url: msg.url });
       break;
@@ -90,8 +84,6 @@ const selected = () => state.profiles.find((p) => p.id === state.selectedId) || 
 function render() {
   const s = state.settings || {};
   document.documentElement.classList.toggle("light", s.theme === "light");
-  if (s.accent) document.documentElement.style.setProperty("--accent", "#" + s.accent);
-  else document.documentElement.style.removeProperty("--accent");
   renderStatus();
   renderTraffic();
   renderChips();
@@ -150,9 +142,6 @@ function renderTraffic() {
   $("down").textContent = `↓ ${formatBytes(Math.round(traffic.down))}/с`;
   $("up").textContent = `↑ ${formatBytes(Math.round(traffic.up))}/с`;
   $("session").textContent = formatBytes(traffic.session || 0);
-  const b = $("blocked");
-  b.hidden = !(state.settings?.blockAds && traffic.blocked > 0);
-  b.textContent = `✋ ${traffic.blocked}`;
 }
 
 function renderChips() {
@@ -198,9 +187,10 @@ function renderServerList() {
 
 // ---------- Settings ----------
 
-const ACCENTS = ["", "7B5CFF", "2BD98B", "FF9F0A", "FF4F9A", "FF453A"];
 const DNS = [["", "Автоматически", "Cloudflare и Google"], ["cloudflare", "Cloudflare", "1.1.1.1 — быстрый"], ["google", "Google", "8.8.8.8"],
   ["adguard", "AdGuard", "Ещё и блокирует рекламу"], ["custom", "Свой", "Адрес IPv4 или https://…/dns-query"]];
+// The everyday settings first; protection, DNS, own sites and the rest one level down.
+let advanced = false;
 
 function renderSettings() {
   const s = state.settings || {};
@@ -208,73 +198,60 @@ function renderSettings() {
     `<div class="setting" data-toggle="${key}"><div class="text">${title}${hint ? `<small>${hint}</small>` : ""}</div><div class="switch ${s[key] ? "on" : ""}"></div></div>`;
   const seg = (key, options) =>
     `<div class="segmented">${options.map(([v, t]) => `<button data-set="${key}" data-value="${v}" class="${(s[key] || "") === v ? "on" : ""}">${t}</button>`).join("")}</div>`;
+  const link = (attr, title, value = "›") => `<div class="setting" ${attr}><div class="text">${title}</div><div class="value">${value}</div></div>`;
   const html = [];
-  html.push(`<div class="section">Оформление</div>`, seg("theme", [["dark", "Чёрная"], ["light", "Белая"]]));
-  html.push(`<div class="setting"><div class="text">Цвет акцента</div><div class="accents">${ACCENTS.map((a) =>
-    `<button data-accent="${a}" class="${(s.accent || "") === a ? "on" : ""}" style="background:${a ? "#" + a : "#00d1ff"}"></button>`).join("")}
-    <input type="color" id="accentCustom" value="#${s.accent || "00d1ff"}" title="Свой цвет"></div></div>`);
+  $("settingsTitle").textContent = advanced ? "Дополнительно" : "Настройки";
+  $("settingsBack").hidden = !advanced;
 
-  html.push(`<div class="section">Режим</div>`, seg("mode", [["proxy", "Системный прокси"], ["tun", "Весь трафик (TUN)"]]));
-  html.push(`<p class="hint">${s.mode === "tun"
-    ? (state.isAdmin ? "Весь трафик компьютера идёт через VPN, включая игры и программы без поддержки прокси." : "Для этого режима нужны права администратора — приложение перезапустится с ними при подключении.")
-    : "Браузеры и большинство программ идут через VPN без прав администратора. Игры и программы, которые не смотрят на системный прокси, — мимо."}</p>`);
-  if (s.mode === "tun") html.push(toggle("killSwitch", "Блокировать утечки", "DNS — только через VPN, IPv6 выключен, чтобы ничего не ушло мимо"));
-
-  html.push(`<div class="section">Раздача Wi-Fi — для PS5, телевизора, гостей</div>`);
-  if (s.mode !== "tun") {
-    html.push(`<p class="hint">Компьютер раздаёт Wi-Fi, и всё, что к нему подключено, идёт через VPN — YouTube, Discord с голосом, PSN. Для этого включите режим «Весь трафик (TUN)» выше.</p>`);
-  } else if (hotspot.on) {
-    html.push(`<div class="card"><div class="title">Раздача включена</div>
-      <div>Сеть: <b>${esc(hotspot.ssid)}</b></div><div>Пароль: <b>${esc(hotspot.password)}</b></div>
-      <div class="muted">На PS5: Настройки → Сеть → Настроить интернет-соединение → эта сеть.</div></div>`,
-      `<button class="secondary" data-cmd="hotspotStop">Выключить раздачу</button>`);
+  if (!advanced) {
+    html.push(`<div class="section">Оформление</div>`, seg("theme", [["dark", "Чёрная"], ["light", "Белая"]]));
+    html.push(`<div class="section">Режим</div>`, seg("mode", [["proxy", "Системный прокси"], ["tun", "Весь трафик (TUN)"]]));
+    html.push(`<p class="hint">${s.mode === "tun"
+      ? (state.isAdmin ? "Весь трафик компьютера идёт через VPN, включая игры и программы без поддержки прокси." : "Для этого режима нужны права администратора — приложение перезапустится с ними при подключении.")
+      : "Браузеры и большинство программ идут через VPN без прав администратора. Игры и программы, которые не смотрят на системный прокси, — мимо."}</p>`);
+    html.push(`<div class="section">Раздельное туннелирование</div>`, toggle("russiaDirect", "Российские сайты напрямую", "Зоны .ru, .su, .рф и российские адреса — без VPN"));
+    html.push(`<div class="section">Подключение</div>`,
+      toggle("autoFastest", "Самый быстрый сервер", "Перед подключением проверить пинг всех серверов"),
+      toggle("autoReconnect", "Автопереподключение", "Если VPN оборвался, подключиться снова"),
+      toggle("autostart", "Запускать вместе с Windows"),
+      toggle("connectOnStart", "Подключаться при запуске"));
+    html.push(`<div class="section"></div>`, link("data-advanced", "Дополнительно<small>Защита, DNS, свои сайты, тест скорости, обновления</small>"),
+      link('data-url="https://t.me/TechTeamVPN_bot"', "Поддержка в Telegram"));
+    html.push(`<div class="section">О приложении</div>`,
+      `<div class="setting"><div class="text">Версия</div><div class="muted">${esc(state.version || "")}</div></div>`,
+      `<div class="setting" data-cmd="checkUpdate"><div class="text value">Проверить обновления</div></div>`);
   } else {
-    html.push(`<p class="hint">Компьютер раздаёт Wi-Fi через VPN: всё, что к нему подключено, идёт через туннель, включая голос в Discord. Нужен Wi-Fi-адаптер на компьютере.</p>`,
-      `<button class="big" data-cmd="hotspotStart" ${state.status === "connected" ? "" : "disabled"}>${state.status === "connected" ? "Включить раздачу" : "Сначала подключитесь"}</button>`,
-      `<p class="hint">Если Windows не включит раздачу сама, откроются её настройки: в «Совместное использование подключения» выберите <b>TechTeamVPN</b> и включите хот-спот.</p>`);
+    html.push(`<div class="section">Защита</div>`, toggle("blockAds", "Блокировать рекламу", "Рекламные и следящие домены не загружаются. Если сайт сломался — добавьте его в «Свои сайты»"));
+    if (s.mode === "tun") html.push(toggle("killSwitch", "Блокировать утечки", "DNS — только через VPN, IPv6 выключен, чтобы ничего не ушло мимо"));
+    html.push(link("data-open-dns", "DNS", (DNS.find((d) => d[0] === (s.dns || "")) || DNS[0])[1]));
+    if (dnsOpen) {
+      html.push(`<div class="list">${DNS.map(([v, t, h]) => `<div class="item ${(s.dns || "") === v ? "selected" : ""}" data-dns="${v}"><div class="name">${t}<small>${h}</small></div></div>`).join("")}</div>`);
+      if (s.dns === "custom") html.push(`<input type="text" id="customDns" placeholder="9.9.9.9" value="${esc(s.customDns || "")}">`);
+    }
+    html.push(`<div class="section">Свои сайты — по одному в строке</div>`,
+      `<div class="sites"><p class="hint">Всегда напрямую</p><textarea id="directSites" placeholder="bank.ru">${esc((s.directSites || []).join("\n"))}</textarea>
+       <p class="hint">Всегда через VPN</p><textarea id="proxySites" placeholder="example.com">${esc((s.proxySites || []).join("\n"))}</textarea></div>`);
+    html.push(`<div class="section">Ещё</div>`, link("data-open-speed", "Тест скорости"));
+    html.push(`<div class="section">Обновления</div>`, toggle("betaUpdates", "Получать бета-версии"));
   }
-
-  html.push(`<div class="section">Раздельное туннелирование</div>`, toggle("russiaDirect", "Российские сайты напрямую", "Зоны .ru, .su, .рф и российские адреса — без VPN"));
-  html.push(`<div class="section">Защита</div>`, toggle("blockAds", "Блокировать рекламу", "Рекламные и следящие домены не загружаются. Если сайт сломался — добавьте его в «Свои сайты»"));
-  html.push(`<div class="setting" data-open-dns><div class="text">DNS</div><div class="value">${(DNS.find((d) => d[0] === (s.dns || "")) || DNS[0])[1]}</div></div>`);
-  if (dnsOpen) {
-    html.push(`<div class="list">${DNS.map(([v, t, h]) => `<div class="item ${(s.dns || "") === v ? "selected" : ""}" data-dns="${v}"><div class="name">${t}<small>${h}</small></div></div>`).join("")}</div>`);
-    if (s.dns === "custom") html.push(`<input type="text" id="customDns" placeholder="9.9.9.9" value="${esc(s.customDns || "")}">`);
-  }
-
-  html.push(`<div class="section">Подключение</div>`,
-    toggle("autoFastest", "Самый быстрый сервер", "Перед подключением проверить пинг всех серверов"),
-    toggle("autoReconnect", "Автопереподключение", "Если VPN оборвался, подключиться снова"),
-    toggle("autostart", "Запускать вместе с Windows"),
-    toggle("connectOnStart", "Подключаться при запуске"));
-
-  html.push(`<div class="section">Свои сайты — по одному в строке</div>`,
-    `<div class="sites"><p class="hint">Всегда напрямую</p><textarea id="directSites" placeholder="bank.ru">${esc((s.directSites || []).join("\n"))}</textarea>
-     <p class="hint">Всегда через VPN</p><textarea id="proxySites" placeholder="example.com">${esc((s.proxySites || []).join("\n"))}</textarea></div>`);
-
-  html.push(`<div class="section">Ещё</div>`, `<div class="setting" data-url="https://t.me/TechTeamVPN_bot"><div class="text">Поддержка в Telegram</div><div class="value">›</div></div>`);
-  html.push(`<div class="section">О приложении</div>`,
-    `<div class="setting"><div class="text">Версия</div><div class="muted">${esc(state.version || "")}</div></div>`,
-    `<div class="setting" data-cmd="checkUpdate"><div class="text value">Проверить обновления</div></div>`,
-    toggle("betaUpdates", "Получать бета-версии"));
   $("settings").innerHTML = html.join("");
 }
 let dnsOpen = false;
 
 $("settings").addEventListener("click", (e) => {
   const s = state.settings;
-  const t = e.target.closest("[data-toggle],[data-set],[data-accent],[data-open-dns],[data-dns],[data-url],[data-cmd]");
+  const t = e.target.closest("[data-toggle],[data-set],[data-advanced],[data-open-speed],[data-open-dns],[data-dns],[data-url],[data-cmd]");
   if (!t) return;
   if (t.dataset.toggle) setSetting(t.dataset.toggle, !s[t.dataset.toggle]);
   else if (t.dataset.set) setSetting(t.dataset.set, t.dataset.value);
-  else if (t.dataset.accent !== undefined) setSetting("accent", t.dataset.accent);
+  else if (t.hasAttribute("data-advanced")) { advanced = true; renderSettings(); $("sheet-settings").scrollTop = 0; }
+  else if (t.hasAttribute("data-open-speed")) openSheet("speed");
   else if (t.hasAttribute("data-open-dns")) { dnsOpen = !dnsOpen; renderSettings(); }
   else if (t.dataset.dns !== undefined) setSetting("dns", t.dataset.dns);
   else if (t.dataset.url) send("openUrl", { url: t.dataset.url });
   else if (t.dataset.cmd) send(t.dataset.cmd, { manual: true });
 });
 $("settings").addEventListener("change", (e) => {
-  if (e.target.id === "accentCustom") setSetting("accent", e.target.value.slice(1).toUpperCase());
   if (e.target.id === "customDns") setSetting("customDns", e.target.value.trim());
   if (e.target.id === "directSites" || e.target.id === "proxySites")
     setSetting(e.target.id, e.target.value.split("\n").map((x) => x.trim()).filter(Boolean));
@@ -317,7 +294,7 @@ function openSheet(name) {
   closeSheets();
   $("scrim").hidden = false;
   $("sheet-" + name).hidden = false;
-  if (name === "settings") renderSettings();
+  if (name === "settings") { advanced = false; renderSettings(); }
   if (name === "servers") send("pingAll");
   if (name === "speed") $("speedVia").textContent = state.status === "connected" ? "Замер идёт через VPN." : "VPN выключен — замер идёт напрямую.";
   if (name === "add") $("addText").focus();
@@ -336,6 +313,8 @@ $("addSave").onclick = () => {
   closeSheets();
 };
 $("pingAll").onclick = () => send("pingAll");
+$("serversAdd").onclick = () => openSheet("add");
+$("settingsBack").onclick = () => { advanced = false; renderSettings(); };
 $("refreshSub").onclick = () => send("refresh");
 $("removeSub").onclick = () => confirm("Удалить подписку и её серверы?") && send("removeSubscription");
 
@@ -370,7 +349,6 @@ async function initMap() {
     requestAnimationFrame(animate);
   });
   map.on("render", placeLabels);
-  map.on("click", tapGlobe);
 }
 const empty = () => ({ type: "FeatureCollection", features: [] });
 const point = (lon, lat, props = {}) => ({ type: "Feature", geometry: { type: "Point", coordinates: [lon, lat] }, properties: props });
@@ -448,40 +426,6 @@ function animate(now) {
   map.setPaintProperty("halo", "circle-radius", 8 + 22 * p);
   map.setPaintProperty("halo", "circle-opacity", 0.5 * (1 - p));
   requestAnimationFrame(animate);
-}
-
-// ---------- Easter egg: ten quick clicks on the globe ----------
-
-let taps = 0, lastTap = 0, rain = null;
-function tapGlobe() {
-  const now = Date.now();
-  taps = now - lastTap < 800 ? taps + 1 : 1;
-  lastTap = now;
-  if (taps < 10) return;
-  taps = 0;
-  if (rain) { cancelAnimationFrame(rain); rain = null; $("matrix").hidden = true; toast("Режим хакера выключен"); return; }
-  toast("Режим хакера включён. Ты в Матрице.");
-  const c = $("matrix"), g = c.getContext("2d");
-  c.hidden = false;
-  const glyphs = "ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄ0123456789TECHVPN";
-  const draw = (now) => {
-    c.width = innerWidth; c.height = innerHeight;
-    g.fillStyle = "rgba(0,0,0,.35)"; g.fillRect(0, 0, c.width, c.height);
-    g.font = "14px Consolas, monospace"; g.textAlign = "center";
-    const cell = 16, cols = Math.ceil(c.width / cell), rows = Math.ceil(c.height / cell), t = now / 1000;
-    for (let col = 0; col < cols; col++) {
-      const r = (n) => ((Math.sin(col * 12.9898 + n * 78.233) * 43758.5453) % 1 + 1) % 1;
-      const speed = 6 + Math.floor(r(1) * 10), length = 8 + Math.floor(r(2) * 16), head = Math.floor((t * speed + r(3) * 1000) % (rows + length));
-      for (let k = 0; k < length; k++) {
-        const row = head - k;
-        if (row < 0 || row >= rows) continue;
-        g.fillStyle = k === 0 ? "#fff" : `rgba(26,255,90,${0.85 * (1 - k / length)})`;
-        g.fillText(glyphs[(row * 31 + col * 17 + Math.floor(t * 8)) % glyphs.length], col * cell + cell / 2, row * cell + cell);
-      }
-    }
-    rain = requestAnimationFrame(draw);
-  };
-  rain = requestAnimationFrame(draw);
 }
 
 // ---------- Speed test (in the page; with the VPN on it goes through it) ----------
@@ -594,7 +538,7 @@ const demo = {
           { id: "fi", name: "🇫🇮 Финляндия", address: "fi", network: "ws", security: "tls" },
         ],
         subscription: { url: "https://panel", info: { title: "TechTeam · Премиум", upload: 2.1e9, download: 14.6e9, total: 107e9, expire: Date.now() / 1000 + 21 * 86400 } },
-        settings: { theme: "dark", accent: "", mode: "proxy", russiaDirect: true, blockAds: true, autoReconnect: true, killSwitch: true, dns: "" },
+        settings: { theme: "dark", mode: "proxy", russiaDirect: true, blockAds: true, autoReconnect: true, killSwitch: true, dns: "" },
       } });
       onMessage({ type: "locations", home: { flag: "🇷🇺", place: "Москва, Россия", latitude: 55.75, longitude: 37.62 },
         visible: { flag: "🇳🇱", place: "Амстердам, Нидерланды", latitude: 52.37, longitude: 4.89 },

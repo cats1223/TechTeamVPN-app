@@ -10,11 +10,7 @@ struct HomeView: View {
     @State private var showAdd = false
     @State private var showServers = false
     @State private var showSettings = false
-    @State private var showSpeedTest = false
     @State private var previousStatus: NEVPNStatus = .invalid
-    @AppStorage("hackerMode") private var hackerMode = false
-    @State private var globeTaps = 0
-    @State private var lastGlobeTap = Date.distantPast
     @State private var burst = false
 
     private var connected: Bool { vpn.status == .connected }
@@ -29,11 +25,6 @@ struct HomeView: View {
                 connected: connected
             )
             .ignoresSafeArea()
-            .simultaneousGesture(TapGesture().onEnded { tapGlobe() })
-
-            if hackerMode {
-                MatrixRain().ignoresSafeArea().transition(.opacity)
-            }
 
             VStack(spacing: 0) {
                 StatusPill(status: vpn.status, error: vpn.lastError)
@@ -46,10 +37,7 @@ struct HomeView: View {
         .messageAlert(active: !showAdd && !showServers && !showSettings)
         .sheet(isPresented: $showAdd) { AddView().messageAlert() }
         .sheet(isPresented: $showServers) { ServersView().messageAlert().presentationDragIndicator(.visible) }
-        .sheet(isPresented: $showSettings, onDismiss: {
-            NotificationCenter.default.post(name: Accent.applyNotification, object: nil)
-        }) { SettingsView().messageAlert().presentationDragIndicator(.visible) }
-        .sheet(isPresented: $showSpeedTest) { SpeedTestView() }
+        .sheet(isPresented: $showSettings) { SettingsView().messageAlert().presentationDragIndicator(.visible) }
         .task {
             if connected { model.traffic.start() }
             await model.refreshLocation(connected: connected)
@@ -298,10 +286,7 @@ struct HomeView: View {
         VStack(spacing: 0) {
             menuRow(String(localized: "Все серверы"), icon: "server.rack") { showServers = true }
             Divider().opacity(0.4)
-            menuRow(String(localized: "Добавить ключ"), icon: "plus.circle") { showAdd = true }
-            Divider().opacity(0.4)
-            menuRow(String(localized: "Тест скорости"), icon: "speedometer") { showSpeedTest = true }
-            Divider().opacity(0.4)
+
             menuRow(String(localized: "Настройки"), icon: "gearshape") { showSettings = true }
         }
         .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
@@ -325,18 +310,6 @@ struct HomeView: View {
 
     // MARK: - Helpers
 
-    /// Ten quick taps on the globe toggle the hacker mode easter egg.
-    private func tapGlobe() {
-        let now = Date()
-        globeTaps = now.timeIntervalSince(lastGlobeTap) < 0.8 ? globeTaps + 1 : 1
-        lastGlobeTap = now
-        guard globeTaps >= 10 else { return }
-        globeTaps = 0
-        withAnimation(.easeInOut(duration: 0.6)) { hackerMode.toggle() }
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
-        model.message = hackerMode ? String(localized: "Режим хакера включён. Ты в Матрице.") : String(localized: "Режим хакера выключен")
-    }
-
     private func flag(for profile: ServerProfile) -> String {
         profile.name.leadingFlag ?? model.serverLocations[profile.address]?.flag ?? "🌐"
     }
@@ -355,34 +328,18 @@ struct HomeView: View {
 /// Download and upload speed right now, and what the session has used.
 private struct TrafficLine: View {
     @ObservedObject var meter: TrafficMeter
-    @EnvironmentObject private var vpn: VPNManager
-    @AppStorage(AppSettings.blockAdsKey) private var blockAds = false
-    /// Ads blocked today, asked from the tunnel every 10 s.
-    @State private var blocked: Int64 = 0
 
     var body: some View {
         HStack(spacing: 14) {
             Label(formatRate(meter.down), systemImage: "arrow.down")
             Label(formatRate(meter.up), systemImage: "arrow.up")
             Spacer(minLength: 0)
-            if blockAds, blocked > 0 {
-                Label("\(String(blocked))", systemImage: "hand.raised.fill")
-                    .foregroundStyle(Brand.green)
-                    .accessibilityLabel(Text("Заблокировано рекламы сегодня: \(String(blocked))"))
-            }
             Text(formatBytes(Int64(meter.sessionDown + meter.sessionUp)))
                 .foregroundStyle(.secondary)
         }
         .font(.footnote.monospacedDigit())
         .animation(.default, value: meter.down)
-        .animation(.spring(), value: blocked)
         .padding(.horizontal, 4)
-        .task {
-            while !Task.isCancelled {
-                if blockAds { blocked = await vpn.fetchStats().blocked(1) }
-                try? await Task.sleep(nanoseconds: 10_000_000_000)
-            }
-        }
     }
 }
 

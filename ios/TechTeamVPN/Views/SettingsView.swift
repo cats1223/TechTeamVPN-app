@@ -65,19 +65,13 @@ enum AppSettings {
 
 struct SettingsView: View {
     @EnvironmentObject private var model: AppModel
+    @EnvironmentObject private var vpn: VPNManager
     @AppStorage(AppSettings.themeKey) private var theme = AppSettings.Theme.dark.rawValue
     @AppStorage(AppSettings.devModeKey) private var devMode = false
     @AppStorage(AppSettings.russiaDirectKey) private var russiaDirect = true
-    @AppStorage(AppSettings.blockAdsKey) private var blockAds = false
-    @AppStorage(AppSettings.killSwitchKey) private var killSwitch = false
-    @AppStorage(AppSettings.dnsKey) private var dns = ""
-    @AppStorage(AppSettings.betaUpdatesKey) private var betaUpdates = false
     @AppStorage(AppSettings.autoFastestKey) private var autoFastest = false
     @AppStorage(AppSettings.autoReconnectKey) private var autoReconnect = true
     @AppStorage(TunnelActivity.enabledKey) private var liveActivity = true
-    @AppStorage(Feedback.soundKey) private var sounds = true
-    @AppStorage(Accent.key) private var accent = ""
-    @EnvironmentObject private var vpn: VPNManager
     @State private var versionTaps = 0
     @State private var lastTap = Date.distantPast
     @State private var askPassword = false
@@ -85,6 +79,7 @@ struct SettingsView: View {
     @State private var showLog = false
     @State private var showDiagnostics = false
 
+    /// The everyday settings; everything else is under "Дополнительно".
     var body: some View {
         NavigationStack {
             List {
@@ -94,13 +89,6 @@ struct SettingsView: View {
                     }
                     .pickerStyle(.segmented)
                     .listRowBackground(Brand.surface)
-                    accentPicker
-                        .listRowBackground(Brand.surface)
-                    iconPicker
-                        .listRowBackground(Brand.surface)
-                    Toggle("Звуки подключения", isOn: $sounds)
-                        .tint(Brand.cyan)
-                        .listRowBackground(Brand.surface)
                 }
 
                 Section {
@@ -114,35 +102,6 @@ struct SettingsView: View {
                     Text("Раздельное туннелирование")
                 } footer: {
                     Text("Сайты в зонах .ru, .su, .рф и российские адреса открываются без VPN, с вашего обычного адреса. Российские приложения ходят на свои серверы тоже напрямую. Выбрать отдельные приложения на iPhone нельзя: Apple разрешает это только через MDM.")
-                }
-
-                Section {
-                    Toggle("Блокировать рекламу", isOn: $blockAds)
-                        .tint(Brand.cyan)
-                        .onChange(of: blockAds) { _ in
-                            Task { await model.applyTunnelSettings() }
-                        }
-                        .listRowBackground(Brand.surface)
-                    Toggle("Блокировать интернет без VPN", isOn: $killSwitch)
-                        .tint(Brand.cyan)
-                        .onChange(of: killSwitch) { _ in
-                            Task { await model.applyTunnelSettings() }
-                        }
-                        .listRowBackground(Brand.surface)
-                    NavigationLink {
-                        DNSView { Task { await model.applyTunnelSettings() } }
-                    } label: {
-                        HStack {
-                            Text("DNS")
-                            Spacer()
-                            Text(DNSView.title(dns)).foregroundStyle(Brand.muted)
-                        }
-                    }
-                    .listRowBackground(Brand.surface)
-                } header: {
-                    Text("Защита")
-                } footer: {
-                    Text("Реклама: рекламные и следящие домены не загружаются — в браузере и в приложениях; если сайт сломался, добавьте его в «Свои сайты». Без VPN: пока VPN переподключается, интернет не работает, чтобы ничего не ушло мимо него.")
                 }
 
                 Section {
@@ -166,34 +125,7 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    NavigationLink {
-                        SitesView(
-                            title: String(localized: "Всегда напрямую"),
-                            footer: String(localized: "Эти сайты открываются без VPN, с вашего обычного адреса. Поддомены тоже."),
-                            key: AppSettings.directSitesKey
-                        ) { Task { await model.applyTunnelSettings() } }
-                    } label: {
-                        siteListLabel("Всегда напрямую", key: AppSettings.directSitesKey)
-                    }
-                    .listRowBackground(Brand.surface)
-                    NavigationLink {
-                        SitesView(
-                            title: String(localized: "Всегда через VPN"),
-                            footer: String(localized: "Эти сайты идут через VPN, даже если они российские. Поддомены тоже."),
-                            key: AppSettings.proxySitesKey
-                        ) { Task { await model.applyTunnelSettings() } }
-                    } label: {
-                        siteListLabel("Всегда через VPN", key: AppSettings.proxySitesKey)
-                    }
-                    .listRowBackground(Brand.surface)
-                } header: {
-                    Text("Свои сайты")
-                }
-
-                Section {
-                    NavigationLink { StatsView() } label: { Label("Статистика трафика", systemImage: "chart.bar") }
-                        .listRowBackground(Brand.surface)
-                    NavigationLink { RouterExportView() } label: { Label("Экспорт для роутера Keenetic", systemImage: "wifi.router") }
+                    NavigationLink { AdvancedSettingsView() } label: { Label("Дополнительно", systemImage: "slider.horizontal.3") }
                         .listRowBackground(Brand.surface)
                     Link(destination: AppSettings.supportURL) {
                         Label("Поддержка в Telegram", systemImage: "paperplane")
@@ -211,9 +143,6 @@ struct SettingsView: View {
                     .onTapGesture(perform: tapVersion)
                     .listRowBackground(Brand.surface)
                     Button("Проверить обновления") { Task { await model.checkForUpdate(manual: true) } }
-                        .listRowBackground(Brand.surface)
-                    Toggle("Получать бета-версии", isOn: $betaUpdates)
-                        .tint(Brand.cyan)
                         .listRowBackground(Brand.surface)
                 }
 
@@ -234,72 +163,6 @@ struct SettingsView: View {
         }
     }
 
-    private static let icons: [(name: String?, preview: String, title: LocalizedStringKey)] = [
-        (nil, "IconPreviewDefault", "Обычная"), ("AppIconNeon", "IconPreviewNeon", "Неон"),
-        ("AppIconGold", "IconPreviewGold", "Золото"), ("AppIconWhite", "IconPreviewWhite", "Белая"),
-    ]
-    @State private var iconName = UIApplication.shared.alternateIconName
-
-    /// The home screen icon; iOS confirms the change with its own alert.
-    private var iconPicker: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Иконка приложения")
-            HStack(spacing: 14) {
-                ForEach(Self.icons, id: \.preview) { icon in
-                    Button {
-                        guard iconName != icon.name else { return }
-                        UIApplication.shared.setAlternateIconName(icon.name) { error in
-                            if error == nil { Task { @MainActor in iconName = icon.name } }
-                        }
-                    } label: {
-                        VStack(spacing: 4) {
-                            Image(icon.preview)
-                                .resizable()
-                                .frame(width: 56, height: 56)
-                                .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 13, style: .continuous)
-                                        .strokeBorder(Brand.cyan, lineWidth: iconName == icon.name ? 3 : 0)
-                                )
-                            Text(icon.title).font(.caption2).foregroundStyle(Brand.muted)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
-        .padding(.vertical, 4)
-    }
-
-    /// Preset colors and a custom one; the home screen takes the new color when settings close.
-    private var accentPicker: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Цвет акцента")
-            HStack(spacing: 10) {
-                ForEach(Accent.presets, id: \.hex) { preset in
-                    Button {
-                        accent = preset.hex
-                    } label: {
-                        Circle()
-                            .fill(Color(hex: preset.hex) ?? Brand.defaultCyan)
-                            .frame(width: 30, height: 30)
-                            .overlay(Circle().strokeBorder(.white, lineWidth: accent == preset.hex ? 3 : 0))
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel(Text(preset.name))
-                }
-                // Any other color; the circle shows the custom one once picked.
-                ColorPicker("Свой", selection: Binding(
-                    get: { Accent.color ?? Brand.defaultCyan },
-                    set: { accent = Accent.hex(of: $0) }
-                ), supportsOpacity: false)
-                .labelsHidden()
-                .frame(width: 30, height: 30)
-            }
-        }
-        .padding(.vertical, 4)
-    }
-
     private var developerSection: some View {
         Section {
             Button { showLog = true } label: { Label("Журнал подключения", systemImage: "doc.text.magnifyingglass") }
@@ -317,15 +180,6 @@ struct SettingsView: View {
             Text("В режиме разработчика VPN ведёт подробный журнал Xray. Переподключитесь, чтобы он начал записываться.")
         }
         .listRowBackground(Brand.surface)
-    }
-
-    private func siteListLabel(_ title: LocalizedStringKey, key: String) -> some View {
-        HStack {
-            Text(title)
-            Spacer()
-            let count = AppSettings.sites(key).count
-            Text(count == 0 ? String(localized: "Нет") : "\(count)").foregroundStyle(Brand.muted)
-        }
     }
 
     private func copyRow(_ title: String, _ value: String) -> some View {
@@ -362,5 +216,102 @@ struct SettingsView: View {
             model.message = String(localized: "Неверный пароль")
         }
         password = ""
+    }
+}
+
+/// Settings for those who want them: protection, DNS, own sites, statistics, the speed test,
+/// the router export and beta versions.
+struct AdvancedSettingsView: View {
+    @EnvironmentObject private var model: AppModel
+    @AppStorage(AppSettings.blockAdsKey) private var blockAds = false
+    @AppStorage(AppSettings.killSwitchKey) private var killSwitch = false
+    @AppStorage(AppSettings.dnsKey) private var dns = ""
+    @AppStorage(AppSettings.betaUpdatesKey) private var betaUpdates = false
+    @State private var showSpeedTest = false
+
+    var body: some View {
+        List {
+            Section {
+                Toggle("Блокировать рекламу", isOn: $blockAds)
+                    .tint(Brand.cyan)
+                    .onChange(of: blockAds) { _ in
+                        Task { await model.applyTunnelSettings() }
+                    }
+                    .listRowBackground(Brand.surface)
+                Toggle("Блокировать интернет без VPN", isOn: $killSwitch)
+                    .tint(Brand.cyan)
+                    .onChange(of: killSwitch) { _ in
+                        Task { await model.applyTunnelSettings() }
+                    }
+                    .listRowBackground(Brand.surface)
+                NavigationLink {
+                    DNSView { Task { await model.applyTunnelSettings() } }
+                } label: {
+                    HStack {
+                        Text("DNS")
+                        Spacer()
+                        Text(DNSView.title(dns)).foregroundStyle(Brand.muted)
+                    }
+                }
+                .listRowBackground(Brand.surface)
+            } header: {
+                Text("Защита")
+            } footer: {
+                Text("Реклама: рекламные и следящие домены не загружаются — в браузере и в приложениях; если сайт сломался, добавьте его в «Свои сайты». Без VPN: пока VPN переподключается, интернет не работает, чтобы ничего не ушло мимо него.")
+            }
+
+            Section {
+                NavigationLink {
+                    SitesView(
+                        title: String(localized: "Всегда напрямую"),
+                        footer: String(localized: "Эти сайты открываются без VPN, с вашего обычного адреса. Поддомены тоже."),
+                        key: AppSettings.directSitesKey
+                    ) { Task { await model.applyTunnelSettings() } }
+                } label: {
+                    siteListLabel("Всегда напрямую", key: AppSettings.directSitesKey)
+                }
+                .listRowBackground(Brand.surface)
+                NavigationLink {
+                    SitesView(
+                        title: String(localized: "Всегда через VPN"),
+                        footer: String(localized: "Эти сайты идут через VPN, даже если они российские. Поддомены тоже."),
+                        key: AppSettings.proxySitesKey
+                    ) { Task { await model.applyTunnelSettings() } }
+                } label: {
+                    siteListLabel("Всегда через VPN", key: AppSettings.proxySitesKey)
+                }
+                .listRowBackground(Brand.surface)
+            } header: {
+                Text("Свои сайты")
+            }
+
+            Section {
+                NavigationLink { StatsView() } label: { Label("Статистика трафика", systemImage: "chart.bar") }
+                    .listRowBackground(Brand.surface)
+                Button { showSpeedTest = true } label: { Label("Тест скорости", systemImage: "speedometer") }
+                    .listRowBackground(Brand.surface)
+                NavigationLink { RouterExportView() } label: { Label("Экспорт для роутера Keenetic", systemImage: "wifi.router") }
+                    .listRowBackground(Brand.surface)
+            }
+
+            Section {
+                Toggle("Получать бета-версии", isOn: $betaUpdates)
+                    .tint(Brand.cyan)
+                    .listRowBackground(Brand.surface)
+            }
+        }
+        .scrollContentBackground(.hidden)
+        .background(Brand.background.ignoresSafeArea())
+        .navigationTitle("Дополнительно")
+        .sheet(isPresented: $showSpeedTest) { SpeedTestView() }
+    }
+
+    private func siteListLabel(_ title: LocalizedStringKey, key: String) -> some View {
+        HStack {
+            Text(title)
+            Spacer()
+            let count = AppSettings.sites(key).count
+            Text(count == 0 ? String(localized: "Нет") : "\(count)").foregroundStyle(Brand.muted)
+        }
     }
 }

@@ -133,15 +133,8 @@ final class ServerProfileTests: XCTestCase {
         XCTAssertTrue(json.contains(#""access":"\/a.log""#) || json.contains(#""access":"/a.log""#))
     }
 
-    func testSharesOnTheLocalNetworkAndExportsForRouters() throws {
+    func testExportsForRouters() throws {
         let p = try XCTUnwrap(ServerProfile.parse(reality))
-        let plain = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(XrayConfig.build(p, tunFd: 42).utf8)) as? [String: Any])
-        XCTAssertEqual((plain["inbounds"] as? [Any])?.count, 1)
-        let lan = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(XrayConfig.build(p, tunFd: 42, lanProxy: true).utf8)) as? [String: Any])
-        let inbounds = try XCTUnwrap(lan["inbounds"] as? [[String: Any]])
-        XCTAssertEqual(inbounds[1]["listen"] as? String, "0.0.0.0")
-        XCTAssertEqual(inbounds[2]["protocol"] as? String, "socks")
-
         let out = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(XrayConfig.routerOutbounds(p).utf8)) as? [String: Any])
         XCTAssertEqual(((out["outbounds"] as? [[String: Any]])?.first)?["tag"] as? String, "proxy")
         let routing = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(XrayConfig.routerRouting(russiaDirect: true, blockAds: true).utf8)) as? [String: Any])

@@ -44,17 +44,12 @@ struct TechTeamVPNApp: App {
 
 struct RootView: View {
     @EnvironmentObject private var model: AppModel
-    /// The accent the interface was last drawn in; changing it rebuilds the home screen.
-    @State private var accent = Accent.hex
 
     var body: some View {
         // Servers and settings open from the panel on the home screen.
         HomeView()
-            .id(accent)
             .tint(Brand.cyan)
-            .onReceive(NotificationCenter.default.publisher(for: Accent.applyNotification)) { _ in
-                if accent != Accent.hex { accent = Accent.hex }
-            }
+            .task { resetAppIcon() }
         .alert("Добавить подписку?", isPresented: $model.clipboardOffer) {
             Button("Добавить") { Task { await model.addFromClipboard() } }
             Button("Отмена", role: .cancel) {}
@@ -107,15 +102,13 @@ enum Brand {
     static let background = adaptive(dark: (0, 0, 0), light: (0.949, 0.949, 0.969))
     static let surface = adaptive(dark: (0.110, 0.110, 0.118), light: (1, 1, 1))
     static let surfaceHigh = adaptive(dark: (0.173, 0.173, 0.180), light: (0.898, 0.898, 0.918))
-    /// The accent: the brand cyan, or the color picked in settings (`Accent`).
-    static var cyan: Color { Accent.color ?? defaultCyan }
-    static let defaultCyan = adaptive(dark: (0, 0.82, 1), light: (0, 0.58, 0.78))
+    static let cyan = adaptive(dark: (0, 0.82, 1), light: (0, 0.58, 0.78))
     static let violet = adaptive(dark: (0.482, 0.361, 1), light: (0.416, 0.294, 1))
     static let green = adaptive(dark: (0.169, 0.851, 0.545), light: (0.071, 0.659, 0.400))
     static let amber = adaptive(dark: (1, 0.71, 0.278), light: (0.851, 0.541, 0))
     static let red = adaptive(dark: (1, 0.361, 0.478), light: (0.878, 0.267, 0.373))
     static let muted = adaptive(dark: (0.557, 0.557, 0.576), light: (0.424, 0.424, 0.439))
-    static var gradient: LinearGradient { LinearGradient(colors: [cyan, violet], startPoint: .topLeading, endPoint: .bottomTrailing) }
+    static let gradient = LinearGradient(colors: [cyan, violet], startPoint: .topLeading, endPoint: .bottomTrailing)
 
     private static func adaptive(dark: (Double, Double, Double), light: (Double, Double, Double)) -> Color {
         Color(UIColor { traits in
@@ -125,33 +118,11 @@ enum Brand {
     }
 }
 
-/// The accent color picked in settings, stored as "RRGGBB"; empty for the brand cyan.
-enum Accent {
-    static let key = "accent"
-    /// Posted when settings close, so the whole interface is redrawn in the new color.
-    static let applyNotification = Notification.Name("TechTeamVPN.applyAccent")
-
-    static let presets: [(hex: String, name: LocalizedStringKey)] = [
-        ("", "Голубой"), ("7B5CFF", "Фиолетовый"), ("2BD98B", "Зелёный"),
-        ("FF9F0A", "Оранжевый"), ("FF4F9A", "Розовый"), ("FF453A", "Красный"),
-    ]
-
-    static var hex: String { UserDefaults.standard.string(forKey: key) ?? "" }
-    static var color: Color? { Color(hex: hex) }
-
-    static func hex(of color: Color) -> String {
-        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-        UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
-        return String(format: "%02X%02X%02X", Int(round(r * 255)), Int(round(g * 255)), Int(round(b * 255)))
-    }
-}
-
-extension Color {
-    /// "RRGGBB"; nil for anything else.
-    init?(hex: String) {
-        guard hex.count == 6, let v = UInt32(hex, radix: 16) else { return nil }
-        self.init(red: Double(v >> 16 & 0xFF) / 255, green: Double(v >> 8 & 0xFF) / 255, blue: Double(v & 0xFF) / 255)
-    }
+/// Earlier versions had alternate icons; a phone left on one goes back to the app's own icon.
+@MainActor
+private func resetAppIcon() {
+    guard UIApplication.shared.supportsAlternateIcons, UIApplication.shared.alternateIconName != nil else { return }
+    UIApplication.shared.setAlternateIconName(nil)
 }
 
 struct CardStyle: ViewModifier {

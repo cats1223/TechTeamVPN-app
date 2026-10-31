@@ -94,17 +94,6 @@ public sealed class Bridge
                 case "pingAll": await PingAllAsync(); break;
                 case "setSetting": await SetSettingAsync(Str("key"), m.GetProperty("value")); break;
                 case "checkUpdate": await CheckUpdateAsync(true); break;
-                case "hotspotStart":
-                    state.Settings.Hotspot = true;
-                    Save();
-                    await StartHotspotAsync(fromUser: true);
-                    break;
-                case "hotspotStop":
-                    state.Settings.Hotspot = false;
-                    Save();
-                    await Hotspot.StopAsync();
-                    Post(new { type = "hotspot", on = false });
-                    break;
                 case "readClipboard": Post(new { type = "clipboard", text = readClipboard() }); break;
                 case "openUrl":
                     var url = Str("url");
@@ -165,21 +154,8 @@ public sealed class Bridge
         }
     }
 
-    private async Task StartHotspotAsync(bool fromUser)
-    {
-        var result = await Hotspot.StartAsync();
-        Post(new { type = "hotspot", on = result.On, ssid = result.Ssid, password = result.Password, error = result.Error });
-        if (!result.On && fromUser && Connected && xray.Mode == TunnelMode.Tun)
-        {
-            // Windows refused: open its settings, where the TUN can be picked by hand.
-            Process.Start(new ProcessStartInfo("ms-settings:network-mobilehotspot") { UseShellExecute = true });
-        }
-    }
-
     public void Disconnect()
     {
-        // Before the TUN goes away; off the UI thread, so waiting on WinRT cannot deadlock.
-        if (state.Settings.Hotspot && xray.Mode == TunnelMode.Tun) Task.Run(Hotspot.StopAsync).Wait(3000);
         reconnects = int.MaxValue;
         var port = xray.HttpPort;
         xray.Stop();
@@ -207,13 +183,6 @@ public sealed class Bridge
         PushState();
         StatusChanged?.Invoke();
         if (xray.Status is VpnStatus.Connected or VpnStatus.Disconnected) _ = RefreshLocationsAsync();
-        // The TUN adapter is new on every connection, so the hotspot is shared from it again.
-        if (xray.Status == VpnStatus.Connected && xray.Mode == TunnelMode.Tun && state.Settings.Hotspot)
-        {
-            await Task.Delay(2000);
-            await StartHotspotAsync(fromUser: false);
-        }
-        if (xray.Status != VpnStatus.Connected) Post(new { type = "hotspot", on = false });
     }
 
     private async Task SelectAsync(string id)

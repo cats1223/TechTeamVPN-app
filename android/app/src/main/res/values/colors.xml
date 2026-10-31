@@ -2,9 +2,6 @@
 <resources>
     <color name="background">#000000</color>
     <color name="ic_launcher_background">#080809</color>
-    <color name="ic_launcher_neon_background">#050812</color>
-    <color name="ic_launcher_gold_background">#0A0905</color>
-    <color name="ic_launcher_white_background">#F7F7F7</color>
     <color name="brand_cyan">#00D1FF</color>
     <color name="brand_violet">#7B5CFF</color>
 </resources>
